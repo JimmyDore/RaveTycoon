@@ -89,7 +89,8 @@ export const NIGHT_MODIFIERS: NightModifierDef[] = [
     desc: 'Fin de mois, les poches sont pleines. Le prix libre coule à flots dans la cagnotte.',
     icon: '💸',
     priceMult: 1.5,
-    weight: () => 0.8,
+    // +50% de buvette par pure chance sur-finance la nuit 1 — réservé au tier 2+
+    weight: (tier) => (tier >= 2 ? 0.8 : 0),
   },
 ];
 

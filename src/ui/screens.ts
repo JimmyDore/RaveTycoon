@@ -2,7 +2,7 @@ import { DJS, GEAR, GEAR_CATEGORIES, GENRES, SPOTS, getDj, getGenre, getSpot } f
 import { djLevel, fatigueMalus, lockedDjs, recruitableDjs } from '../core/crew';
 import { rushCost } from '../core/idle';
 import { isSpotUnlocked } from '../core/payout';
-import { computeSetQuality } from '../core/night';
+import { MONTEE_MIN_DROP, computeSetQuality } from '../core/night';
 import type { NightModifierDef } from '../core/modifiers';
 import type {
   Brief,
@@ -426,7 +426,7 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
       }
       monteeFill.style.width = `${(night.montee * 100).toFixed(1)}%`;
       monteeFill.classList.toggle('full', night.montee >= 0.85);
-      dropBtn.disabled = !playing || night.montee < 0.1;
+      dropBtn.disabled = !playing || night.montee < MONTEE_MIN_DROP;
 
       // chip d'objectif : libellé + état (en cours / atteint)
       const goal = playing ? night.setGoal : null;
@@ -442,8 +442,12 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
           bestDrop: night.bestDropThisSet,
           heat: night.heat,
         });
-        goalChipTag.textContent = onTrack ? '✓' : STR.setGoalLabel;
-        goalChip.classList.toggle('met', onTrack);
+        // ✓ « verrouillé » seulement passé la moitié du set — sinon un objectif
+        // trivialement vrai à t=0 (zéro coupure, heat basse) afficherait un faux ✓
+        const locked = onTrack && night.setElapsed > night.setLen * 0.5;
+        goalChipTag.textContent = locked ? '✓' : STR.setGoalLabel;
+        goalChip.classList.toggle('met', locked);
+        goalChip.classList.toggle('on-track', onTrack && !locked);
         goalChip.classList.remove('hidden');
       } else {
         goalChip.classList.add('hidden');

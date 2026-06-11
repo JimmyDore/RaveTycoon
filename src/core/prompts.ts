@@ -40,8 +40,9 @@ export const FLOOR_PROMPTS: FloorPromptDef[] = [
     icon: '📸',
     label: 'Un type filme le mur de son',
     window: 4,
-    seize: { rep: 5, heat: 0.03 },
-    weight: (ctx) => (ctx.crowdRatio > 0.4 ? 1 : 0.4),
+    // filmer un champ vide ne vaut rien : poids 0 sous une vraie foule, rep modeste
+    seize: { rep: 2, heat: 0.03 },
+    weight: (ctx) => (ctx.crowdRatio > 0.4 ? 1 : 0),
   },
   {
     id: 'bouteille',

@@ -15,20 +15,21 @@ export const SET_GOALS: SetGoalDef[] = [
     label: 'Garder la vibe au-dessus de 0,7',
     reward: { rep: 4 },
     met: (s) => s.avgVibe > 0.7,
-    weight: () => 1,
+    // injouable sans lumières (vibe plafonne trop bas) — poids 0 tant qu'on n'en a pas
+    weight: (ctx) => (ctx.gear.lumieres >= 1 ? 1 : 0),
   },
   {
     id: 'remplir',
-    label: 'Remplir 80 % du champ',
+    label: 'Remplir 70 % du champ',
     reward: { rep: 5 },
-    // fraction de cap — échelonnée au spot via le poids ci-dessous
-    met: (s) => (s.cap > 0 ? s.crowdEnd / s.cap >= 0.8 : false),
-    weight: (ctx) => (ctx.crowdRatio > 0.2 ? 1.1 : 0.5),
+    met: (s) => (s.cap > 0 ? s.crowdEnd / s.cap >= 0.7 : false),
+    // seulement quand le floor est déjà bien rempli : sinon irréalisable (poids 0)
+    weight: (ctx) => (ctx.crowdRatio > 0.35 ? 1.1 : 0),
   },
   {
     id: 'propre',
     label: 'Set propre : zéro coupure',
-    reward: { rep: 3, cash: 40 },
+    reward: { rep: 2, cash: 40 },
     met: (s) => s.brownouts === 0,
     weight: () => 1,
   },
@@ -42,7 +43,7 @@ export const SET_GOALS: SetGoalDef[] = [
   {
     id: 'discret',
     label: 'Tenir la chaleur sous la barre',
-    reward: { rep: 5 },
+    reward: { rep: 3 },
     met: (s) => s.heat < 0.5,
     weight: (ctx) => 0.6 + ctx.heat * 1.5 + ctx.spotTier * 0.2,
   },

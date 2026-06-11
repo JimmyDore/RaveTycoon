@@ -96,14 +96,16 @@ async function startNight(): Promise<void> {
     endAt: null,
     heatWarned: false,
   };
-  screen.showModifiers(night.modifiers);
   screen.showTransition(state, night, onStartSet);
   active.raf = requestAnimationFrame(frame);
 }
 
 function onStartSet(djId: string, brief: Brief): void {
   if (!active) return;
+  // révélation des modifs du soir au 1er set, une fois le modal de transition fermé
+  const firstSet = active.night.setIndex === 0 && active.night.playedSets.length === 0;
   startSet(state, active.night, djId, brief);
+  if (firstSet) active.screen.showModifiers(active.night.modifiers);
   active.screen.toast(`🎧 ${STR.nowPlaying(getDj(djId).nom)}`);
 }
 

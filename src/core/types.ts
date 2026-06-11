@@ -300,7 +300,8 @@ export type NightTickEventType =
   | 'mur-blown'
   | 'bust'
   | 'sunrise'
-  | 'set-ended';
+  | 'set-ended'
+  | 'prompt-missed';
 
 export interface NightTickEvent {
   type: NightTickEventType;

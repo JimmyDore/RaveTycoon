@@ -141,6 +141,10 @@ export function startSet(state: GameState, night: NightState, djId: string, brie
   night.setElapsed = 0;
   night.briefLockT = 0;
   night.bestDropThisSet = 0;
+  // un prompt ne traverse pas une transition de set (sinon il expire au 1er tick
+  // du set suivant et applique son lapse hors du contrôle du joueur)
+  night.floorPrompt = null;
+  night.nextPromptAt = night.t + PROMPT_SPACING + night.rng() * 6;
   // objectif du set + reset des accumulateurs (flux RNG dédié)
   night.setGoal = drawGoal(eventContext(state, night), night.goalRng);
   night.setVibeSum = 0;
@@ -278,7 +282,10 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   // --- flash-prompts du dancefloor (non bloquants) ----------------------------------------
   if (night.floorPrompt && night.t > night.floorPrompt.expiresAt) {
     // ignoré : la bannière expire et applique son lapse éventuel
-    if (night.floorPrompt.def.lapse) applyEffects(state, night, night.floorPrompt.def.lapse);
+    if (night.floorPrompt.def.lapse) {
+      applyEffects(state, night, night.floorPrompt.def.lapse);
+      events.push({ type: 'prompt-missed' });
+    }
     night.floorPrompt = null;
     night.nextPromptAt = night.t + PROMPT_SPACING + night.rng() * 6;
   }
@@ -395,7 +402,7 @@ export function resolveEvent(state: GameState, night: NightState, optionIndex: n
  * reprogramme le prochain. Retourne le def saisi (ou null si aucun prompt).
  */
 export function seizeFloorPrompt(state: GameState, night: NightState): FloorPromptDef | null {
-  if (!night.floorPrompt) return null;
+  if (night.phase !== 'playing' || !night.floorPrompt) return null;
   const def = night.floorPrompt.def;
   applyEffects(state, night, def.seize);
   night.floorPrompt = null;
