@@ -59,7 +59,11 @@ class Fader {
       this.onInput(this.value);
     };
     this.track.addEventListener('pointerdown', (e) => {
-      this.track.setPointerCapture(e.pointerId);
+      try {
+        this.track.setPointerCapture(e.pointerId);
+      } catch {
+        // synthetic pointer events have no active pointer to capture
+      }
       move(e.clientY);
     });
     this.track.addEventListener('pointermove', (e) => {
@@ -294,7 +298,8 @@ export function renderRave(root: HTMLElement): RaveScreen {
   root.append(sceneWrap);
 
   // the desk
-  const controls: Controls = { volume: 0.4, bass: 0.35, power: 0.6 };
+  // safe starting positions: demand (0.6·v + 0.8·b = 0.46) under tier-0 supply
+  const controls: Controls = { volume: 0.4, bass: 0.28, power: 0.8 };
   const desk = el('div', 'desk');
   const volFader = new Fader(STR.volume, controls.volume, (v) => (controls.volume = v), '#ff5d8f');
   const bassFader = new Fader(STR.bass, controls.bass, (v) => (controls.bass = v), '#7b5dff');
