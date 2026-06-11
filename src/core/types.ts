@@ -1,3 +1,5 @@
+import type { NightModifierDef } from './modifiers';
+
 export type SpotId =
   | 'champ'
   | 'foret'
@@ -284,6 +286,8 @@ export interface NightState {
   firedPrompts: string[];
   playedSets: SetRecord[];
   journal: JournalEntry[];
+  /** modificateurs passifs du soir (météo/foule), révélés au lancement */
+  modifiers: NightModifierDef[];
   busted: boolean;
   sunrise: boolean;
   rng: () => number;
@@ -325,4 +329,6 @@ export interface NightResult {
   journal: JournalEntry[];
   /** labels des objectifs de set atteints sur la nuit */
   goalsMet: string[];
+  /** modificateurs passifs du soir (météo/foule), pour rappel au recap */
+  modifiers: NightModifierDef[];
 }

@@ -3,6 +3,7 @@ import { djLevel, fatigueMalus, lockedDjs, recruitableDjs } from '../core/crew';
 import { rushCost } from '../core/idle';
 import { isSpotUnlocked } from '../core/payout';
 import { computeSetQuality } from '../core/night';
+import type { NightModifierDef } from '../core/modifiers';
 import type {
   Brief,
   DjDef,
@@ -287,6 +288,8 @@ export interface NightScreen {
   canvas: HTMLCanvasElement;
   update(night: NightState): void;
   toast(msg: string): void;
+  /** bannière one-shot des modifs du soir, au lancement de la nuit */
+  showModifiers(modifiers: NightModifierDef[]): void;
   showTransition(state: GameState, night: NightState, onStart: (djId: string, brief: Brief) => void): void;
   showEvent(night: NightState, pending: PendingEvent, onChoose: (index: number) => string): void;
 }
@@ -320,6 +323,15 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
   bankBox.append(bankValue, el('div', 'hud-stat-label', STR.bankLabel));
   hudTop.append(setBox, crowdBox, clock, bankBox);
   sceneWrap.append(hudTop);
+
+  // badges discrets des modifs du soir (icône + nom), peuplés au premier update
+  const modifierBadges = el('div', 'night-modifiers');
+  sceneWrap.append(modifierBadges);
+  let badgesDone = false;
+
+  // bannière one-shot des modifs, révélée au lancement de la nuit
+  const modifierBanner = el('div', 'night-modifiers-banner hidden');
+  sceneWrap.append(modifierBanner);
 
   const bottomBar = el('div', 'night-bottom');
   const nowCol = el('div', 'now-col');
@@ -385,6 +397,16 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
   return {
     canvas,
     update(night) {
+      // badges des modifs : peuplés une seule fois (night.modifiers est fixé au lancement)
+      if (!badgesDone) {
+        badgesDone = true;
+        for (const m of night.modifiers) {
+          const badge = el('div', 'night-modifier-badge');
+          badge.title = m.desc;
+          badge.append(el('span', 'night-modifier-icon', m.icon), el('span', 'night-modifier-nom', m.nom));
+          modifierBadges.append(badge);
+        }
+      }
       setValue.textContent = `${Math.min(night.setIndex + 1, night.setCount)}/${night.setCount}`;
       clockValue.textContent = fmtTime(night.duration - night.t);
       crowdValue.textContent = String(Math.round(night.crowd));
@@ -456,6 +478,25 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
         t.classList.remove('show');
         setTimeout(() => t.remove(), 400);
       }, 3500);
+    },
+    showModifiers(modifiers) {
+      if (modifiers.length === 0) return;
+      modifierBanner.innerHTML = '';
+      modifierBanner.append(el('div', 'night-modifiers-banner-tag', STR.modifiersBanner));
+      for (const m of modifiers) {
+        const row = el('div', 'night-modifiers-banner-row');
+        row.append(el('span', 'night-modifiers-banner-icon', m.icon));
+        const txt = el('div', 'night-modifiers-banner-txt');
+        txt.append(el('div', 'night-modifiers-banner-nom', m.nom), el('div', 'night-modifiers-banner-desc', m.desc));
+        row.append(txt);
+        modifierBanner.append(row);
+      }
+      modifierBanner.classList.remove('hidden');
+      setTimeout(() => modifierBanner.classList.add('show'), 10);
+      setTimeout(() => {
+        modifierBanner.classList.remove('show');
+        setTimeout(() => modifierBanner.classList.add('hidden'), 500);
+      }, 4200);
     },
     showTransition(state, night, onStart) {
       modal.innerHTML = '';
@@ -633,6 +674,19 @@ export function renderRecap(
       goals.append(el('div', 'recap-goal', `✓ ${label}`));
     }
     panel.append(goals);
+  }
+
+  // rappel des modifs du soir (météo/foule)
+  if (result.modifiers.length > 0) {
+    panel.append(el('h3', 'recap-sub', STR.modifiersRecapTitle));
+    const mods = el('div', 'recap-modifiers');
+    for (const m of result.modifiers) {
+      const badge = el('div', 'night-modifier-badge');
+      badge.title = m.desc;
+      badge.append(el('span', 'night-modifier-icon', m.icon), el('span', 'night-modifier-nom', m.nom));
+      mods.append(badge);
+    }
+    panel.append(mods);
   }
 
   const scoreRow = el('div', 'score-row');

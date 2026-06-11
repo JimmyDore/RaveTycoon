@@ -2,6 +2,7 @@ import { applySetToll, effectiveTechnique, fatigueQualityMult, getCrewMember } f
 import { GEAR, getDj, getGenre, getSpot } from './data';
 import { drawEvent } from './events';
 import { drawGoal } from './goals';
+import { modifierProduct, modifierSum, rollModifiers } from './modifiers';
 import { drawPrompt } from './prompts';
 import { mulberry32 } from './rng';
 import type {
@@ -55,6 +56,9 @@ export function createNight(
   const spot = getSpot(spotId);
   const murItem = GEAR.mur[state.gear.mur];
   const murMult = murItem.value * (state.damaged.mur ? 0.6 : 1);
+  // modifs du soir (météo/foule) — flux RNG dédié, ne perturbe pas le flux des events
+  const modifiers = rollModifiers(spot.tier, seed);
+  const eventDelay = modifierSum(modifiers, 'eventDelay');
   return {
     spotId,
     genreId,
@@ -84,7 +88,8 @@ export function createNight(
     brownoutCooldown: 0,
     pendingEvent: null,
     eventsFired: [],
-    nextEventAt: 20 + mulberry32(seed)() * 30,
+    // brouillard décale le premier event (eventDelay en secondes)
+    nextEventAt: 20 + mulberry32(seed)() * 30 + eventDelay,
     qualityMultRestOfSet: 1,
     arrivalCutT: 0,
     repBonus: 0,
@@ -102,6 +107,7 @@ export function createNight(
     firedPrompts: [],
     playedSets: [],
     journal: [],
+    modifiers,
     busted: false,
     sunrise: false,
     rng: mulberry32(seed),
@@ -172,6 +178,13 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   const genre = getGenre(night.genreId);
   const dj = night.currentDj ? getDj(night.currentDj) : null;
 
+  // --- modificateurs du soir : produits/sommes des leviers passifs --------------
+  const arrivalMod = modifierProduct(night.modifiers, 'arrivalMult');
+  const churnMod = modifierProduct(night.modifiers, 'churnMult');
+  const heatMod = modifierProduct(night.modifiers, 'heatMult');
+  const priceMod = modifierProduct(night.modifiers, 'priceMult');
+  const retentionMod = modifierSum(night.modifiers, 'retentionBonus');
+
   const soundOn = night.soundCutT <= 0;
   if (!soundOn) night.soundCutT -= dt;
   night.brownoutCooldown = Math.max(0, night.brownoutCooldown - dt);
@@ -216,13 +229,14 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   const pull = soundOn ? 0.25 + 0.85 * quality + 0.06 * charisme : 0;
   const arrivalCut = night.arrivalCutT > 0 ? 0.5 : 1;
   const arrival =
-    spot.arrival * genre.arrival * (1 + state.buzz) * (1 + state.rep * 0.002) * pull * arrivalCut;
+    spot.arrival * genre.arrival * (1 + state.buzz) * (1 + state.rep * 0.002) * pull * arrivalCut * arrivalMod;
   let leaveMult = 1;
   if (!soundOn) leaveMult += 3;
   if (night.murBlown) leaveMult += 0.8;
   if (quality < 0.3) leaveMult += 1;
-  const retention = 1 - 0.04 * charisme;
-  const leaving = night.crowd * genre.churn * retention * leaveMult;
+  // retention plus basse = on garde mieux le public ; le bonus du soir la réduit
+  const retention = Math.max(0, 1 - 0.04 * charisme - retentionMod);
+  const leaving = night.crowd * genre.churn * churnMod * retention * leaveMult;
   night.crowd = clamp(night.crowd + (arrival - leaving) * dt, 0, night.cap);
   night.peakCrowd = Math.max(night.peakCrowd, night.crowd);
 
@@ -246,7 +260,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   // --- heat -----------------------------------------------------------------------
   const logistique = GEAR.logistique[state.gear.logistique].value;
   const riskMult = dj ? RISK_HEAT[dj.risk] : 1;
-  night.heat += spot.heatBuild * genre.heatMult * BRIEF_HEAT[night.brief] * riskMult * logistique * HEAT_BASE * dt;
+  night.heat += spot.heatBuild * genre.heatMult * BRIEF_HEAT[night.brief] * riskMult * logistique * heatMod * HEAT_BASE * dt;
   if (night.brief === 'safe') night.heat -= 0.01 * dt;
   night.heat = clamp(night.heat, 0, 1);
   night.peakHeat = Math.max(night.peakHeat, night.heat);
@@ -259,7 +273,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   }
 
   // --- bar drip ----------------------------------------------------------------------
-  night.bank += night.crowd * BAR_DRIP * spot.priceMult * dt;
+  night.bank += night.crowd * BAR_DRIP * spot.priceMult * priceMod * dt;
 
   // --- flash-prompts du dancefloor (non bloquants) ----------------------------------------
   if (night.floorPrompt && night.t > night.floorPrompt.expiresAt) {

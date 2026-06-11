@@ -92,6 +92,8 @@ export const STR = {
   sunriseIn: 'lever du soleil',
   vibeLabel: 'ambiance',
   setGoalLabel: 'objectif',
+  modifiersBanner: 'Ce soir…',
+  modifiersRecapTitle: 'La couleur du soir',
   events: {
     brownout: '⚡ Le groupe décroche ! Le son se coupe.',
     'mur-blown': '💥 Une enceinte vient de lâcher !',

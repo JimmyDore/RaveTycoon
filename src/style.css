@@ -682,6 +682,96 @@ button {
 .set-goal-chip.met .set-goal-chip-tag {
   color: #3ddc97;
 }
+/* badges discrets des modifs du soir (météo/foule), en haut à gauche */
+.night-modifiers {
+  position: absolute;
+  top: 3.6rem;
+  left: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  pointer-events: none;
+}
+.night-modifier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  background: rgba(27, 20, 48, 0.8);
+  border: 1px solid #3a2d63;
+  text-shadow: 0 1px 2px #000;
+}
+.night-modifier-icon {
+  font-size: 0.85rem;
+}
+.night-modifier-nom {
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+/* bannière one-shot des modifs, révélée au lancement de la nuit */
+.night-modifiers-banner {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -10px);
+  width: min(360px, 86%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem 1.1rem;
+  border-radius: 12px;
+  background: rgba(20, 14, 35, 0.94);
+  border: 1px solid var(--accent-2);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition: all 0.4s ease;
+  pointer-events: none;
+  z-index: 5;
+}
+.night-modifiers-banner.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.night-modifiers-banner.hidden {
+  display: none;
+}
+.night-modifiers-banner-tag {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+}
+.night-modifiers-banner-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.night-modifiers-banner-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+.night-modifiers-banner-nom {
+  font-weight: bold;
+  font-size: 0.92rem;
+}
+.night-modifiers-banner-desc {
+  font-size: 0.74rem;
+  color: var(--text-dim);
+  margin-top: 0.1rem;
+}
+
+/* rappel des modifs au recap */
+.recap-modifiers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
 .night-bottom .heat-wrap,
 .night-bottom .vibe-wrap {
   position: static;

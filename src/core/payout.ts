@@ -73,6 +73,7 @@ export function settleNight(state: GameState, night: NightState): NightResult {
     lineup: night.playedSets,
     journal: night.journal,
     goalsMet: night.goalsMet,
+    modifiers: night.modifiers,
   };
   trackRecords(state, result);
   return result;
@@ -144,6 +145,7 @@ export function applyBust(state: GameState, night: NightState): NightResult {
     lineup: night.playedSets,
     journal: night.journal,
     goalsMet: night.goalsMet,
+    modifiers: night.modifiers,
   };
   trackRecords(state, result);
   return result;

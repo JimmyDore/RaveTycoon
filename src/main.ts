@@ -96,6 +96,7 @@ async function startNight(): Promise<void> {
     endAt: null,
     heatWarned: false,
   };
+  screen.showModifiers(night.modifiers);
   screen.showTransition(state, night, onStartSet);
   active.raf = requestAnimationFrame(frame);
 }
