@@ -1,4 +1,4 @@
-import { getGenre, getSpot } from '../core/data';
+import { getDj, getGenre, getSpot } from '../core/data';
 import type { NightResult } from '../core/types';
 import { STR, fmtCash } from './strings';
 
@@ -90,6 +90,16 @@ export function drawRecapCard(result: NightResult, pseudo: string): HTMLCanvasEl
     c.fillStyle = '#ffd700';
     c.textAlign = 'center';
     c.fillText(`🏆 ${STR.wonTitle} 🏆`, W / 2, 160);
+    c.textAlign = 'left';
+  }
+
+  // the night's lineup
+  const lineupNames = [...new Set(result.lineup.map((s) => s.djId))].map((id) => getDj(id).nom);
+  if (lineupNames.length > 0) {
+    c.font = '18px monospace';
+    c.fillStyle = 'rgba(255,255,255,0.8)';
+    c.textAlign = 'right';
+    c.fillText(`Line-up : ${lineupNames.join(' · ')}`, W - 36, H - 56);
     c.textAlign = 'left';
   }
 

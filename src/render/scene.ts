@@ -390,8 +390,13 @@ export class SceneRenderer {
       canvas.height = h;
     }
     ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, w, h);
-    const scale = Math.max(w / SCENE_W, h / SCENE_H);
+    ctx.fillStyle = '#0b0813';
+    ctx.fillRect(0, 0, w, h);
+    // cover-fit, but never crop away more than ~28% of the scene width
+    // (portrait phones must keep the speaker stacks in frame)
+    const cover = Math.max(w / SCENE_W, h / SCENE_H);
+    const maxCropScale = w / (SCENE_W * 0.72);
+    const scale = Math.min(cover, Math.max(maxCropScale, w / SCENE_W));
     const dw = SCENE_W * scale;
     const dh = SCENE_H * scale;
     ctx.drawImage(this.buffer, (w - dw) / 2, (h - dh) / 2, dw, dh);
