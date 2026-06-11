@@ -44,7 +44,7 @@ interface SpotRecipe {
 
 const RECIPES: Record<SpotId, SpotRecipe> = {
   champ: {
-    terrain: ['grass_1', 'grass_2', 'grass_3'],
+    terrain: ['grass_1', 'grass_2'],
     props: [
       { prop: 'camper_right', x: 8, y: 180 },
       { prop: 'tree_med_1', x: 430, y: 90 },
@@ -56,7 +56,7 @@ const RECIPES: Record<SpotId, SpotRecipe> = {
     fires: [{ x: 404, y: 232, r: 30 }],
   },
   foret: {
-    terrain: ['grass_2', 'grass_3', 'grass_1'],
+    terrain: ['grass_2', 'grass_1'],
     props: [
       { prop: 'tree_big', x: 0, y: 86 },
       { prop: 'tree_med_1', x: 52, y: 100 },
@@ -110,7 +110,7 @@ const RECIPES: Record<SpotId, SpotRecipe> = {
     fires: [{ x: 80, y: 120, r: 24 }],
   },
   teknival: {
-    terrain: ['grass_1', 'grass_3', 'grass_2'],
+    terrain: ['grass_1', 'grass_2'],
     props: [
       { prop: 'speaker_medium', x: 6, y: 92 },
       { prop: 'speaker_medium', x: 446, y: 92 },
@@ -198,7 +198,7 @@ export class SceneRenderer {
           for (let tx = 0; tx < SCENE_W; tx += 16) {
             // deterministic variation, heavily biased to the first tile
             const h = (tx * 31 + ty * 17) % 13;
-            const tile = tiles[h < 9 ? 0 : h < 12 ? 1 % tiles.length : 2 % tiles.length];
+            const tile = tiles[h < 11 ? 0 : 1 % tiles.length];
             tc.drawImage(tile, 0, 0, 16, 16, tx, ty, 16, 16);
           }
         }
