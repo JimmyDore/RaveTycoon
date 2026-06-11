@@ -15,12 +15,14 @@ const OUT = 'public/assets';
 const PREMADE_16 = `${MI}/2_Characters/Character_Generator/0_Premade_Characters/16x16`;
 const PREMADE_48 = `${MI}/2_Characters/Character_Generator/0_Premade_Characters/48x48`;
 
-// 16x16 premade sheet geometry (verified by pixel probe)
+// 16x16 premade sheet geometry (verified by pixel probe 2026-06-11:
+// sheet 896x656, frame rows on a 32px grid from y=0, first ink at y=10;
+// row 0 holds 4 static frames, the 24-frame idle/walk animations are rows 1-2)
 const FRAME_W = 16;
 const FRAME_H = 32;
-const ROW_IDLE = 16;
-const ROW_WALK = 48;
-const ROW_LIFT = 368;
+const ROW_IDLE = 32;
+const ROW_WALK = 64;
+const ROW_LIFT = 352;
 const IDLE_FRAMES = 24; // 6 per direction: right, up, left, down
 const WALK_FRAMES = 24;
 const LIFT_FRAMES = 56; // 14 per direction
@@ -38,9 +40,9 @@ async function exists(p) {
 /**
  * Premade sheets share one layout but differ in top padding. Anchor on the
  * first opaque pixel row: Premade_01 (the reference for the row constants)
- * has its first ink at y=2.
+ * has its first ink at y=10.
  */
-const REF_FIRST_INK = 2;
+const REF_FIRST_INK = 10;
 async function sheetOffset(file) {
   const { data, info } = await sharp(file).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   for (let y = 0; y < info.height; y++) {
