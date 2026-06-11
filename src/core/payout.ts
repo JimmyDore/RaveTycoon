@@ -23,6 +23,9 @@ export function cutsTotal(night: NightState): number {
   return Math.min(0.6, total);
 }
 
+/** Flat rep for holding a free party to sunrise — the legend always grows. */
+const SUNRISE_REP = 3;
+
 /** Sunrise reached: bank × prix libre, minus the crew's cuts. */
 export function settleNight(state: GameState, night: NightState): NightResult {
   const vibe = avgVibe(night);
@@ -31,7 +34,9 @@ export function settleNight(state: GameState, night: NightState): NightResult {
   const cuts = cutsTotal(night);
   const payout = Math.round(gross * (1 - cuts));
   const survivedHighHeat = night.peakHeat >= 0.8;
-  const repGained = Math.round(night.peakCrowd / 10 + (survivedHighHeat ? 15 : 0) + night.repBonus);
+  const repGained = Math.round(
+    SUNRISE_REP + night.peakCrowd / 10 + (survivedHighHeat ? 15 : 0) + night.repBonus,
+  );
   const won = night.spotId === 'teknival';
 
   state.cash += payout;

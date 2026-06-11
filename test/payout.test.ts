@@ -3,7 +3,7 @@ import { settleNight, applyBust, isSpotUnlocked, buyGearUpgrade, cutsTotal } fro
 import { createNight } from '../src/core/night';
 import { newGame } from '../src/core/save';
 import { recruitDj } from '../src/core/crew';
-import { getDj } from '../src/core/data';
+import { GEAR, getDj } from '../src/core/data';
 import type { GameState, NightState } from '../src/core/types';
 
 function finishedNight(state: GameState, overrides: Partial<NightState> = {}): NightState {
@@ -137,7 +137,7 @@ describe('progression', () => {
   it('buys gear upgrades with cash across the five categories', () => {
     const state = newGame();
     expect(buyGearUpgrade(state, 'lumieres')).toBe(false);
-    state.cash = 250;
+    state.cash = GEAR.lumieres[1].price;
     expect(buyGearUpgrade(state, 'lumieres')).toBe(true);
     expect(state.gear.lumieres).toBe(1);
     expect(state.cash).toBe(0);
