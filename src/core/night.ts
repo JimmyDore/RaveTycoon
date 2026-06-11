@@ -72,7 +72,10 @@ export function createNight(
     qualityMultRestOfSet: 1,
     arrivalCutT: 0,
     repBonus: 0,
+    briefLockT: 0,
+    hypeT: 0,
     playedSets: [],
+    journal: [],
     busted: false,
     sunrise: false,
     rng: mulberry32(seed),
@@ -102,6 +105,7 @@ export function startSet(state: GameState, night: NightState, djId: string, brie
   night.setQuality = computeSetQuality(state, night, djId, brief);
   night.qualityMultRestOfSet = 1;
   night.setElapsed = 0;
+  night.briefLockT = 0;
   night.phase = 'playing';
   night.playedSets.push({ djId, brief });
 }
@@ -136,6 +140,8 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   const soundOn = night.soundCutT <= 0;
   if (!soundOn) night.soundCutT -= dt;
   night.brownoutCooldown = Math.max(0, night.brownoutCooldown - dt);
+  night.briefLockT = Math.max(0, night.briefLockT - dt);
+  night.hypeT = Math.max(0, night.hypeT - dt);
   if (night.arrivalCutT > 0) night.arrivalCutT -= dt;
 
   const quality = night.setQuality * night.qualityMultRestOfSet * (night.murBlown ? 0.6 : 1);
@@ -269,7 +275,31 @@ export function resolveEvent(state: GameState, night: NightState, optionIndex: n
     if (fx.damageRisk.category === 'mur') night.murBlown = true;
     state.damaged[fx.damageRisk.category] = true;
   }
+  night.journal.push({ t: night.t, titre: night.pendingEvent.def.titre, outcome: option.outcome });
   night.pendingEvent = null;
   night.phase = 'playing';
   return option;
+}
+
+export const BRIEF_LOCK = 18;
+export const HYPE_COOLDOWN = 50;
+
+/** Change the consigne mid-set. The desk locks for BRIEF_LOCK seconds after. */
+export function changeBrief(state: GameState, night: NightState, brief: Brief): boolean {
+  if (night.phase !== 'playing' || night.briefLockT > 0 || night.brief === brief) return false;
+  night.brief = brief;
+  if (night.currentDj) {
+    night.setQuality = computeSetQuality(state, night, night.currentDj, brief);
+  }
+  night.briefLockT = BRIEF_LOCK;
+  return true;
+}
+
+/** MC grabs the mic: vibe burst now, more heat, long cooldown. */
+export function dropHype(night: NightState): boolean {
+  if (night.phase !== 'playing' || night.hypeT > 0) return false;
+  night.vibe = clamp(night.vibe + 0.12, 0, 1);
+  night.heat = clamp(night.heat + 0.05, 0, 0.99);
+  night.hypeT = HYPE_COOLDOWN;
+  return true;
 }

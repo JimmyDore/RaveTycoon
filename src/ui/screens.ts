@@ -279,10 +279,15 @@ export interface NightScreen {
   update(night: NightState): void;
   toast(msg: string): void;
   showTransition(state: GameState, night: NightState, onStart: (djId: string, brief: Brief) => void): void;
-  showEvent(pending: PendingEvent, onChoose: (index: number) => string): void;
+  showEvent(night: NightState, pending: PendingEvent, onChoose: (index: number) => string): void;
 }
 
-export function renderNight(root: HTMLElement): NightScreen {
+export interface NightLiveCallbacks {
+  onBrief(brief: Brief): void;
+  onHype(): void;
+}
+
+export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightScreen {
   root.innerHTML = '';
   root.className = 'screen screen-night';
 
@@ -319,6 +324,19 @@ export function renderNight(root: HTMLElement): NightScreen {
   vibeBar.append(vibeFill);
   vibeWrap.append(el('div', 'heat-label', `🔥 ${STR.vibeLabel}`), vibeBar);
   bottomBar.append(nowPlaying, heatWrap, vibeWrap);
+
+  const liveWrap = el('div', 'live-controls');
+  const briefBtns = new Map<Brief, HTMLButtonElement>();
+  for (const brief of ['safe', 'normal', 'pousser'] as Brief[]) {
+    const b = el('button', 'live-brief', STR.briefShort[brief]) as HTMLButtonElement;
+    b.addEventListener('click', () => live.onBrief(brief));
+    briefBtns.set(brief, b);
+    liveWrap.append(b);
+  }
+  const hypeBtn = el('button', 'live-hype', STR.hypeAction) as HTMLButtonElement;
+  hypeBtn.addEventListener('click', () => live.onHype());
+  liveWrap.append(hypeBtn);
+  bottomBar.append(liveWrap);
   sceneWrap.append(bottomBar);
 
   const toasts = el('div', 'toasts');
@@ -346,6 +364,13 @@ export function renderNight(root: HTMLElement): NightScreen {
       } else {
         nowPlaying.textContent = '';
       }
+      const playing = night.phase === 'playing';
+      for (const [brief, btn] of briefBtns) {
+        btn.classList.toggle('selected', night.brief === brief);
+        btn.disabled = !playing || night.briefLockT > 0 || night.brief === brief;
+      }
+      hypeBtn.disabled = !playing || night.hypeT > 0;
+      hypeBtn.textContent = night.hypeT > 0 ? `${STR.hypeAction} (${Math.ceil(night.hypeT)})` : STR.hypeAction;
     },
     toast(msg) {
       const now = performance.now();
@@ -428,15 +453,20 @@ export function renderNight(root: HTMLElement): NightScreen {
       modal.append(panel);
       refresh();
     },
-    showEvent(pending, onChoose) {
+    showEvent(night, pending, onChoose) {
       modal.innerHTML = '';
       modal.className = 'night-modal';
       const panel = el('div', 'modal-panel event-panel');
       panel.append(el('h2', '', `⚠️ ${pending.def.titre}`));
       panel.append(el('p', 'event-text', pending.def.texte));
       pending.def.options.forEach((option, i) => {
-        const btn = el('button', 'card event-option');
+        const btn = el('button', 'card event-option') as HTMLButtonElement;
         btn.append(el('div', 'card-title', option.label));
+        const cost = option.effects.cash && option.effects.cash < 0 ? -option.effects.cash : 0;
+        if (cost > night.bank) {
+          btn.disabled = true;
+          btn.append(el('div', 'card-desc', STR.cantAfford));
+        }
         btn.addEventListener('click', () => {
           const outcome = onChoose(i);
           panel.innerHTML = '';
@@ -509,6 +539,18 @@ export function renderRecap(
   totalLine.classList.add('recap-total');
   lines.append(totalLine);
   panel.append(lines);
+
+  if (result.journal.length > 0) {
+    panel.append(el('h3', 'recap-sub', STR.nightJournal));
+    const list = el('div', 'journal-list');
+    for (const entry of result.journal) {
+      const row = el('div', 'journal-row');
+      row.append(el('span', 'journal-title', entry.titre));
+      row.append(el('span', 'journal-outcome', entry.outcome));
+      list.append(row);
+    }
+    panel.append(list);
+  }
 
   const scoreRow = el('div', 'score-row');
   const pseudoInput = el('input', 'pseudo-input') as HTMLInputElement;

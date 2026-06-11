@@ -3,7 +3,7 @@ import { AudioEngine } from './audio/engine';
 import { recruitDj } from './core/crew';
 import { getDj, getSpot } from './core/data';
 import { applyIdleTime, rushRepair, startRepair } from './core/idle';
-import { createNight, resolveEvent, startSet, tickNight } from './core/night';
+import { changeBrief, createNight, dropHype, resolveEvent, startSet, tickNight } from './core/night';
 import { applyBust, buyGearUpgrade, settleNight } from './core/payout';
 import { exportCode, importCode, loadGame, newGame, saveGame } from './core/save';
 import type { Brief, GameState, NightResult, NightState } from './core/types';
@@ -64,7 +64,18 @@ async function startNight(): Promise<void> {
   if (present.length === 0) return;
   const b = await bankReady;
   const night = createNight(state, selection.spot, selection.genre, present, (Date.now() ^ 0x7e7) >>> 0);
-  const screen = renderNight(app);
+  const screen = renderNight(app, {
+    onBrief: (brief) => {
+      if (active && changeBrief(state, active.night, brief)) {
+        active.screen.toast(STR.briefToast(brief));
+      }
+    },
+    onHype: () => {
+      if (active && dropHype(active.night)) {
+        active.screen.toast(STR.hypeToast);
+      }
+    },
+  });
   const scene = new SceneRenderer(screen.canvas, b);
   const ravers = new RaverSim(defaultFloor());
   void audio.start(selection.genre);
@@ -121,7 +132,7 @@ function frame(now: number): void {
         active.heatWarned = false;
       }
       if ((night.phase as string) === 'event' && night.pendingEvent) {
-        screen.showEvent(night.pendingEvent, (index) => {
+        screen.showEvent(night, night.pendingEvent, (index) => {
           const option = resolveEvent(state, night, index);
           return option.outcome;
         });

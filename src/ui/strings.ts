@@ -1,3 +1,5 @@
+import type { Brief } from '../core/types';
+
 /**
  * Toutes les chaînes UI, externalisées pour une future i18n.
  * Français only, argot free-party pleinement assumé.
@@ -77,6 +79,10 @@ export const STR = {
     pousser: 'Plus de monde, plus de vibe — et les bleus rappliquent',
   } as const,
   startSet: 'Balance le son',
+  briefShort: { safe: 'Calmer', normal: 'Normal', pousser: 'Pousser' } as Record<Brief, string>,
+  hypeAction: '📣 Relance !',
+  hypeToast: '📣 Le MC relance le champ !',
+  briefToast: (b: Brief) => `🎚 Consigne : ${STR.briefs[b]}`,
   nowPlaying: (nom: string) => `${nom} aux platines`,
   heat: 'Les bleus',
   crowdLabel: 'teufeurs',
@@ -91,6 +97,7 @@ export const STR = {
     'set-ended': '🎚 Fin du set — à qui le tour ?',
     heatWarning: '👮 Ça sent le roussi… calme le jeu.',
   },
+  cantAfford: 'La caisse ne suit pas',
 
   // recap
   sunrise: 'Lever du soleil',
@@ -108,6 +115,7 @@ export const STR = {
   seized: (gear: string) => `Matos saisi : ${gear}`,
   bustCut: 'Recette perdue dans la panique',
   repGained: (n: number) => `+${n} réputation`,
+  nightJournal: 'Les histoires de la nuit',
   total: 'Pour la caisse',
   continue: 'Retour au camion',
   share: 'Partager la carte',

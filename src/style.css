@@ -492,6 +492,27 @@ button {
   color: var(--gold);
 }
 
+.journal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 1.1rem;
+}
+.journal-row {
+  font-size: 11px;
+  opacity: 0.85;
+  margin: 2px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.journal-title {
+  font-weight: bold;
+}
+.journal-outcome {
+  color: var(--text-dim);
+}
+
 .score-row {
   display: flex;
   gap: 0.5rem;
@@ -625,6 +646,14 @@ button {
   background: linear-gradient(90deg, #3ddc97, #ffd166, #ff5d8f);
   transition: width 0.3s linear;
 }
+.live-controls { display: flex; gap: 6px; align-items: center; pointer-events: auto; }
+.live-brief, .live-hype {
+  font: inherit; padding: 6px 10px; border-radius: 8px; cursor: pointer;
+  background: #1b1430; color: #cfc3ee; border: 1px solid #3a2d63;
+}
+.live-brief.selected { border-color: #ff4f9a; color: #fff; }
+.live-brief:disabled, .live-hype:disabled { opacity: 0.45; cursor: default; }
+.live-hype { background: #2a1430; border-color: #7a2d63; }
 
 /* ---------- v2: night modal (set transitions & events) ---------- */
 .night-modal {

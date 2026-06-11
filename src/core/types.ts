@@ -170,6 +170,13 @@ export interface SetRecord {
   brief: Brief;
 }
 
+export interface JournalEntry {
+  /** night-seconds when it happened */
+  t: number;
+  titre: string;
+  outcome: string;
+}
+
 export interface NightState {
   spotId: SpotId;
   genreId: GenreId;
@@ -207,7 +214,12 @@ export interface NightState {
   qualityMultRestOfSet: number;
   arrivalCutT: number;
   repBonus: number;
+  /** seconds before the brief can be changed again mid-set */
+  briefLockT: number;
+  /** seconds before the hype drop is available again */
+  hypeT: number;
   playedSets: SetRecord[];
+  journal: JournalEntry[];
   busted: boolean;
   sunrise: boolean;
   rng: () => number;
@@ -244,4 +256,5 @@ export interface NightResult {
   avgVibe: number;
   duration: number;
   lineup: SetRecord[];
+  journal: JournalEntry[];
 }
