@@ -1,195 +1,278 @@
 # PRD — Rave Tycoon (working title)
 
-**Status**: Draft v1 — 2026-06-11
+**Status**: Draft v2 — 2026-06-11
 **Owner**: Jimmy
 **Type**: Personal side project, build-in-public potential
+
+> **v2 pivot**: v1 made the player a DJ riding faders in real time. Playtesting showed
+> the continuous-input desk was the weak point. v2 reframes the game as **management in
+> the Game Dev Tycoon mold**: the player runs the collective, every input is a discrete
+> decision, and the rave itself is the animated spectacle that pays those decisions off.
+> The v1 simulation skeleton (heat/busts, economy, idle, saves, leaderboard, adaptive
+> audio engine) survives; the desk UI and player-driven mixing do not.
 
 ---
 
 ## 1. Vision
 
-A hybrid active/idle tycoon game about running a **free-party sound system**. You work the mixing desk during illegal raves: push the volume and the bass to grow the crowd, but every dB feeds the heat — cops, blown speakers, seized gear. Survive until sunrise, collect the *prix libre*, reinvest in bigger matos, and climb from a muddy field to the legendary teknival.
+A management tycoon game about running a **free-party sound system collective**. You are
+the crew boss, not the performer: you recruit DJs from the scene, build the lineup, buy
+the matos, pick the spot, and set how hard the crew pushes the sound. Then the night
+unfolds before you — the crowd grows, the bass drops, the heat builds — and you make the
+calls that matter: who plays peak time, what to do when the cops are sighted, when to
+ease off. Survive until sunrise, split the *prix libre*, and climb from a muddy field to
+the legendary teknival.
 
-The game's identity rests on two pillars:
+The game's identity rests on three pillars:
 
-1. **The outlaw free-party fantasy** — French rave scene, fully assumed: spots squattés, prix libre, les bleus, sunrise sur le dancefloor.
-2. **Sound you can feel** — the desk genuinely mixes the music (adaptive audio stems); the crowd dances to the actual beat; clipping audibly distorts. This is the rare tycoon game where the core mechanic *is* a mixing desk, and you hear every decision.
+1. **The outlaw free-party fantasy** — French rave scene, fully assumed: spots squattés,
+   prix libre, les bleus, la famille du son.
+2. **Decisions, then spectacle** (Game Dev Tycoon energy) — you never babysit a fader.
+   You make a few meaningful choices per night and *watch the party answer*: ravers
+   arrive in waves, dance harder, vibe rises off the crowd. Anticipation over dexterity.
+3. **Sound you can feel** — adaptive audio stems driven by the simulation: you *hear*
+   your booking and your briefs. A DJ told to push the sound audibly clips; a cheap
+   generator audibly sputters; the crowd dances on the actual kick.
 
 ## 2. Goals & non-goals
 
 ### Goals
-- A real, finishable game (~beatable arc ending at the legendary teknival) that players come back to between sessions.
+- A real, finishable game (~beatable arc ending at the legendary teknival) that players
+  come back to between sessions.
 - Playable instantly in any browser, **including phones**, shareable by URL.
 - Friends can compete via a lightweight leaderboard.
 - Fun to build and to show off publicly (audio-reactive pixel-art crowds demo extremely well).
 
-### Non-goals (v1)
+### Non-goals (v1 of this redesign)
 - No accounts, no auth, no server-side saves, no anti-cheat.
 - No monetization.
-- No prestige/reset loop (designed-for, not built — see §11).
+- No prestige/reset loop (designed-for, not built — see §12).
 - No native mobile app.
+- No real-time performance minigames — every player input is a discrete choice.
 
 ## 3. Game structure
 
 Hybrid **active / idle** loop:
 
-- **Active — the rave**: a timed session at the mixing desk. This is the core gameplay and where all tension lives.
-- **Idle — between raves**: real-world time passing matters lightly (repairs, buzz), creating a "come back tomorrow" hook without ever making the active part optional.
+- **Active — the rave**: a timed night divided into DJ sets, punctuated by decisions
+  and events. This is the core gameplay.
+- **Idle — between raves**: real-world time passing matters lightly (repairs, buzz decay,
+  DJ fatigue recovery), creating a "come back tomorrow" hook without making the active
+  part optional.
 
 ```
-[Prepare]  choose spot × genre, buy/repair gear
+[Prepare]  choose spot × genre × lineup, buy gear, brief the crew
     ↓
-[Rave]     work the desk → grow the crowd → survive until sunrise
+[Rave]     sets play out → choose next DJ + brief at each transition,
+           respond to event popups → survive until sunrise
     ↓
-[Payout]   bar drip + donations multiplier (or bust consequences)
+[Payout]   bar drip + prix libre multiplier − DJ cuts (or bust consequences)
     ↓
-[Idle]     repairs tick, buzz grows then decays
+[Idle]     repairs tick, buzz decays, DJs recover fatigue
     ↺
 ```
 
-## 4. The active loop — a rave
+## 4. The active loop — a night
 
-### 4.1 The mixing desk
+### 4.1 Sets, not faders
 
-Three interacting controls, each mapped to a gear category and to a real audio parameter:
+A rave is a **timed run** to sunrise, divided into **DJ sets**:
 
-| Control | Effect on crowd | Risk | Gear that raises headroom | Audio mapping |
-|---|---|---|---|---|
-| **Volume** | Attracts ravers, builds vibe | Heat builds faster; clipping past amp headroom | Amps | Master gain; distortion when clipping |
-| **Bass** | Strongly attracts & retains ravers | Stresses the subs → damage risk | Subs | Sub/kick stem level & filter |
-| **Power budget** | Caps how hard volume+bass can be pushed simultaneously | Overdraw → generator sputter (sound cuts) | Generator | Brief dropouts/brownouts |
+- Set count scales with the spot tier: 2 sets on the first field (~3 min night) up to
+  6 sets at the teknival (~10 min night). Each set ≈ 90 seconds of real time.
+- At each **set transition** the player makes the night's central decision:
+  - **Who plays next** — chosen from the crew present that night (fatigue, affinity and
+    risk profile make this a real choice).
+  - **The brief** — *jouer safe* / *normal* / *pousser le son*. Pushing draws crowd and
+    vibe but feeds heat and stresses gear; playing safe lets heat ebb.
+- Between transitions the player **watches**: crowd flows in, vibe particles rise, the
+  mix audibly follows the set's energy arc. No continuous input exists.
 
-Design intent: there is no "set it and forget it" position. The player rides the faders through the night — pushing during peak moments, easing off when heat spikes or a speaker overheats.
+**Set quality** is computed from: DJ stats × genre affinity × platines tier × brief ×
+fatigue. Set quality drives crowd arrival, retention and vibe — the same crowd/vibe/heat
+simulation as v1, now fed by decisions instead of fader positions.
 
-### 4.2 The night's arc
+### 4.2 Events — the surprises
 
-- A rave is a **timed run**: hold out until **sunrise**.
-- Duration scales with spot tier: **~3 minutes** for the first field, up to **~10 minutes** for the endgame teknival.
-- Crowd arrives over time at a rate driven by: spot profile, genre profile, buzz, reputation, and current sound quality (volume/bass levels). Ravers leave if the sound dips too long or the vibe collapses.
+2–4 times per night, the simulation interrupts with a **decision popup** (the night
+pauses): a situation, 2–3 options, immediate consequences. Examples of the v1 event deck:
 
-### 4.3 Heat & busts
+| Event | Options (indicative) |
+|---|---|
+| Les bleus sont passés sur la départementale | Baisser le son (heat −, vibe −) / On continue (heat ↑) |
+| Le groupe électrogène toussote | Le bricoler (set interrupted 15 s) / Ignorer (brownout risk ↑) |
+| Une enceinte chauffe | La ménager (sound −20 % this set) / La pousser (risk blown speaker) |
+| Le public en redemande | Brief du DJ passe en "pousser" gratuitement / Tenir le plan |
+| Un voisin débarque au portail | L'embrouiller (rng social) / Lui offrir une bière (cash −, heat −) |
 
-- A **heat meter** fills as a function of sustained volume and spot sensitivity; it can ebb when you ease off.
-- If heat maxes out, the cops shut the rave down early — a **bust**.
-- **Escalating consequences** with the heat level / repeat offenses at bust time:
-  1. Lose a cut of the night's earnings.
-  2. Fines (flat cash penalties).
-  3. **Gear seizure** — equipment confiscated.
-- **No softlock guarantee**: the player always keeps an unseizable starter rig ("les vieilles enceintes du camion"). Rock bottom = grinding small field raves again, never a dead save.
+Events are drawn from a deck weighted by spot, heat level, gear tier and DJ risk
+profiles. The deck is data-driven — new events are the cheapest post-launch content lever.
+
+### 4.3 Heat & busts *(unchanged from v1)*
+
+- A **heat meter** fills as a function of sound posture (briefs), DJ risk profiles and
+  spot sensitivity; it ebbs when the crew plays safe.
+- Heat maxed = **bust**: cops shut the night down early.
+- **Escalating consequences** with repeat offenses: lose a cut of the night's earnings →
+  fines → **gear seizure**.
+- **No softlock guarantee**: the unseizable starter rig ("les vieilles enceintes du
+  camion") and the founding DJ can never be lost. Rock bottom = grinding small field
+  raves again, never a dead save.
 
 ### 4.4 Gear damage
 
-- Pushing volume/bass past the gear's headroom risks **blowing a speaker/amp**: that output channel is muted or degraded for the rest of the night.
-- Damaged gear must be repaired between raves (time or money — see §6).
+- Pushed gear (briefs, ignored events) can **blow a speaker or stall the generator**:
+  degraded sound and vibe for the rest of the night, audible in the mix.
+- Damaged gear must be repaired between raves (time or money — see §8).
 
 ### 4.5 Payout
 
-- **Bar drip**: each raver generates a small income per minute present (rewards *sustaining* a crowd, not just attracting it).
-- **Donations (prix libre)** at sunrise: a multiplier on the night based on peak crowd and overall vibe quality.
-- **Reputation** is earned from successful nights (peak crowd, legendary moments, surviving high heat) and unlocks spots.
+- **Bar drip**: each raver generates a small income per minute present.
+- **Prix libre** at sunrise: a multiplier on the night based on peak crowd and overall vibe.
+- **DJ cuts**: each DJ who played takes a negotiated **percentage of the night's
+  takings** (better DJs demand bigger cuts). No income = no cost — the crew shares the
+  recette, nobody invoices. Preserves the no-softlock rule by construction.
+- **Reputation** is earned from successful nights and unlocks spots *and DJs*.
 
-## 5. Pre-rave decisions — spot × genre
+## 5. The crew — DJs as the core management axis
 
-The strategic layer: before each rave, the player picks a **spot** and a **genre**. The combination space is the replayability engine.
+The GDT "staff" system, reskinned for the scene. **Permanent crew, scene-gated.**
 
-### 5.1 Spots — risk/reward personalities, unlocked by reputation
+- **Start**: one founding DJ, "le pote du camion" — mediocre, free (symbolic cut), loyal,
+  unseizable/unleavable.
+- **Recruitment**: as reputation grows, word spreads and better DJs become available to
+  join the collective (rep thresholds, not cash). Roster cap ~6 in v1.
+- **Each DJ has**:
+  - **Stats**: *technique* (set quality) and *charisme* (crowd draw & retention), leveling
+    up through sets played.
+  - **Genre affinities**: a hardtek wizard is mediocre on dub — lineup must match the
+    night's genre, or cover multi-genre strategies.
+  - **Risk profile**: some DJs draw heat (notorious, heavy-handed), some fly under the
+    radar. Interacts with spot choice and briefs.
+  - **Fatigue**: playing sets tires a DJ; recovery happens in **real time between raves**
+    (idle hook). A tired DJ performs below their stats.
+  - **Cut**: negotiated % of the night, scaling with skill tier.
+- **Attachment over optimization**: DJs are named characters with portraits; the player
+  should feel "my crew", not "interchangeable units".
 
-Spots are *not* a pure size ladder; each has a personality. Indicative v1 lineup (5–6 spots):
+## 6. Pre-rave decisions — spot × genre × lineup
 
-| Spot | Crowd arrival | Heat build | Quirk |
-|---|---|---|---|
-| Champ paumé | Slow | Very slow | Tutorial-grade, tiny cap |
-| Forêt | Slow | Slow | No neighbors; long calm nights |
-| Carrière abandonnée | Medium | Medium | Poor power access — generator is the bottleneck |
-| Hangar urbain | Fast | Vicious | Big cap, big money, cops on a hair trigger |
-| Friche industrielle | Fast | High | Late-game high-stakes |
-| **Teknival** (finale) | Massive | Special | The endgame event — see §8 |
+The strategic layer, now three-dimensional. Spot and genre tables are **unchanged from
+v1** (6 spots from Champ paumé to Teknival, rep-gated, each with personality quirks;
+3 genres — Hardtek / Acid / Dub — with distinct crowd profiles and stem sets). The new
+third axis: **which DJs come tonight** (fatigue management, affinity matching, risk
+stacking).
 
-- Spots unlock with **reputation** (word spreads in the scene; you get invited), not money. Money buys gear; rep opens doors.
+## 7. Gear — five categories serving the management sim
 
-### 5.2 Genres — as mechanics, from day one
+Money → gear, rep → spots & DJs. Each category produces a **visible or audible**
+difference during the night:
 
-Launch with **2–3 genres**, each with its own **audio stem set** and **crowd profile**:
+| Category | Effect | Felt as |
+|---|---|---|
+| **Platines / contrôleurs** | Multiplies every DJ's set quality | Better sets, happier DJs |
+| **Mur de son** | Crowd cap + attraction radius | *The* visible progression: the wall of speakers grows on screen |
+| **Groupe électrogène** | Reliability | Cheap one = sputter events & audible brownouts |
+| **Lumières** | Vibe/spectacle bonus | Beams, strobes, lasers on screen at night |
+| **Logistique** | Heat & bust mitigation (guetteurs, camion rapide) | Earlier cop warnings, smaller seizures |
 
-| Genre | Crowd profile (indicative) |
-|---|---|
-| Hardtek / tribe | Baseline: fast arrival, energetic, moderate heat |
-| Acid | Surges fast, volatile vibe, draws heat faster |
-| Dub | Slow arrival but chill crowd that stays long; low heat |
+3–4 tiers per category; tier 0 of mur de son and groupe is the unseizable starter rig.
 
-- Genre choice interacts with spot choice (e.g., dub in the quarry = long safe grind; acid in the hangar = high-roll night).
-- More genres are the primary post-launch content lever.
-
-## 6. The idle layer — between raves
+## 8. The idle layer — between raves
 
 Light idle, **no passive income**:
 
-- **Repairs**: blown gear repairs on real-time timers; rushable for money. Consequences have weight without hard-blocking play.
-- **Buzz**: grows after a good rave (word of mouth), **decays** if you stay quiet too long (the scene forgets you). Buzz boosts crowd arrival rate at the next rave. This is the retention hook: checking in regularly rewards you with a better next rave, not free money.
+- **Repairs**: blown gear repairs on real-time timers; rushable for money.
+- **Buzz**: grows after a good rave, **decays** if you stay quiet. Boosts crowd arrival
+  at the next rave.
+- **DJ fatigue** *(new)*: recovers in real time. Raving every five minutes burns the
+  crew out; coming back tomorrow fields a fresh lineup. Third reason to check in.
 
-## 7. Progression
+## 9. Progression
 
-Two currencies, two ladders:
+- **Money → gear** (five categories, §7).
+- **Reputation → spots and DJs** (bigger venues, better artists want in).
+- Night length and set count scale with spot tier: progression is *felt* — bigger spots
+  are literally bigger nights with deeper lineup decisions.
 
-- **Money → gear**: amps, subs, generator, plus durability upgrades. Gear raises desk headroom (you can push harder safely) and is *visible on screen* (bigger speaker stacks).
-- **Reputation → spots**: bigger, riskier, richer venues.
+## 10. Endgame
 
-Rave duration scaling with spot tier makes progression *felt*: bigger spots are literally bigger nights.
+- v1 win moment: hosting the **legendary teknival** with a full, leveled crew — the
+  finale-scale night that serves as climax and credits moment.
+- Economy and crew systems architected so a **prestige loop** can bolt on in v2
+  ("the crew moves to a new region": reset money/gear/spots, keep permanent perks and
+  possibly one veteran DJ).
 
-## 8. Endgame
+## 11. Presentation
 
-- v1 has a **win moment**: hosting the **legendary teknival** — a finale-scale rave that serves as the game's climax and credits moment.
-- The economy and crowd systems must be architected so a **prestige loop** can bolt on in v2 ("the crew moves to a new region": reset money/gear/spots, keep permanent perks).
+### 11.1 Visuals — asset packs, closer camera, characters
 
-## 9. Presentation
+- **Sourced pixel-art asset packs** (itch.io, CC0 or cheap paid — licenses verified for a
+  public web game, budget 10–30 €): character packs with walk/dance animations, tilesets,
+  props. No more procedural rectangles.
+- **Closer camera**: a stage-anchored scene rather than a wide landscape. Ravers are
+  **24–32 px tall with real dance frames**; the current DJ is visible behind the decks;
+  the mur de son dominates the frame and grows with gear tiers.
+- **DJ portraits** for the management UI (recruitment, lineup, fatigue) — pack-based or
+  generated, consistent style.
+- **Beat sync stays mandatory**: dance animations sync to the actual audio kick.
+- Custom effort reserved for **hero assets**: the speaker wall, the sunrise moment, key
+  spot backdrops.
+- **Mobile performance**: sprite count caps by device, density fallback beyond the cap.
 
-### 9.1 Visuals — detailed sprite simulation (Game Dev Tycoon energy)
+### 11.2 Audio — the killer feature, now sim-driven
 
-- **Individual animated ravers** with behaviors: arrive in waves, dance harder as vibe rises, drift away when the sound dips, scatter when cops arrive.
-- **Pixel-art environments** per spot.
-- **Beat sync is mandatory**: dance animations sync to the actual audio kick. This sells the rave more than art fidelity.
-- **Asset strategy**: pixel asset packs for crowds and tilesets (sourced during development); custom effort reserved for **hero assets** that define identity — the speaker stacks (visible progression), the sunrise moment, key spot backdrops.
+- **Adaptive stem mixing** via Web Audio API (engine already built): each genre's track
+  is stems (kick, sub, lead, hats) synthesized procedurally — no audio assets.
+- **The simulation is the DJ**: each set has an energy arc that layers stems in and out
+  (sparse warm-up → full peak-time stack → melodic sunrise lift).
+- You **hear your decisions**: *pousser le son* audibly clips and distorts; a stressed
+  generator brownouts; a blown speaker crackles; a high-charisme DJ gets the crowd
+  noticeably louder.
+- SFX layer: crowd noise scaling with crowd size, sirens on bust, dawn ambience.
 
-### 9.2 Audio — the killer feature
+## 12. Platform, UX & social *(unchanged from v1)*
 
-- **Adaptive stem-based mixing** via Web Audio API: each genre's track is built from stems (kick, bass, synth, hats…); the desk controls genuinely mix them.
-  - Volume fader = master gain.
-  - Bass slider = sub stem level / filter.
-  - **Clipping audibly distorts** — the danger zone is heard, not just seen.
-  - Power overdraw = brownouts/dropouts.
-- SFX layer: crowd noise scaling with crowd size, speaker crackle, police sirens, dawn ambience.
-- One stem set per genre at launch (2–3 total). Stems sourced from CC-licensed material or generated loops.
+- **Browser game, responsive from day one**, touch-clean: cards, buttons and popups —
+  no hover, no keyboard, no continuous gestures.
+- **French only at first**, free-party slang fully assumed; strings externalized for i18n.
+- **Saves**: localStorage autosave + manual export/import save code.
+- **Hosting**: dockerized on the existing VPS — static frontend (nginx) + leaderboard API
+  (node:sqlite, zero dependencies). *Built and working.*
+- **Leaderboard**: pseudonym submissions, three boards (biggest crowd, biggest payout,
+  most legendary bust). *Built and working.*
+- **Sunrise recap card**: shareable canvas-generated image, "PERQUISITIONNÉ" stamp on
+  busts — now also featuring the night's lineup.
 
-## 10. Platform, UX & social
-
-- **Browser game**, **responsive from day one** — friends must be able to play on their phones. Touch-clean interaction model everywhere: big sliders, no hover-dependent or keyboard-required controls.
-- **Language: French only at first.** Free-party slang fully assumed (prix libre, teknival, les bleus…). i18n-ready structure if reach demands English later.
-- **Saves**: localStorage autosave + manual **export/import save code** (cross-browser/device portability). No server saves.
-- **Hosting**: dockerized on the existing VPS — static frontend (nginx) + one tiny service.
-- **Leaderboard**: minimal API (single service + SQLite). At sunrise the game submits the night under a freely-chosen **pseudonym** — no accounts, no auth. Leaderboard screens: biggest crowd, biggest payout, most legendary bust. Cheating is possible and accepted (friends-scale).
-- **Sunrise recap card**: a generated shareable image (peak crowd, cash, genre, spot, "PERQUISITIONNÉ" stamp if busted) — canvas-to-image, no backend needed. Doubles as the build-in-public screenshot machine.
-
-## 11. Out of scope v1 / future hooks
+## 13. Out of scope v1 / future hooks
 
 | Future feature | v1 design accommodation |
 |---|---|
-| Prestige loop ("new region") | Economy designed reset-with-perks in mind |
-| More genres | Crowd sim built on data-driven genre profiles |
-| Incident events mid-rave (overheating triage, neighbor at the gate) | Desk loop must stay fun without them |
-| Passive income (rig rental, mixtapes) | Only if the game needs more idle depth post-launch |
+| Prestige loop ("new region") | Economy + crew designed reset-with-perks in mind |
+| More genres | Data-driven genre profiles & stem sets |
+| More events | Data-driven event deck from day one |
+| Guest-star headliners for big nights | Crew model leaves room for a `guest` DJ flag |
+| DJ storylines / loyalty arcs | DJs are named entities with persistent state |
 | English localization | Strings externalized from day one |
 | Server-side saves / accounts | Not planned |
 
-## 12. Risks
+## 14. Risks
 
-- **Stem sourcing**: 2–3 genres × full stem sets of decent quality is the scarcest asset. Mitigation: start with one genre's stems to validate the audio pipeline, add the others before launch.
-- **Sprite content cost**: detailed crowd simulation is asset-hungry. Mitigation: asset packs + behavior code (cheap) carry the load; hero assets only where identity demands.
-- **Mobile performance**: many animated sprites + Web Audio on low-end phones. Mitigation: crowd rendering must degrade gracefully (sprite count caps by device).
-- **Desk depth**: three sliders must stay interesting for a full ~10-minute teknival. Mitigation: playtest early; incident events are the ready v1.5 lever if nights feel flat.
+- **The watch-phase must be fun to watch**: with no continuous input, the spectacle
+  (crowd behavior, audio reactivity, light show) carries the night. Mitigation: closer
+  camera + real animation frames + audio-reactive everything; playtest pacing early.
+- **Event deck depth**: too few events = repetitive nights. Mitigation: data-driven deck,
+  ~12 events minimum at launch, weighted draws to avoid repeats.
+- **Asset pack coherence**: mixing packs can look like a collage. Mitigation: pick one
+  primary character pack + one tileset family; recolor over remixing.
+- **DJ balance**: dominant-strategy lineups would flatten the game. Mitigation: fatigue +
+  affinities + cuts create rotating incentives; tune against sim runs.
 
-## 13. Success criteria
+## 15. Success criteria
 
-- A new player reaches their first sunrise payout within ~5 minutes of opening the URL, on a phone.
+- A new player reaches their first sunrise payout within ~5 minutes of opening the URL,
+  on a phone — having made at least 3 meaningful decisions on the way.
+- Players name a favorite DJ in their crew unprompted.
 - Friends return unprompted to beat each other's leaderboard nights.
 - At least one person shares a recap card without being asked.
 - The developer still thinks it's fun to work on. (Side project rule #1.)
@@ -201,17 +284,21 @@ Rave duration scaling with spot tier makes progression *felt*: bigger spots are 
 | # | Decision |
 |---|---|
 | 1 | Hybrid active/idle (not pure idle, not pure management) |
-| 2 | Mixing desk with 3 controls: volume, bass, power |
-| 3 | Timed runs to sunrise + heat meter + separate gear damage |
-| 4 | Illegal free-party fiction; income = bar drip + prix libre at sunrise |
-| 5 | Busts have escalating consequences up to gear seizure; unseizable starter rig prevents softlock |
-| 6 | Spots = risk/reward personalities, unlocked by reputation |
-| 7 | Light idle: repair timers + buzz (grows/decays), no passive income |
-| 8 | Adaptive stem-based audio; clipping audibly distorts |
-| 9 | Rave duration scales with spot tier (~3 → ~10 min) |
-| 10 | Detailed pixel-art sprite simulation; asset packs + hero assets; beat-synced animation |
-| 11 | v1 win moment = legendary teknival; prestige is v2 |
-| 12 | Responsive browser game from day one; localStorage + export codes |
-| 13 | Genres as mechanics from v1 (2–3 stem sets with crowd profiles) |
-| 14 | French-only UI at launch; recap card share image |
-| 15 | VPS-hosted, dockerized: static frontend + tiny pseudonym leaderboard API (SQLite) |
+| 2 | **v2: player is the crew boss, not the DJ — all input is discrete decisions (GDT model)** |
+| 3 | **v2: nights divide into DJ sets; decisions at set transitions (who + brief) plus 2–4 event popups** |
+| 4 | **v2: permanent DJ crew, scene-gated recruitment; stats, affinities, risk profiles, real-time fatigue** |
+| 5 | **v2: DJs paid as a cut of the night's takings — no fixed costs, no-softlock preserved** |
+| 6 | Timed runs to sunrise + heat meter + separate gear damage |
+| 7 | Illegal free-party fiction; income = bar drip + prix libre at sunrise |
+| 8 | Busts escalate up to gear seizure; unseizable starter rig + founding DJ prevent softlock |
+| 9 | Spots = risk/reward personalities, unlocked by reputation |
+| 10 | Light idle: repairs + buzz decay + **v2: DJ fatigue recovery**; no passive income |
+| 11 | **v2: adaptive stem audio driven by the simulation — the player hears their decisions** |
+| 12 | Night length & set count scale with spot tier (~3 → ~10 min) |
+| 13 | **v2: sourced pixel asset packs, closer stage camera, 24–32 px animated ravers, DJ portraits** |
+| 14 | **v2: gear = 5 categories (platines, mur de son, groupe, lumières, logistique), each felt on screen or in the mix** |
+| 15 | v1 win moment = legendary teknival; prestige is v2 |
+| 16 | Responsive browser game; localStorage + export codes |
+| 17 | Genres as mechanics (data-driven profiles + stem sets) |
+| 18 | French-only UI at launch; recap card share image |
+| 19 | VPS-hosted, dockerized: static frontend + pseudonym leaderboard API (SQLite) — built |
