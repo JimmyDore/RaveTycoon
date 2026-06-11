@@ -8,7 +8,15 @@ export type SpotId =
   | 'friche'
   | 'teknival';
 
-export type GenreId = 'hardtek' | 'acid' | 'dub';
+export type GenreId =
+  | 'hardtek'
+  | 'acid'
+  | 'dub'
+  | 'frenchcore'
+  | 'mentale'
+  | 'techno'
+  | 'raggatek'
+  | 'darkpsy';
 
 /** v2 gear: five categories serving the management sim. */
 export type GearCategory = 'platines' | 'mur' | 'groupe' | 'lumieres' | 'logistique';
@@ -67,7 +75,8 @@ export interface DjDef {
   technique: number;
   /** crowd draw & retention, 1-5 */
   charisme: number;
-  affinities: Record<GenreId, number>;
+  /** signature genre — the only sound this DJ plays */
+  genre: GenreId;
   risk: DjRisk;
   /** share of the night's takings this DJ demands, e.g. 0.15 */
   cut: number;
@@ -309,7 +318,6 @@ export interface NightTickEvent {
 
 export interface NightResult {
   spotId: SpotId;
-  genreId: GenreId;
   busted: boolean;
   won: boolean;
   bank: number;

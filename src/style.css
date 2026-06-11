@@ -1003,6 +1003,24 @@ button {
 .dot.on {
   background: var(--accent-3);
 }
+.dj-genre-badge {
+  display: inline-block;
+  margin-top: 0.3rem;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  letter-spacing: 0.4px;
+  color: var(--accent-2);
+  background: rgba(123, 93, 255, 0.12);
+  border: 1px solid rgba(123, 93, 255, 0.4);
+}
+/* The sound a DJ brings is the night's arc lever — make it pop in the picker. */
+.dj-genre-badge.pick {
+  color: var(--text);
+  background: rgba(123, 93, 255, 0.22);
+  border-color: var(--accent-2);
+}
 .dj-risk {
   font-size: 0.7rem;
   color: var(--gold);

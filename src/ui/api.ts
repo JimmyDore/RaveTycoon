@@ -1,3 +1,4 @@
+import { getDj } from '../core/data';
 import type { NightResult } from '../core/types';
 
 export type BoardKind = 'crowd' | 'payout' | 'bust';
@@ -27,7 +28,8 @@ export async function submitScore(pseudo: string, result: NightResult): Promise<
         busted: result.busted,
         heatAtEnd: 0,
         spot: result.spotId,
-        genre: result.genreId,
+        // le son c'est le DJ : on remonte les genres joués, dérivés du line-up
+        genre: [...new Set(result.lineup.map((s) => getDj(s.djId).genre))].join(','),
       }),
     });
     return res.ok;

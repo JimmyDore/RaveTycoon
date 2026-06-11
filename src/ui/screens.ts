@@ -1,4 +1,4 @@
-import { DJS, GEAR, GEAR_CATEGORIES, GENRES, SPOTS, getDj, getGenre, getSpot } from '../core/data';
+import { DJS, GEAR, GEAR_CATEGORIES, SPOTS, getDj, getGenre, getSpot } from '../core/data';
 import { djLevel, fatigueMalus, lockedDjs, recruitableDjs } from '../core/crew';
 import { rushCost } from '../core/idle';
 import { isSpotUnlocked } from '../core/payout';
@@ -9,7 +9,6 @@ import type {
   DjDef,
   GameState,
   GearCategory,
-  GenreId,
   NightResult,
   NightState,
   PendingEvent,
@@ -65,7 +64,6 @@ function fatigueMalusLabel(fatigue: number): HTMLElement | null {
 
 export interface PrepareSelection {
   spot: SpotId;
-  genre: GenreId;
   present: Set<string>;
 }
 
@@ -108,7 +106,7 @@ export function renderPrepare(
 
   const main = el('div', 'prepare-grid');
 
-  // --- spots & genres column
+  // --- spots column
   const where = el('section', 'panel');
   where.append(el('h2', '', STR.chooseSpot));
   for (const spot of SPOTS) {
@@ -126,17 +124,6 @@ export function renderPrepare(
         renderPrepare(root, state, selection, now, cb);
       });
     }
-    where.append(card);
-  }
-  where.append(el('h2', 'mt', STR.chooseGenre));
-  for (const genre of GENRES) {
-    const card = el('button', `card genre-card${selection.genre === genre.id ? ' selected' : ''}`);
-    card.append(el('div', 'card-title', `${genre.nom} · ${genre.bpm} BPM`));
-    card.append(el('div', 'card-desc', genre.description));
-    card.addEventListener('click', () => {
-      selection.genre = genre.id;
-      renderPrepare(root, state, selection, now, cb);
-    });
     where.append(card);
   }
   main.append(where);
@@ -157,8 +144,8 @@ export function renderPrepare(
     statsLine.append(el('span', 'dj-stat-label', STR.technique), statDots(def.technique + Math.floor(lvl * 0.5)));
     statsLine.append(el('span', 'dj-stat-label', STR.charisme), statDots(def.charisme));
     info.append(statsLine);
-    const aff = GENRES.map((g) => `${g.nom} ${'★'.repeat(Math.round(def.affinities[g.id] * 2.5))}`).join(' · ');
-    info.append(el('div', 'card-desc', `${aff}`));
+    const djGenre = getGenre(def.genre);
+    info.append(el('div', 'dj-genre-badge', `${djGenre.nom} · ${djGenre.bpm} BPM`));
     const riskLine = el('div', 'dj-risk', `${STR.risk[def.risk]}${STR.riskHint[def.risk] ? ' — ' + STR.riskHint[def.risk] : ''} · ${STR.cut(def.cut)}`);
     info.append(riskLine);
     const fat = el('div', 'dj-fatigue');
@@ -251,7 +238,7 @@ export function renderPrepare(
     'button',
     'btn launch',
     canLaunch
-      ? `▶ ${STR.launch} — ${getSpot(selection.spot).nom} / ${getGenre(selection.genre).nom}`
+      ? `▶ ${STR.launch} — ${getSpot(selection.spot).nom}`
       : STR.needOneDj,
   );
   launch.disabled = !canLaunch;
@@ -532,6 +519,8 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
         row.append(portrait(djId, 'dj-portrait small'));
         const info = el('div', 'dj-info');
         info.append(el('div', 'card-title', def.nom));
+        const djGenre = getGenre(def.genre);
+        info.append(el('div', 'dj-genre-badge pick', `🎵 ${djGenre.nom} · ${djGenre.bpm} BPM`));
         const q = computeSetQuality(state, night, djId, 'normal');
         const stars = '♪'.repeat(Math.max(1, Math.round(q * 5)));
         info.append(el('div', 'card-desc', `${stars} · ${STR.risk[def.risk]} · ${STR.cut(def.cut)}`));
@@ -625,7 +614,13 @@ export function renderRecap(
   } else {
     panel.append(el('h1', 'recap-title', result.busted ? `🚨 ${STR.busted}` : `🌅 ${STR.sunrise}`));
   }
-  panel.append(el('div', 'recap-sub', `${getSpot(result.spotId).nom} · ${getGenre(result.genreId).nom}`));
+  const genresPlayed = [...new Set(result.lineup.map((s) => getDj(s.djId).genre))]
+    .map((g) => getGenre(g).nom)
+    .join(' · ');
+  const recapSub = genresPlayed
+    ? `${getSpot(result.spotId).nom} · ${genresPlayed}`
+    : getSpot(result.spotId).nom;
+  panel.append(el('div', 'recap-sub', recapSub));
 
   // the night's lineup
   const lineup = el('div', 'recap-lineup');

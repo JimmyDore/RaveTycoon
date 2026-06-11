@@ -7,7 +7,7 @@ import { GEAR, getDj } from '../src/core/data';
 import type { GameState, NightState } from '../src/core/types';
 
 function finishedNight(state: GameState, overrides: Partial<NightState> = {}): NightState {
-  const night = createNight(state, 'champ', 'hardtek', ['tonton'], 1);
+  const night = createNight(state, 'champ', ['tonton'], 1);
   Object.assign(night, {
     t: 180,
     phase: 'ended',
@@ -54,7 +54,7 @@ describe('settleNight', () => {
   it('marks the teknival sunrise as the win moment', () => {
     const state = newGame();
     state.rep = 1000;
-    const night = createNight(state, 'teknival', 'hardtek', ['tonton'], 2);
+    const night = createNight(state, 'teknival', ['tonton'], 2);
     Object.assign(night, {
       t: 600,
       phase: 'ended',

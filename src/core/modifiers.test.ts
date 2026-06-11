@@ -34,7 +34,7 @@ describe('rollModifiers', () => {
 describe('application des modificateurs dans tickNight', () => {
   function playingNight(seed: number) {
     const state = newGame(42);
-    const night = createNight(state, 'champ', 'hardtek', ['tonton'], seed);
+    const night = createNight(state, 'champ', ['tonton'], seed);
     startSet(state, night, 'tonton', 'normal');
     return { state, night };
   }

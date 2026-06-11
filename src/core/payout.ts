@@ -56,7 +56,6 @@ export function settleNight(state: GameState, night: NightState): NightResult {
 
   const result: NightResult = {
     spotId: night.spotId,
-    genreId: night.genreId,
     busted: false,
     won,
     bank: Math.round(night.bank),
@@ -128,7 +127,6 @@ export function applyBust(state: GameState, night: NightState): NightResult {
 
   const result: NightResult = {
     spotId: night.spotId,
-    genreId: night.genreId,
     busted: true,
     won: false,
     bank: Math.round(night.bank),

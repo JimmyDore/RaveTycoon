@@ -70,7 +70,13 @@ export function drawRecapCard(result: NightResult, pseudo: string): HTMLCanvasEl
   c.fillText(STR.title.toUpperCase(), 36, 60);
   c.font = '20px monospace';
   c.fillStyle = 'rgba(255,255,255,0.85)';
-  c.fillText(`${getSpot(result.spotId).nom} · ${getGenre(result.genreId).nom}`, 36, 92);
+  const genresPlayed = [...new Set(result.lineup.map((s) => getDj(s.djId).genre))]
+    .map((g) => getGenre(g).nom)
+    .join(' · ');
+  const subLine = genresPlayed
+    ? `${getSpot(result.spotId).nom} · ${genresPlayed}`
+    : getSpot(result.spotId).nom;
+  c.fillText(subLine, 36, 92);
   if (pseudo) {
     c.fillText(pseudo, 36, 120);
   }

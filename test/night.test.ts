@@ -30,7 +30,7 @@ function autoPlay(
 describe('set structure', () => {
   it('pauses at transitions and plays the planned number of sets to sunrise', () => {
     const state = newGame();
-    const night = createNight(state, 'champ', 'hardtek', ['tonton'], 1);
+    const night = createNight(state, 'champ', ['tonton'], 1);
     expect(night.phase).toBe('transition');
     expect(night.setCount).toBe(2);
     const events = autoPlay(state, night);
@@ -42,24 +42,59 @@ describe('set structure', () => {
 
   it('does not advance the world while a decision is pending', () => {
     const state = newGame();
-    const night = createNight(state, 'champ', 'hardtek', ['tonton'], 2);
+    const night = createNight(state, 'champ', ['tonton'], 2);
     expect(tickNight(state, night, 1)).toEqual([]);
     expect(night.t).toBe(0);
   });
 
   it('refuses a DJ who is not present tonight', () => {
     const state = newGame();
-    const night = createNight(state, 'champ', 'hardtek', ['tonton'], 3);
+    const night = createNight(state, 'champ', ['tonton'], 3);
     expect(() => startSet(state, night, 'fantome', 'normal')).toThrow();
   });
 });
 
+describe('le son c’est le DJ', () => {
+  it('initialises night.genreId to the first present DJ’s genre', () => {
+    const state = newGame();
+    // boblepine (dub) en tête de plateau → la phase transition d’avant-set porte son genre
+    const night = createNight(state, 'champ', ['boblepine', 'tonton'], 20);
+    expect(night.phase).toBe('transition');
+    expect(night.genreId).toBe('dub');
+  });
+
+  it('rewrites night.genreId to the playing DJ’s genre on each startSet', () => {
+    const state = newGame();
+    state.rep = 1000;
+    recruitDj(state, 'boblepine');
+    const night = createNight(state, 'champ', ['tonton', 'boblepine'], 21);
+    expect(night.setCount).toBe(2);
+
+    // set 1 : Tonton → hardtek
+    startSet(state, night, 'tonton', 'normal');
+    expect(night.genreId).toBe('hardtek');
+
+    // tick jusqu’à la transition entre les deux sets
+    let setEnded = false;
+    for (let i = 0; i < 5000 && !setEnded && night.phase !== 'ended'; i++) {
+      if (night.phase === 'event') resolveEvent(state, night, 0);
+      else setEnded = tickNight(state, night, DT).some((e) => e.type === 'set-ended');
+    }
+    expect(setEnded).toBe(true);
+    expect(night.phase).toBe('transition');
+
+    // set 2 : Bob Lépine → dub. Deux DJs différents = deux genreId différents.
+    startSet(state, night, 'boblepine', 'normal');
+    expect(night.genreId).toBe('dub');
+  });
+});
+
 describe('set quality', () => {
-  it('rewards technique, affinity, and platines tier', () => {
+  it('rewards technique and platines tier', () => {
     const state = newGame();
     state.rep = 1000;
     recruitDj(state, 'fantome');
-    const night = createNight(state, 'champ', 'hardtek', ['tonton', 'fantome'], 4);
+    const night = createNight(state, 'champ', ['tonton', 'fantome'], 4);
     const weak = computeSetQuality(state, night, 'tonton', 'normal');
     const star = computeSetQuality(state, night, 'fantome', 'normal');
     expect(star).toBeGreaterThan(weak * 1.5);
@@ -70,7 +105,7 @@ describe('set quality', () => {
 
   it('punishes exhaustion', () => {
     const state = newGame();
-    const night = createNight(state, 'champ', 'hardtek', ['tonton'], 5);
+    const night = createNight(state, 'champ', ['tonton'], 5);
     const fresh = computeSetQuality(state, night, 'tonton', 'normal');
     state.crew[0].fatigue = 1;
     expect(computeSetQuality(state, night, 'tonton', 'normal')).toBeLessThan(fresh);
@@ -80,11 +115,11 @@ describe('set quality', () => {
     const good = newGame();
     good.rep = 1000;
     recruitDj(good, 'sirene');
-    const nightGood = createNight(good, 'champ', 'hardtek', ['sirene'], 6);
+    const nightGood = createNight(good, 'champ', ['sirene'], 6);
     autoPlay(good, nightGood, { dj: 'sirene' });
 
     const meh = newGame();
-    const nightMeh = createNight(meh, 'champ', 'hardtek', ['tonton'], 6);
+    const nightMeh = createNight(meh, 'champ', ['tonton'], 6);
     autoPlay(meh, nightMeh);
 
     expect(nightGood.peakCrowd).toBeGreaterThan(nightMeh.peakCrowd);
@@ -96,7 +131,7 @@ describe('heat & busts', () => {
     const state = newGame();
     state.rep = 1000;
     recruitDj(state, 'kilowatt');
-    const night = createNight(state, 'hangar', 'acid', ['kilowatt'], 7);
+    const night = createNight(state, 'hangar', ['kilowatt'], 7);
     const events = autoPlay(state, night, { dj: 'kilowatt', brief: 'pousser', eventChoice: 1 });
     expect(night.busted).toBe(true);
     expect(events.some((e) => e.type === 'bust')).toBe(true);
@@ -107,7 +142,7 @@ describe('heat & busts', () => {
     state.rep = 1000;
     recruitDj(state, 'notaire');
     state.gear.logistique = 2;
-    const night = createNight(state, 'hangar', 'dub', ['notaire'], 8);
+    const night = createNight(state, 'hangar', ['notaire'], 8);
     autoPlay(state, night, { dj: 'notaire', brief: 'safe', eventChoice: 0 });
     expect(night.busted).toBe(false);
     expect(night.sunrise).toBe(true);
@@ -119,8 +154,8 @@ describe('gear in the sim', () => {
     const small = newGame();
     const big = newGame();
     big.gear.mur = 3;
-    expect(createNight(big, 'champ', 'hardtek', ['tonton'], 9).cap).toBeGreaterThan(
-      createNight(small, 'champ', 'hardtek', ['tonton'], 9).cap,
+    expect(createNight(big, 'champ', ['tonton'], 9).cap).toBeGreaterThan(
+      createNight(small, 'champ', ['tonton'], 9).cap,
     );
   });
 
@@ -129,7 +164,7 @@ describe('gear in the sim', () => {
     state.rep = 1000;
     state.buzz = 1.5;
     recruitDj(state, 'sirene');
-    const night = createNight(state, 'carriere', 'acid', ['sirene'], 10);
+    const night = createNight(state, 'carriere', ['sirene'], 10);
     const events = autoPlay(state, night, { dj: 'sirene', brief: 'pousser', maxSeconds: 400 });
     expect(events.some((e) => e.type === 'brownout')).toBe(true);
   });
@@ -137,7 +172,7 @@ describe('gear in the sim', () => {
   it('pushing the sound can blow the mur de son', () => {
     const state = newGame();
     state.damaged.mur = true; // fragile speakers blow faster
-    const night = createNight(state, 'foret', 'hardtek', ['tonton'], 11);
+    const night = createNight(state, 'foret', ['tonton'], 11);
     const events = autoPlay(state, night, { brief: 'pousser', maxSeconds: 300 });
     expect(events.some((e) => e.type === 'mur-blown') || night.murBlown).toBe(true);
   });
@@ -146,7 +181,7 @@ describe('gear in the sim', () => {
 describe('events', () => {
   it('fires at least one decision popup on a full night and pauses for it', () => {
     const state = newGame();
-    const night = createNight(state, 'foret', 'hardtek', ['tonton'], 12);
+    const night = createNight(state, 'foret', ['tonton'], 12);
     let sawEvent = false;
     for (let i = 0; i < 5000 && night.phase !== 'ended'; i++) {
       if (night.phase === 'transition') startSet(state, night, 'tonton', 'normal');
@@ -164,7 +199,7 @@ describe('events', () => {
 
   it('applies option effects', () => {
     const state = newGame();
-    const night = createNight(state, 'champ', 'hardtek', ['tonton'], 13);
+    const night = createNight(state, 'champ', ['tonton'], 13);
     startSet(state, night, 'tonton', 'normal');
     night.heat = 0.5;
     night.pendingEvent = { def: NIGHT_EVENTS.find((e) => e.id === 'patrouille')! };
@@ -178,7 +213,7 @@ describe('events', () => {
 
   it('never fires the same event twice in a night', () => {
     const state = newGame();
-    const night = createNight(state, 'teknival', 'hardtek', ['tonton'], 14);
+    const night = createNight(state, 'teknival', ['tonton'], 14);
     state.rep = 1000;
     const fired: string[] = [];
     for (let i = 0; i < 8000 && night.phase !== 'ended'; i++) {
@@ -195,7 +230,7 @@ describe('events', () => {
 describe('crew toll', () => {
   it('fatigues the DJ and grants xp after each set', () => {
     const state = newGame();
-    const night = createNight(state, 'champ', 'hardtek', ['tonton'], 15);
+    const night = createNight(state, 'champ', ['tonton'], 15);
     autoPlay(state, night);
     expect(state.crew[0].fatigue).toBeGreaterThan(0.3); // played both sets
     expect(state.crew[0].xp).toBeGreaterThan(0);
@@ -206,7 +241,7 @@ describe('crew toll', () => {
 describe('economy during the night', () => {
   it('banks bar drip proportional to the crowd', () => {
     const state = newGame();
-    const night = createNight(state, 'champ', 'hardtek', ['tonton'], 16);
+    const night = createNight(state, 'champ', ['tonton'], 16);
     autoPlay(state, night);
     expect(night.bank).toBeGreaterThan(0);
   });

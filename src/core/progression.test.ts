@@ -7,7 +7,7 @@ import type { GameState, NightResult } from './types';
 
 /** Play one full night at the current selection, always picking event option 0. */
 function playNight(state: GameState, seed: number): NightResult {
-  const night = createNight(state, 'champ', 'hardtek', ['tonton'], seed);
+  const night = createNight(state, 'champ', ['tonton'], seed);
   // guard against balance changes hanging the loop
   for (let guard = 0; guard < 100_000 && night.phase !== 'ended'; guard++) {
     if (night.phase === 'transition') startSet(state, night, 'tonton', 'normal');

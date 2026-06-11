@@ -27,7 +27,7 @@ describe('drawGoal', () => {
 describe('objectifs de set', () => {
   it('un set propre (zéro brownout) crédite la récompense et l’enregistre', () => {
     const state = newGame(42);
-    const night = createNight(state, 'champ', 'hardtek', ['tonton'], 7);
+    const night = createNight(state, 'champ', ['tonton'], 7);
     startSet(state, night, 'tonton', 'normal');
     // force l'objectif « zéro brownout », trivialement atteint sur un set court
     const propre = SET_GOALS.find((g) => g.id === 'propre')!;
@@ -47,7 +47,7 @@ describe('objectifs de set', () => {
 
   it('le résultat (settleNight) expose goalsMet', () => {
     const state = newGame(42);
-    const night = createNight(state, 'champ', 'hardtek', ['tonton'], 7);
+    const night = createNight(state, 'champ', ['tonton'], 7);
     startSet(state, night, 'tonton', 'normal');
     const propre = SET_GOALS.find((g) => g.id === 'propre')!;
     night.setGoal = propre;

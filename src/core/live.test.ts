@@ -12,7 +12,7 @@ function tickFor(state: ReturnType<typeof newGame>, night: ReturnType<typeof cre
 
 function playingNight() {
   const state = newGame(42);
-  const night = createNight(state, 'champ', 'hardtek', ['tonton'], 7);
+  const night = createNight(state, 'champ', ['tonton'], 7);
   startSet(state, night, 'tonton', 'normal');
   return { state, night };
 }
@@ -36,7 +36,7 @@ describe('live brief changes', () => {
 
   it('refuses outside the playing phase', () => {
     const state = newGame(42);
-    const night = createNight(state, 'champ', 'hardtek', ['tonton'], 7);
+    const night = createNight(state, 'champ', ['tonton'], 7);
     expect(changeBrief(state, night, 'pousser')).toBe(false); // transition phase
   });
 });

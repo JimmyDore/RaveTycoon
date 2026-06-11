@@ -37,7 +37,6 @@ const bankReady = loadSprites().then((b) => {
 
 const selection: PrepareSelection = {
   spot: 'champ',
-  genre: 'hardtek',
   present: new Set(state.crew.map((d) => d.id)),
 };
 
@@ -63,7 +62,7 @@ async function startNight(): Promise<void> {
   const present = [...selection.present].filter((id) => state.crew.some((d) => d.id === id));
   if (present.length === 0) return;
   const b = await bankReady;
-  const night = createNight(state, selection.spot, selection.genre, present, (Date.now() ^ 0x7e7) >>> 0);
+  const night = createNight(state, selection.spot, present, (Date.now() ^ 0x7e7) >>> 0);
   const screen = renderNight(app, {
     onBrief: (brief) => {
       if (active && changeBrief(state, active.night, brief)) {
@@ -83,7 +82,6 @@ async function startNight(): Promise<void> {
   });
   const scene = new SceneRenderer(screen.canvas, b);
   const ravers = new RaverSim(defaultFloor());
-  void audio.start(selection.genre);
 
   active = {
     night,
@@ -105,6 +103,8 @@ function onStartSet(djId: string, brief: Brief): void {
   // révélation des modifs du soir au 1er set, une fois le modal de transition fermé
   const firstSet = active.night.setIndex === 0 && active.night.playedSets.length === 0;
   startSet(state, active.night, djId, brief);
+  // le son c'est le DJ : on bascule le moteur sur le genre du DJ qui prend le set
+  void audio.switchTo(getDj(djId).genre);
   if (firstSet) active.screen.showModifiers(active.night.modifiers);
   active.screen.toast(`🎧 ${STR.nowPlaying(getDj(djId).nom)}`);
 }

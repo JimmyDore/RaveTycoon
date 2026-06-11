@@ -32,7 +32,16 @@ const RISK_HEAT = { discret: 0.8, normal: 1, chaud: 1.35 } as const;
 const HEAT_BASE = 0.55;
 /** la montée : charge/s à pleine vibe */
 const MONTEE_RATE = 0.05;
-const MONTEE_GENRE: Record<GenreId, number> = { hardtek: 1.1, acid: 1.2, dub: 0.8 };
+const MONTEE_GENRE: Record<GenreId, number> = {
+  hardtek: 1.1,
+  acid: 1.2,
+  dub: 0.8,
+  frenchcore: 1.3,
+  mentale: 1.1,
+  techno: 0.9,
+  raggatek: 1.15,
+  darkpsy: 1.0,
+};
 /** décroissance /s quand la vibe est trop basse */
 const MONTEE_DECAY = 0.03;
 /** ×= sur la jauge lors d'une coupure son (drop avorté) */
@@ -49,7 +58,6 @@ function clamp(x: number, lo: number, hi: number): number {
 export function createNight(
   state: GameState,
   spotId: SpotId,
-  genreId: GenreId,
   presentDjs: string[],
   seed: number,
 ): NightState {
@@ -61,7 +69,9 @@ export function createNight(
   const eventDelay = modifierSum(modifiers, 'eventDelay');
   return {
     spotId,
-    genreId,
+    // genre du set courant — initialisé au genre du 1er DJ (sert la phase transition
+    // avant le premier set), réécrit à chaque startSet par le DJ qui joue
+    genreId: getDj(presentDjs[0]).genre,
     phase: 'transition',
     presentDjs,
     setIndex: 0,
@@ -116,15 +126,14 @@ export function createNight(
   };
 }
 
-export function computeSetQuality(state: GameState, night: NightState, djId: string, brief: Brief): number {
+export function computeSetQuality(state: GameState, _night: NightState, djId: string, brief: Brief): number {
   const def = getDj(djId);
   const member = getCrewMember(state, djId);
-  const genreAffinity = def.affinities[night.genreId];
   const platines = GEAR.platines[state.gear.platines].value * (state.damaged.platines ? 0.7 : 1);
   const tech = effectiveTechnique(def, member);
   const base = 0.18 + 0.16 * tech;
   return clamp(
-    base * genreAffinity * platines * BRIEF_QUALITY[brief] * fatigueQualityMult(member),
+    base * platines * BRIEF_QUALITY[brief] * fatigueQualityMult(member),
     0.05,
     1.5,
   );
@@ -136,6 +145,8 @@ export function startSet(state: GameState, night: NightState, djId: string, brie
   if (!night.presentDjs.includes(djId)) throw new Error(`dj not present: ${djId}`);
   night.currentDj = djId;
   night.brief = brief;
+  // le son c'est le DJ : le genre du set courant est celui du DJ qui joue
+  night.genreId = getDj(djId).genre;
   night.setQuality = computeSetQuality(state, night, djId, brief);
   night.qualityMultRestOfSet = 1;
   night.setElapsed = 0;

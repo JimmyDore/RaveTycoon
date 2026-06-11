@@ -25,9 +25,9 @@ describe('spots', () => {
 });
 
 describe('genres', () => {
-  it('has 3 genres with distinct bpm', () => {
-    expect(GENRES).toHaveLength(3);
-    expect(new Set(GENRES.map((g) => g.bpm)).size).toBe(3);
+  it('has 8 genres, one per DJ', () => {
+    expect(GENRES).toHaveLength(8);
+    expect(new Set(GENRES.map((g) => g.id)).size).toBe(8);
   });
 
   it('models dub as slow/chill and acid as hot', () => {
@@ -64,7 +64,8 @@ describe('djs', () => {
     expect([...reqs].sort((a, b) => a - b)).toEqual(reqs);
   });
 
-  it('gives every DJ stats in range and affinities for all genres', () => {
+  it('gives every DJ stats in range and a signature genre', () => {
+    const genreIds = new Set(GENRES.map((g) => g.id));
     for (const dj of DJS) {
       expect(dj.technique).toBeGreaterThanOrEqual(1);
       expect(dj.technique).toBeLessThanOrEqual(5);
@@ -72,10 +73,12 @@ describe('djs', () => {
       expect(dj.charisme).toBeLessThanOrEqual(5);
       expect(dj.cut).toBeGreaterThan(0);
       expect(dj.cut).toBeLessThanOrEqual(0.3);
-      for (const g of GENRES) {
-        expect(dj.affinities[g.id]).toBeGreaterThan(0);
-      }
+      expect(genreIds.has(dj.genre)).toBe(true);
     }
+  });
+
+  it('maps each genre to exactly one DJ', () => {
+    expect(new Set(DJS.map((d) => d.genre)).size).toBe(DJS.length);
   });
 
   it('prices better DJs with bigger cuts', () => {

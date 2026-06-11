@@ -40,17 +40,24 @@ interface StemNodes {
  */
 export class AudioEngine {
   private ctx: AudioContext | null = null;
+  private comp: DynamicsCompressorNode | null = null;
   private master: GainNode | null = null;
   private shaper: WaveShaperNode | null = null;
   private lowshelf: BiquadFilterNode | null = null;
   private stems = new Map<StemName, StemNodes>();
   private crowdGain: GainNode | null = null;
   private crackleGain: GainNode | null = null;
+  /** background source beds — kept so a re-start can stop them instead of leaking */
+  private crowdSrc: AudioBufferSourceNode | null = null;
+  private crackleSrc: AudioBufferSourceNode | null = null;
   private loopStart = 0;
   private curveLevel = -1;
   private running = false;
   private bpm = 0; // bpm of whatever is currently looping
+  private currentGenre: GenreId | null = null;
   private manifest: StemManifest | null | undefined; // undefined = not fetched yet
+  /** decoded/rendered stem buffers per genre — never re-fetch/re-render on revisit */
+  private bufferCache = new Map<GenreId, { buffers: StemBuffers; bpm: number }>();
 
   private async fetchManifest(): Promise<StemManifest | null> {
     if (this.manifest !== undefined) return this.manifest;
@@ -87,6 +94,26 @@ export class AudioEngine {
     }
   }
 
+  /**
+   * Stem buffers for a genre, cached by genreId so a revisit (same DJ replaying,
+   * or a return to a genre) never re-fetches or re-renders. Real stems from
+   * /audio/ when present, synthesised offline otherwise.
+   */
+  private async resolveStems(
+    ctx: AudioContext,
+    genreId: GenreId,
+  ): Promise<{ buffers: StemBuffers; bpm: number }> {
+    const cached = this.bufferCache.get(genreId);
+    if (cached) return cached;
+    const real = await this.loadRealStems(ctx, genreId);
+    const patterns = patternsFor(genreId);
+    const resolved = real
+      ? real
+      : { buffers: await renderStems(patterns, ctx.sampleRate), bpm: patterns.bpm };
+    this.bufferCache.set(genreId, resolved);
+    return resolved;
+  }
+
   get isRunning(): boolean {
     return this.running;
   }
@@ -102,14 +129,17 @@ export class AudioEngine {
 
   async start(genreId: GenreId): Promise<void> {
     const ctx = this.ensureCtx();
-    this.stopStems();
-    const patterns = patternsFor(genreId);
+    // tear down any previous chain in full — a fresh start rebuilds it, so the
+    // old master chain and background beds must be stopped/disconnected, never
+    // left to resume (and stack) on the next ctx.resume()
+    this.teardown();
 
     // master chain: stems → lowshelf → waveshaper → master → compressor → out
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -12;
     comp.ratio.value = 4;
     comp.connect(ctx.destination);
+    this.comp = comp;
     this.master = ctx.createGain();
     this.master.gain.value = 0;
     this.master.connect(comp);
@@ -124,22 +154,11 @@ export class AudioEngine {
     this.lowshelf.connect(this.shaper);
     this.curveLevel = -1;
 
-    const real = await this.loadRealStems(ctx, genreId);
-    const buffers = real ? real.buffers : await renderStems(patterns, ctx.sampleRate);
-    this.bpm = real ? real.bpm : patterns.bpm;
+    const { buffers, bpm } = await this.resolveStems(ctx, genreId);
+    this.bpm = bpm;
+    this.currentGenre = genreId;
     const t0 = ctx.currentTime + 0.05;
-    for (const name of STEM_NAMES) {
-      const source = ctx.createBufferSource();
-      source.buffer = buffers[name];
-      source.loop = true;
-      const gain = ctx.createGain();
-      gain.gain.value = name === 'sub' ? 0 : 0.8;
-      source.connect(gain);
-      gain.connect(this.lowshelf);
-      source.start(t0);
-      this.stems.set(name, { source, gain });
-    }
-    this.loopStart = t0;
+    this.spawnStems(ctx, buffers, t0);
 
     // crowd noise bed, straight to the compressor (not through the desk)
     const crowdSrc = ctx.createBufferSource();
@@ -155,6 +174,7 @@ export class AudioEngine {
     crowdFilter.connect(this.crowdGain);
     this.crowdGain.connect(comp);
     crowdSrc.start(t0);
+    this.crowdSrc = crowdSrc;
 
     // blown-speaker crackle bed
     const crackleSrc = ctx.createBufferSource();
@@ -165,8 +185,26 @@ export class AudioEngine {
     crackleSrc.connect(this.crackleGain);
     this.crackleGain.connect(comp);
     crackleSrc.start(t0);
+    this.crackleSrc = crackleSrc;
 
     this.running = true;
+  }
+
+  /** Wire one looping buffer source per stem into the desk, starting at t0. */
+  private spawnStems(ctx: AudioContext, buffers: StemBuffers, t0: number): void {
+    if (!this.lowshelf) return;
+    for (const name of STEM_NAMES) {
+      const source = ctx.createBufferSource();
+      source.buffer = buffers[name];
+      source.loop = true;
+      const gain = ctx.createGain();
+      gain.gain.value = name === 'sub' ? 0 : 0.8;
+      source.connect(gain);
+      gain.connect(this.lowshelf);
+      source.start(t0);
+      this.stems.set(name, { source, gain });
+    }
+    this.loopStart = t0;
   }
 
   private stopStems(): void {
@@ -181,9 +219,87 @@ export class AudioEngine {
     this.running = false;
   }
 
-  stop(): void {
+  /**
+   * Stop and disconnect the whole graph: stems, background beds, and the master
+   * chain. Called before a fresh start() so nothing from the previous night is
+   * left suspended (it would resume and stack on the next ctx.resume()).
+   */
+  private teardown(): void {
     this.stopStems();
+    for (const src of [this.crowdSrc, this.crackleSrc]) {
+      if (!src) continue;
+      try {
+        src.stop();
+      } catch {
+        // never started
+      }
+      src.disconnect();
+    }
+    this.crowdSrc = null;
+    this.crackleSrc = null;
+    for (const node of [this.comp, this.master, this.shaper, this.lowshelf, this.crowdGain, this.crackleGain]) {
+      node?.disconnect();
+    }
+    this.comp = null;
+    this.master = null;
+    this.shaper = null;
+    this.lowshelf = null;
+    this.crowdGain = null;
+    this.crackleGain = null;
+  }
+
+  /** Stop a captured set of stem nodes at time t (used by the crossfade tail). */
+  private stopStemNodes(nodes: StemNodes[], t: number): void {
+    for (const { source } of nodes) {
+      try {
+        source.stop(t);
+      } catch {
+        // never started
+      }
+    }
+  }
+
+  stop(): void {
+    this.teardown();
     if (this.ctx) void this.ctx.suspend();
+  }
+
+  /**
+   * Crossfade to another genre's stems without a hard stop/reload (~0.35s).
+   * Decoded/rendered buffers are cached per genreId, so returning to a genre
+   * never re-fetches or re-renders. If nothing is running yet, falls back to
+   * a plain start.
+   */
+  async switchTo(genreId: GenreId): Promise<void> {
+    if (!this.running || !this.master || !this.lowshelf) {
+      await this.start(genreId);
+      return;
+    }
+    if (genreId === this.currentGenre) return;
+    const ctx = this.ensureCtx();
+    const fade = 0.35;
+
+    // resolve (possibly async) before touching the graph so the swap is tight
+    const { buffers, bpm } = await this.resolveStems(ctx, genreId);
+    if (!this.running || !this.master || !this.lowshelf) return; // stopped while awaiting
+
+    const t = ctx.currentTime;
+    const masterTarget = this.master.gain.value;
+
+    // fade the master down, swap stems at the trough, fade back up
+    this.master.gain.cancelScheduledValues(t);
+    this.master.gain.setValueAtTime(this.master.gain.value, t);
+    this.master.gain.linearRampToValueAtTime(0.0001, t + fade / 2);
+    this.master.gain.linearRampToValueAtTime(masterTarget, t + fade);
+
+    // retire the outgoing stems after the fade tail
+    const outgoing = [...this.stems.values()];
+    this.stems.clear();
+    this.stopStemNodes(outgoing, t + fade + 0.05);
+
+    this.bpm = bpm;
+    this.currentGenre = genreId;
+    this.spawnStems(ctx, buffers, t + fade / 2);
   }
 
   /**
@@ -370,25 +486,58 @@ function scheduleLeads(
   notes: Note[],
   step: number,
 ): void {
-  if (p.bpm === 140) {
-    // acid — resonant 303 squelch
-    for (const n of notes) schedule303(ctx, n.step * step, n.freq, n.vel, n.len * step);
-  } else if (p.bpm === 75) {
-    // dub — chord skank through a feedback delay
-    const delay = ctx.createDelay(1);
-    delay.delayTime.value = step * 3;
-    const fb = ctx.createGain();
-    fb.gain.value = 0.45;
-    const wet = ctx.createGain();
-    wet.gain.value = 0.5;
-    delay.connect(fb);
-    fb.connect(delay);
-    delay.connect(wet);
-    wet.connect(ctx.destination);
-    for (const n of notes) scheduleSkank(ctx, delay, n.step * step, n.freq, n.vel);
-  } else {
-    // hardtek — detuned rave stabs
-    for (const n of notes) scheduleStab(ctx, n.step * step, n.freq, n.vel, n.len * step);
+  switch (p.leadStyle) {
+    case 'acid303':
+      // resonant 303 squelch
+      for (const n of notes) schedule303(ctx, n.step * step, n.freq, n.vel, n.len * step);
+      break;
+    case 'skank': {
+      // chord skank through a feedback delay (dub & raggatek)
+      const delay = ctx.createDelay(1);
+      delay.delayTime.value = step * 3;
+      const fb = ctx.createGain();
+      fb.gain.value = 0.45;
+      const wet = ctx.createGain();
+      wet.gain.value = 0.5;
+      delay.connect(fb);
+      fb.connect(delay);
+      delay.connect(wet);
+      wet.connect(ctx.destination);
+      for (const n of notes) scheduleSkank(ctx, delay, n.step * step, n.freq, n.vel);
+      break;
+    }
+    case 'hoover':
+      // frenchcore — saturated detuned hoover, very driving
+      for (const n of notes) scheduleHoover(ctx, n.step * step, n.freq, n.vel, n.len * step);
+      break;
+    case 'arp':
+      // mentale — clean hypnotic arpeggio voice
+      for (const n of notes) scheduleArp(ctx, n.step * step, n.freq, n.vel, n.len * step);
+      break;
+    case 'psy':
+      // darkpsy — resonant winding psy line
+      for (const n of notes) schedulePsy(ctx, n.step * step, n.freq, n.vel, n.len * step);
+      break;
+    case 'ragga': {
+      // raggatek — vocal-ish toasting stab through a sound-system echo
+      const delay = ctx.createDelay(1);
+      delay.delayTime.value = step * 2;
+      const fb = ctx.createGain();
+      fb.gain.value = 0.35;
+      const wet = ctx.createGain();
+      wet.gain.value = 0.4;
+      delay.connect(fb);
+      fb.connect(delay);
+      delay.connect(wet);
+      wet.connect(ctx.destination);
+      for (const n of notes) scheduleRagga(ctx, delay, n.step * step, n.freq, n.vel);
+      break;
+    }
+    case 'stab':
+    default:
+      // hardtek / techno — detuned rave stabs
+      for (const n of notes) scheduleStab(ctx, n.step * step, n.freq, n.vel, n.len * step);
+      break;
   }
 }
 
@@ -465,6 +614,129 @@ function scheduleSkank(
     osc.start(t);
     osc.stop(t + 0.2);
   }
+}
+
+function scheduleRagga(
+  ctx: OfflineAudioContext,
+  delaySend: DelayNode,
+  t: number,
+  freq: number,
+  vel: number,
+): void {
+  // a single vocal-like stab: bandpassed saw with a quick upward scoop + echo send
+  const osc = ctx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(freq * 1.45, t);
+  osc.frequency.exponentialRampToValueAtTime(freq * 2, t + 0.05);
+  const bp = ctx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = freq * 4;
+  bp.Q.value = 4.5;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(vel * 0.2, t + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+  osc.connect(bp);
+  bp.connect(gain);
+  gain.connect(ctx.destination);
+  gain.connect(delaySend);
+  osc.start(t);
+  osc.stop(t + 0.22);
+}
+
+function scheduleHoover(
+  ctx: OfflineAudioContext,
+  t: number,
+  freq: number,
+  vel: number,
+  dur: number,
+): void {
+  // stacked detuned saws through a resonant sweep + soft clip = the frenchcore hoover
+  const shaper = ctx.createWaveShaper();
+  shaper.curve = distortionCurve(12);
+  shaper.oversample = '2x';
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.Q.value = 6;
+  filter.frequency.setValueAtTime(700, t);
+  filter.frequency.exponentialRampToValueAtTime(2800, t + dur * 0.5);
+  filter.frequency.exponentialRampToValueAtTime(800, t + dur);
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(vel * 0.22, t + 0.01);
+  gain.gain.setValueAtTime(vel * 0.22, t + dur * 0.85);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  filter.connect(shaper);
+  shaper.connect(gain);
+  gain.connect(ctx.destination);
+  for (const detune of [-12, -5, 0, 7, 12]) {
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.value = freq;
+    osc.detune.value = detune;
+    osc.connect(filter);
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  }
+}
+
+function scheduleArp(
+  ctx: OfflineAudioContext,
+  t: number,
+  freq: number,
+  vel: number,
+  dur: number,
+): void {
+  // bright plucky triangle+saw blend with a quick decay — mentale hypnotic arp
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.Q.value = 4;
+  filter.frequency.setValueAtTime(4200, t);
+  filter.frequency.exponentialRampToValueAtTime(900, t + dur * 0.9);
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(vel * 0.2, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + dur * 0.95);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+  const saw = ctx.createOscillator();
+  saw.type = 'sawtooth';
+  saw.frequency.value = freq;
+  saw.connect(filter);
+  saw.start(t);
+  saw.stop(t + dur + 0.02);
+  const tri = ctx.createOscillator();
+  tri.type = 'triangle';
+  tri.frequency.value = freq * 2;
+  tri.detune.value = 4;
+  tri.connect(filter);
+  tri.start(t);
+  tri.stop(t + dur + 0.02);
+}
+
+function schedulePsy(
+  ctx: OfflineAudioContext,
+  t: number,
+  freq: number,
+  vel: number,
+  dur: number,
+): void {
+  // high-resonance winding square — squelchy, twisting psy lead
+  const osc = ctx.createOscillator();
+  osc.type = 'square';
+  osc.frequency.value = freq;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.Q.value = 18;
+  filter.frequency.setValueAtTime(400 + vel * 1800, t);
+  filter.frequency.exponentialRampToValueAtTime(380, t + dur * 0.9);
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(vel * 0.18, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(t);
+  osc.stop(t + dur + 0.02);
 }
 
 function scheduleHat(ctx: OfflineAudioContext, t: number, freq: number, vel: number): void {

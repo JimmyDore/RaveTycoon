@@ -20,10 +20,15 @@ export interface Note {
   len: number;
 }
 
+/** How the lead stem is voiced — picked by the engine to give each genre its timbre. */
+export type LeadStyle = 'stab' | 'acid303' | 'skank' | 'hoover' | 'arp' | 'psy' | 'ragga';
+
 export interface GenrePatterns {
   bpm: number;
   steps: number;
   loopSeconds: number;
+  /** voicing of the lead stem (selects the engine renderer) */
+  leadStyle: LeadStyle;
   kick: Note[];
   sub: Note[];
   lead: Note[];
@@ -79,7 +84,7 @@ function buildHardtek(): GenrePatterns {
   const hats: Note[] = [];
   for (let s = 2; s < steps; s += 4) hats.push({ step: s, freq: 9000, vel: 0.8, len: 1 });
   for (let s = 0; s < steps; s += 2) hats.push({ step: s, freq: 11000, vel: 0.25, len: 1 });
-  return { bpm, steps, loopSeconds: loopSeconds(bpm), kick: fourOnFloor(steps), sub, lead, hats };
+  return { bpm, steps, loopSeconds: loopSeconds(bpm), leadStyle: 'stab', kick: fourOnFloor(steps), sub, lead, hats };
 }
 
 function buildAcid(): GenrePatterns {
@@ -96,7 +101,7 @@ function buildAcid(): GenrePatterns {
   const sub: Note[] = [];
   for (let s = 0; s < steps; s += 8) sub.push({ step: s, freq: note(0), vel: 0.9, len: 6 });
   const hats = offbeats(steps, 10000, 0.7);
-  return { bpm, steps, loopSeconds: loopSeconds(bpm), kick: fourOnFloor(steps), sub, lead, hats };
+  return { bpm, steps, loopSeconds: loopSeconds(bpm), leadStyle: 'acid303', kick: fourOnFloor(steps), sub, lead, hats };
 }
 
 function buildDub(): GenrePatterns {
@@ -111,13 +116,119 @@ function buildDub(): GenrePatterns {
   const sub = bassline.map(([step, semi, len]) => ({ step, freq: note(semi), vel: 0.95, len }));
   const lead = offbeats(steps, note(12), 0.55).map((n) => ({ ...n, len: 1 }));
   const hats = onSteps([4, 12, 20, 28], 8000, 0.4, 1);
-  return { bpm, steps, loopSeconds: loopSeconds(bpm), kick, sub, lead, hats };
+  return { bpm, steps, loopSeconds: loopSeconds(bpm), leadStyle: 'skank', kick, sub, lead, hats };
+}
+
+function buildFrenchcore(): GenrePatterns {
+  const bpm = 200;
+  const steps = loopSteps();
+  // relentless 4-floor kick + a driving distorted hoover lead. Sub doubles the kick low.
+  const sub: Note[] = [];
+  for (let s = 0; s < steps; s += 4) sub.push({ step: s, freq: note(-5), vel: 1, len: 3 });
+  // hoover riff — long detuned notes climbing then snapping back, very driving
+  const hoover = [0, 0, 3, 5, 7, 5, 3, 0];
+  const lead: Note[] = [];
+  for (let i = 0; i < steps; i += 4) {
+    const semi = hoover[(i / 4) % hoover.length];
+    lead.push({ step: i, freq: note(semi), vel: i % 8 === 0 ? 1 : 0.8, len: 4 });
+  }
+  const hats: Note[] = [];
+  for (let s = 0; s < steps; s += 2) hats.push({ step: s, freq: 10000, vel: s % 4 === 2 ? 0.85 : 0.3, len: 1 });
+  return { bpm, steps, loopSeconds: loopSeconds(bpm), leadStyle: 'hoover', kick: fourOnFloor(steps), sub, lead, hats };
+}
+
+function buildMentale(): GenrePatterns {
+  const bpm = 180;
+  const steps = loopSteps();
+  // hardtek kick + a hypnotic melodic arpeggio. Sub holds a long droning root.
+  const sub: Note[] = [];
+  for (let s = 0; s < steps; s += 8) sub.push({ step: s, freq: note(-12), vel: 0.9, len: 8 });
+  // minor arpeggio, 8ths, climbing — the hypnotic signature
+  const arp = [0, 7, 12, 15, 12, 7, 10, 7];
+  const lead: Note[] = [];
+  for (let s = 0; s < steps; s += 2) {
+    const semi = arp[(s / 2) % arp.length];
+    lead.push({ step: s, freq: note(semi + 12), vel: s % 8 === 0 ? 0.9 : 0.6, len: 2 });
+  }
+  const hats: Note[] = [];
+  for (let s = 2; s < steps; s += 4) hats.push({ step: s, freq: 9500, vel: 0.6, len: 1 });
+  for (let s = 1; s < steps; s += 2) hats.push({ step: s, freq: 12000, vel: 0.2, len: 1 });
+  return { bpm, steps, loopSeconds: loopSeconds(bpm), leadStyle: 'arp', kick: fourOnFloor(steps), sub, lead, hats };
+}
+
+function buildTechno(): GenrePatterns {
+  const bpm = 130;
+  const steps = loopSteps();
+  // clean 4-floor, minimal offbeat stab, tight rolling sub. The discreet banker.
+  const sub: Note[] = [];
+  for (let s = 0; s < steps; s += 2) sub.push({ step: s, freq: note(-12), vel: s % 4 === 0 ? 0.9 : 0.7, len: 1 });
+  // sparse offbeat stab — minimal, just a couple of steps per bar
+  const lead = [
+    ...onSteps([6, 14], note(7), 0.7, 1),
+    ...onSteps([22, 30], note(10), 0.7, 1),
+  ];
+  // tight closed offbeat hats, very even
+  const hats: Note[] = [];
+  for (let s = 2; s < steps; s += 4) hats.push({ step: s, freq: 11000, vel: 0.6, len: 1 });
+  return { bpm, steps, loopSeconds: loopSeconds(bpm), leadStyle: 'stab', kick: fourOnFloor(steps), sub, lead, hats };
+}
+
+function buildRaggatek(): GenrePatterns {
+  const bpm = 175;
+  const steps = loopSteps();
+  // tek kick + walking sub + a vocal toasting stab on the offbeats.
+  const sub: Note[] = [];
+  const bassline = [0, 0, -2, -5, 0, 3, -5, -2];
+  for (let i = 0; i < steps; i += 4) {
+    sub.push({ step: i + 2, freq: note(bassline[(i / 4) % bassline.length] - 12), vel: 0.9, len: 2 });
+  }
+  // toasting phrase — a short sung contour on the offbeats (its own 'ragga' voicing)
+  const phrase = [12, 12, 15, 12, 17, 15, 12, 10];
+  const lead: Note[] = [];
+  let pi = 0;
+  for (let s = 2; s < steps; s += 4) {
+    lead.push({ step: s, freq: note(phrase[pi % phrase.length]), vel: pi % 2 === 0 ? 0.75 : 0.6, len: 1 });
+    pi++;
+  }
+  // syncopated tek hats
+  const hats: Note[] = [];
+  for (let s = 2; s < steps; s += 4) hats.push({ step: s, freq: 9000, vel: 0.75, len: 1 });
+  for (let s = 3; s < steps; s += 4) hats.push({ step: s, freq: 12000, vel: 0.3, len: 1 });
+  return { bpm, steps, loopSeconds: loopSeconds(bpm), leadStyle: 'ragga', kick: fourOnFloor(steps), sub, lead, hats };
+}
+
+function buildDarkpsy(): GenrePatterns {
+  const bpm = 150;
+  const steps = loopSteps();
+  // rolling 16th bassline between the kicks + a resonant psy lead. Hypnotic forest transe.
+  // classic psy: kick on the beat, rolling sub on the three off-16ths after it
+  const sub: Note[] = [];
+  for (let s = 0; s < steps; s++) {
+    if (s % 4 !== 0) sub.push({ step: s, freq: note(-17), vel: 0.85, len: 1 });
+  }
+  // squelchy resonant psy lead — a winding minor line in 16ths
+  const psyRiff = [0, 0, 5, 0, 3, 0, 7, 3, 0, 0, 10, 7, 5, 3, 0, -2];
+  const lead: Note[] = [];
+  for (let s = 0; s < steps; s++) {
+    if (s % 2 === 0 || s % 4 === 3) {
+      lead.push({ step: s, freq: note(psyRiff[s % psyRiff.length] + 12), vel: s % 4 === 0 ? 0.9 : 0.55, len: 1 });
+    }
+  }
+  const hats: Note[] = [];
+  for (let s = 2; s < steps; s += 4) hats.push({ step: s, freq: 9000, vel: 0.55, len: 1 });
+  for (let s = 0; s < steps; s += 2) hats.push({ step: s, freq: 13000, vel: 0.18, len: 1 });
+  return { bpm, steps, loopSeconds: loopSeconds(bpm), leadStyle: 'psy', kick: fourOnFloor(steps), sub, lead, hats };
 }
 
 const BUILDERS: Record<GenreId, () => GenrePatterns> = {
   hardtek: buildHardtek,
   acid: buildAcid,
   dub: buildDub,
+  frenchcore: buildFrenchcore,
+  mentale: buildMentale,
+  techno: buildTechno,
+  raggatek: buildRaggatek,
+  darkpsy: buildDarkpsy,
 };
 
 export function patternsFor(genre: GenreId): GenrePatterns {

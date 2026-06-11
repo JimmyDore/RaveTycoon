@@ -11,7 +11,6 @@ export const STR = {
   // prepare screen
   prepare: 'Préparation',
   chooseSpot: 'Le spot',
-  chooseGenre: 'Le son',
   chooseCrew: 'Le crew',
   locked: 'Verrouillé',
   repNeeded: (n: number) => `${n} rép nécessaire`,
@@ -62,7 +61,6 @@ export const STR = {
   recruit: 'Recruter',
   inCrew: 'Dans le crew',
   bringTonight: 'Embarquer ce soir',
-  affinity: 'Affinités',
   newRecruit: (nom: string) => `${nom} veut rejoindre le crew !`,
 
   // night screen
@@ -150,7 +148,7 @@ export const STR = {
 
   // misc
   firstTimeHint:
-    'Choisis ton spot, ton son et qui mixe — puis fais les bons choix pendant la nuit. Pousser le son remplit le champ… et la jauge des bleus.',
+    'Choisis ton spot et embarque ton crew — chaque DJ amène son propre son. Enchaîne les bons sets pendant la nuit : pousser le son remplit le champ… et la jauge des bleus.',
 } as const;
 
 export function fmtCash(n: number): string {
