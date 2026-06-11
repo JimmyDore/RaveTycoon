@@ -1,10 +1,12 @@
 import type { GearCategory, SpotId } from '../core/types';
-import type { RaverSim } from './ravers';
+import type { RaverSim, DanceFloor } from './ravers';
+import { drawRaverFrame, type PropName, type SpriteBank, type TerrainName } from './sprites';
 
 /** Internal pixel resolution; scaled up with image-rendering: pixelated. */
-export const SCENE_W = 320;
-export const SCENE_H = 180;
-export const GROUND_Y = 108;
+export const SCENE_W = 480;
+export const SCENE_H = 270;
+/** Stage band occupies the top of the scene; the floor starts below it. */
+export const STAGE_BOTTOM = 84;
 
 export interface SceneParams {
   spotId: SpotId;
@@ -12,12 +14,121 @@ export interface SceneParams {
   progress: number;
   gear: Record<GearCategory, number>;
   heat: number;
-  brownout: boolean;
+  /** sound currently cut (brownout / repairs) */
+  soundCut: boolean;
   beatPhase: number;
   vibe: number;
   busted: boolean;
   crowd: number;
+  /** ravers.png row of the DJ currently playing, or null between sets */
+  djCharacter: number | null;
 }
+
+export function defaultFloor(): DanceFloor {
+  return { x: 24, y: STAGE_BOTTOM + 12, w: SCENE_W - 48, h: SCENE_H - STAGE_BOTTOM - 40 };
+}
+
+interface PropPlacement {
+  prop: PropName;
+  x: number;
+  y: number;
+}
+
+interface SpotRecipe {
+  terrain: TerrainName[];
+  /** props behind/around the floor */
+  props: PropPlacement[];
+  /** warm light sources punched through the darkness (campfires…) */
+  fires: Array<{ x: number; y: number; r: number }>;
+}
+
+const RECIPES: Record<SpotId, SpotRecipe> = {
+  champ: {
+    terrain: ['grass_1', 'grass_2', 'grass_3'],
+    props: [
+      { prop: 'camper_right', x: 8, y: 180 },
+      { prop: 'tree_med_1', x: 430, y: 90 },
+      { prop: 'tree_med_2', x: 4, y: 96 },
+      { prop: 'tent_1', x: 410, y: 200 },
+      { prop: 'campfire_1', x: 396, y: 224 },
+      { prop: 'bush_1', x: 60, y: 240 },
+    ],
+    fires: [{ x: 404, y: 232, r: 30 }],
+  },
+  foret: {
+    terrain: ['grass_2', 'grass_3', 'grass_1'],
+    props: [
+      { prop: 'tree_big', x: 0, y: 86 },
+      { prop: 'tree_med_1', x: 52, y: 100 },
+      { prop: 'tree_med_2', x: 416, y: 88 },
+      { prop: 'tree_med_3', x: 372, y: 104 },
+      { prop: 'tree_big', x: 430, y: 180 },
+      { prop: 'tree_med_3', x: 8, y: 190 },
+      { prop: 'tree_med_1', x: 446, y: 120 },
+      { prop: 'camper_right', x: 16, y: 222 },
+      { prop: 'bush_1', x: 100, y: 244 },
+      { prop: 'bush_2', x: 360, y: 250 },
+    ],
+    fires: [],
+  },
+  carriere: {
+    terrain: ['asphalt_1', 'asphalt_2', 'asphalt_3'],
+    props: [
+      { prop: 'container_1', x: 6, y: 96 },
+      { prop: 'barrel_1', x: 70, y: 104 },
+      { prop: 'container_2', x: 410, y: 92 },
+      { prop: 'scrap_pile', x: 444, y: 150 },
+      { prop: 'barrel_2', x: 20, y: 200 },
+      { prop: 'camper_left', x: 380, y: 218 },
+    ],
+    fires: [{ x: 40, y: 214, r: 26 }],
+  },
+  hangar: {
+    terrain: ['asphalt_2', 'asphalt_1', 'asphalt_3'],
+    props: [
+      { prop: 'fence_work_1', x: 0, y: 92 },
+      { prop: 'fence_work_2', x: 448, y: 92 },
+      { prop: 'container_1', x: 420, y: 200 },
+      { prop: 'barrel_1', x: 8, y: 160 },
+      { prop: 'barrel_2', x: 26, y: 168 },
+      { prop: 'barrier', x: 8, y: 236 },
+      { prop: 'barrier', x: 440, y: 236 },
+    ],
+    fires: [],
+  },
+  friche: {
+    terrain: ['asphalt_3', 'asphalt_1', 'asphalt_2'],
+    props: [
+      { prop: 'bunker', x: 6, y: 88 },
+      { prop: 'scrap_pile', x: 440, y: 96 },
+      { prop: 'container_2', x: 404, y: 130 },
+      { prop: 'barrel_1', x: 60, y: 110 },
+      { prop: 'scrap_pile', x: 10, y: 226 },
+      { prop: 'fence_work_2', x: 444, y: 210 },
+      { prop: 'camper_left', x: 360, y: 236 },
+    ],
+    fires: [{ x: 80, y: 120, r: 24 }],
+  },
+  teknival: {
+    terrain: ['grass_1', 'grass_3', 'grass_2'],
+    props: [
+      { prop: 'speaker_medium', x: 6, y: 92 },
+      { prop: 'speaker_medium', x: 446, y: 92 },
+      { prop: 'tent_1', x: 6, y: 196 },
+      { prop: 'tent_2', x: 44, y: 216 },
+      { prop: 'tent_3', x: 420, y: 192 },
+      { prop: 'tent_4', x: 442, y: 222 },
+      { prop: 'campfire_1', x: 36, y: 248 },
+      { prop: 'campfire_1', x: 430, y: 250 },
+      { prop: 'camper_right', x: 90, y: 238 },
+      { prop: 'camper_left', x: 330, y: 240 },
+    ],
+    fires: [
+      { x: 44, y: 254, r: 28 },
+      { x: 438, y: 256, r: 28 },
+    ],
+  },
+};
 
 interface Rgb {
   r: number;
@@ -26,11 +137,7 @@ interface Rgb {
 }
 
 function hex(c: string): Rgb {
-  return {
-    r: parseInt(c.slice(1, 3), 16),
-    g: parseInt(c.slice(3, 5), 16),
-    b: parseInt(c.slice(5, 7), 16),
-  };
+  return { r: parseInt(c.slice(1, 3), 16), g: parseInt(c.slice(3, 5), 16), b: parseInt(c.slice(5, 7), 16) };
 }
 
 function lerpColor(a: Rgb, b: Rgb, t: number): string {
@@ -38,45 +145,238 @@ function lerpColor(a: Rgb, b: Rgb, t: number): string {
   return `rgb(${m(a.r, b.r)}, ${m(a.g, b.g)}, ${m(a.b, b.b)})`;
 }
 
-const NIGHT_TOP = hex('#070512');
-const NIGHT_BOT = hex('#1b1038');
-const DAWN_TOP = hex('#3a4a8c');
-const DAWN_BOT = hex('#f08a4b');
-const SUNRISE_TOP = hex('#7c9fd4');
-const SUNRISE_BOT = hex('#ffd166');
-
 export class SceneRenderer {
   private buffer: HTMLCanvasElement;
   private bctx: CanvasRenderingContext2D;
+  private dark: HTMLCanvasElement;
+  private dctx: CanvasRenderingContext2D;
+  private terrainCache: HTMLCanvasElement | null = null;
+  private terrainSpot: SpotId | null = null;
   private ctx: CanvasRenderingContext2D;
-  private stars: Array<{ x: number; y: number; tw: number }> = [];
 
-  constructor(private canvas: HTMLCanvasElement) {
+  constructor(private canvas: HTMLCanvasElement, private bank: SpriteBank) {
     this.ctx = canvas.getContext('2d')!;
     this.buffer = document.createElement('canvas');
     this.buffer.width = SCENE_W;
     this.buffer.height = SCENE_H;
     this.bctx = this.buffer.getContext('2d')!;
-    for (let i = 0; i < 60; i++) {
-      this.stars.push({
-        x: Math.floor(Math.random() * SCENE_W),
-        y: Math.floor(Math.random() * (GROUND_Y - 40)),
-        tw: Math.random(),
-      });
-    }
+    this.dark = document.createElement('canvas');
+    this.dark.width = SCENE_W;
+    this.dark.height = SCENE_H;
+    this.dctx = this.dark.getContext('2d')!;
   }
 
   render(p: SceneParams, ravers: RaverSim, timeMs: number): void {
     const c = this.bctx;
-    this.drawSky(c, p, timeMs);
-    this.drawBackdrop(c, p);
-    this.drawGround(c, p);
-    this.drawStacks(c, p);
-    ravers.draw(c, p.beatPhase, p.brownout ? 0 : p.vibe, ravers.overflow(p.crowd));
-    this.drawBooth(c, p);
-    this.drawLights(c, p, timeMs);
+    c.imageSmoothingEnabled = false;
+    this.drawTerrain(c, p);
+    this.drawProps(c, p);
+    this.drawStage(c, p, timeMs);
+    ravers.draw(c, this.bank, p.beatPhase, p.soundCut ? 0 : p.vibe, ravers.overflow(p.crowd), timeMs);
+    this.drawDarkness(c, p, timeMs);
+    if (!p.soundCut) this.drawLights(c, p, timeMs);
     if (p.busted || p.heat > 0.85) this.drawGyro(c, p, timeMs);
     this.blit();
+  }
+
+  private drawTerrain(c: CanvasRenderingContext2D, p: SceneParams): void {
+    if (this.terrainSpot !== p.spotId || !this.terrainCache) {
+      const cache = document.createElement('canvas');
+      cache.width = SCENE_W;
+      cache.height = SCENE_H;
+      const tc = cache.getContext('2d')!;
+      tc.imageSmoothingEnabled = false;
+      const recipe = RECIPES[p.spotId];
+      const tiles = recipe.terrain
+        .map((t) => this.bank.terrain[t])
+        .filter((t): t is HTMLImageElement => !!t);
+      if (tiles.length === 0) {
+        tc.fillStyle = '#243018';
+        tc.fillRect(0, 0, SCENE_W, SCENE_H);
+      } else {
+        for (let ty = 0; ty < SCENE_H; ty += 16) {
+          for (let tx = 0; tx < SCENE_W; tx += 16) {
+            // deterministic variation, heavily biased to the first tile
+            const h = (tx * 31 + ty * 17) % 13;
+            const tile = tiles[h < 9 ? 0 : h < 12 ? 1 % tiles.length : 2 % tiles.length];
+            tc.drawImage(tile, 0, 0, 16, 16, tx, ty, 16, 16);
+          }
+        }
+      }
+      this.terrainCache = cache;
+      this.terrainSpot = p.spotId;
+    }
+    c.drawImage(this.terrainCache, 0, 0);
+  }
+
+  private prop(c: CanvasRenderingContext2D, name: PropName, x: number, y: number): void {
+    const img = this.bank.props[name];
+    if (img) c.drawImage(img, x, y);
+  }
+
+  private drawProps(c: CanvasRenderingContext2D, p: SceneParams): void {
+    for (const { prop, x, y } of RECIPES[p.spotId].props) {
+      this.prop(c, prop, x, y);
+    }
+  }
+
+  /** Stage band: platform, the mur de son scaling with gear, booth and DJ. */
+  private drawStage(c: CanvasRenderingContext2D, p: SceneParams, timeMs: number): void {
+    const kick = !p.soundCut && p.beatPhase < 0.18;
+    const cx = SCENE_W / 2;
+
+    // platform
+    c.fillStyle = '#171221';
+    c.fillRect(cx - 120, 14, 240, STAGE_BOTTOM - 26);
+    c.fillStyle = '#211a30';
+    c.fillRect(cx - 120, STAGE_BOTTOM - 16, 240, 6);
+    c.fillStyle = '#0e0a16';
+    c.fillRect(cx - 124, 10, 248, 6);
+
+    // spotlight masts
+    this.prop(c, 'stage_spot_left', cx - 150, 8);
+    this.prop(c, 'stage_spot_right', cx + 118, 8);
+
+    // the mur de son — stacks of real loudspeakers, growing with the tier
+    const tier = p.gear.mur;
+    const big = this.bank.props.speaker_big;
+    const med = this.bank.props.speaker_medium;
+    for (const side of [-1, 1] as const) {
+      const baseX = cx + side * (96 + tier * 6) - 24;
+      let y = STAGE_BOTTOM - 12 - 48;
+      const columns = tier >= 2 ? 2 : 1;
+      const rows = 1 + Math.ceil(tier / 2);
+      for (let col = 0; col < columns; col++) {
+        y = STAGE_BOTTOM - 12 - 48;
+        for (let row = 0; row < rows; row++) {
+          const x = baseX + side * -1 * col * 30 + (kick && row === 0 ? side * 0 : 0);
+          if (big) {
+            const wobble = kick ? 1 : 0;
+            c.drawImage(big, Math.round(x), Math.round(y - wobble));
+          }
+          y -= 44;
+        }
+      }
+      // small tops
+      if (med && tier >= 1) c.drawImage(med, baseX + 8, y + 18);
+    }
+
+    // booth
+    c.fillStyle = '#0c0914';
+    c.fillRect(cx - 30, STAGE_BOTTOM - 42, 60, 22);
+    c.fillStyle = kick ? '#3affa0' : '#1c5e42';
+    c.fillRect(cx - 24, STAGE_BOTTOM - 38, 4, 2);
+    c.fillStyle = kick ? '#ffd166' : '#6e5a26';
+    c.fillRect(cx - 16, STAGE_BOTTOM - 38, 4, 2);
+    c.fillStyle = p.heat > 0.6 ? '#ff3b4e' : '#5e1c24';
+    c.fillRect(cx - 8, STAGE_BOTTOM - 38, 4, 2);
+
+    // the DJ, facing the crowd
+    if (p.djCharacter !== null) {
+      const bob = kick ? -1 : 0;
+      drawRaverFrame(
+        c,
+        this.bank,
+        p.djCharacter,
+        'idle',
+        'down',
+        Math.floor(timeMs / 200) % 6,
+        Math.round(cx - 8),
+        STAGE_BOTTOM - 74 + bob,
+      );
+    }
+  }
+
+  /** Night darkness with warm light pools; fades out as sunrise approaches. */
+  private drawDarkness(c: CanvasRenderingContext2D, p: SceneParams, timeMs: number): void {
+    const dawn = Math.pow(Math.max(0, (p.progress - 0.55) / 0.45), 1.5);
+    const alpha = 0.62 * (1 - dawn);
+    if (alpha <= 0.02) {
+      this.drawDawnTint(c, dawn);
+      return;
+    }
+    const d = this.dctx;
+    d.clearRect(0, 0, SCENE_W, SCENE_H);
+    d.globalCompositeOperation = 'source-over';
+    d.fillStyle = `rgba(7, 5, 22, ${alpha})`;
+    d.fillRect(0, 0, SCENE_W, SCENE_H);
+
+    // punch light pools out of the darkness
+    d.globalCompositeOperation = 'destination-out';
+    const stage = d.createRadialGradient(SCENE_W / 2, STAGE_BOTTOM - 20, 10, SCENE_W / 2, STAGE_BOTTOM - 20, 130);
+    const flicker = p.soundCut ? 0.15 : 0.75 + 0.25 * Math.sin(timeMs / 90);
+    stage.addColorStop(0, `rgba(0,0,0,${0.95 * flicker})`);
+    stage.addColorStop(1, 'rgba(0,0,0,0)');
+    d.fillStyle = stage;
+    d.fillRect(0, 0, SCENE_W, SCENE_H);
+    for (const f of RECIPES[p.spotId].fires) {
+      const fire = d.createRadialGradient(f.x, f.y, 2, f.x, f.y, f.r + Math.sin(timeMs / 150) * 3);
+      fire.addColorStop(0, 'rgba(0,0,0,0.85)');
+      fire.addColorStop(1, 'rgba(0,0,0,0)');
+      d.fillStyle = fire;
+      d.fillRect(f.x - f.r - 6, f.y - f.r - 6, (f.r + 6) * 2, (f.r + 6) * 2);
+    }
+    d.globalCompositeOperation = 'source-over';
+    c.drawImage(this.dark, 0, 0);
+
+    // warm tint over the fire pools
+    c.save();
+    c.globalCompositeOperation = 'overlay';
+    for (const f of RECIPES[p.spotId].fires) {
+      const warm = c.createRadialGradient(f.x, f.y, 2, f.x, f.y, f.r);
+      warm.addColorStop(0, 'rgba(255, 150, 60, 0.5)');
+      warm.addColorStop(1, 'rgba(255, 150, 60, 0)');
+      c.fillStyle = warm;
+      c.fillRect(f.x - f.r, f.y - f.r, f.r * 2, f.r * 2);
+    }
+    c.restore();
+    this.drawDawnTint(c, dawn);
+  }
+
+  private drawDawnTint(c: CanvasRenderingContext2D, dawn: number): void {
+    if (dawn <= 0.05) return;
+    const grad = c.createLinearGradient(0, 0, 0, SCENE_H);
+    grad.addColorStop(0, `rgba(255, 170, 80, ${0.28 * dawn})`);
+    grad.addColorStop(0.5, `rgba(255, 120, 90, ${0.12 * dawn})`);
+    grad.addColorStop(1, 'rgba(255, 120, 90, 0)');
+    c.fillStyle = grad;
+    c.fillRect(0, 0, SCENE_W, SCENE_H);
+  }
+
+  /** Light show scales with the lumières tier. */
+  private drawLights(c: CanvasRenderingContext2D, p: SceneParams, timeMs: number): void {
+    const tier = p.gear.lumieres;
+    if (tier <= 0 || p.vibe < 0.15) return;
+    const cx = SCENE_W / 2;
+    const beams = tier * 2;
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < beams; i++) {
+      const sweep = Math.sin(timeMs / (650 + i * 110) + i * 1.7);
+      const hue = (timeMs / 25 + i * 55) % 360;
+      c.strokeStyle = `hsla(${hue}, 95%, 60%, ${0.08 + p.vibe * 0.1})`;
+      c.lineWidth = 3;
+      c.beginPath();
+      c.moveTo(cx + (i - beams / 2) * 16, STAGE_BOTTOM - 30);
+      c.lineTo(cx + sweep * 220, SCENE_H);
+      c.stroke();
+    }
+    // strobe on the beat at tier 2+
+    if (tier >= 2 && p.vibe > 0.5 && p.beatPhase < 0.06) {
+      c.fillStyle = 'rgba(255, 255, 255, 0.16)';
+      c.fillRect(0, 0, SCENE_W, SCENE_H);
+    }
+    c.restore();
+  }
+
+  private drawGyro(c: CanvasRenderingContext2D, p: SceneParams, timeMs: number): void {
+    const flash = Math.sin(timeMs / 110) > 0;
+    const intensity = p.busted ? 0.5 : (p.heat - 0.85) * 3;
+    c.fillStyle = flash
+      ? `rgba(40, 90, 255, ${0.22 * intensity + 0.08})`
+      : `rgba(255, 40, 60, ${0.16 * intensity + 0.05})`;
+    c.fillRect(0, 0, 60, SCENE_H);
+    c.fillRect(SCENE_W - 60, 0, 60, SCENE_H);
   }
 
   private blit(): void {
@@ -84,290 +384,22 @@ export class SceneRenderer {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = canvas.clientWidth * dpr;
     const h = canvas.clientHeight * dpr;
+    if (w === 0 || h === 0) return;
     if (canvas.width !== w || canvas.height !== h) {
       canvas.width = w;
       canvas.height = h;
     }
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, w, h);
-    // cover-fit while preserving the pixel aspect
     const scale = Math.max(w / SCENE_W, h / SCENE_H);
     const dw = SCENE_W * scale;
     const dh = SCENE_H * scale;
     ctx.drawImage(this.buffer, (w - dw) / 2, (h - dh) / 2, dw, dh);
   }
+}
 
-  private skyPhase(progress: number): number {
-    // hold deep night for most of the run, dawn ramps in over the last third
-    return Math.pow(Math.max(0, (progress - 0.55) / 0.45), 1.6);
-  }
-
-  private drawSky(c: CanvasRenderingContext2D, p: SceneParams, timeMs: number): void {
-    const t = this.skyPhase(p.progress);
-    const top = t < 0.6 ? lerpColor(NIGHT_TOP, DAWN_TOP, t / 0.6) : lerpColor(DAWN_TOP, SUNRISE_TOP, (t - 0.6) / 0.4);
-    const bot = t < 0.6 ? lerpColor(NIGHT_BOT, DAWN_BOT, t / 0.6) : lerpColor(DAWN_BOT, SUNRISE_BOT, (t - 0.6) / 0.4);
-    const grad = c.createLinearGradient(0, 0, 0, GROUND_Y);
-    grad.addColorStop(0, top);
-    grad.addColorStop(1, bot);
-    c.fillStyle = grad;
-    c.fillRect(0, 0, SCENE_W, GROUND_Y);
-
-    // stars fade out at dawn
-    if (t < 0.7) {
-      for (const s of this.stars) {
-        const twinkle = 0.4 + 0.6 * Math.abs(Math.sin(timeMs / 900 + s.tw * 7));
-        c.fillStyle = `rgba(255,255,230,${(0.7 - t) * twinkle})`;
-        c.fillRect(s.x, s.y, 1, 1);
-      }
-    }
-    // moon, then the sun climbs
-    if (t < 0.5) {
-      c.fillStyle = `rgba(230,230,255,${0.9 - t})`;
-      c.fillRect(264, 22, 6, 6);
-      c.fillRect(263, 23, 8, 4);
-    }
-    if (t > 0.25) {
-      const sunY = GROUND_Y + 8 - (t - 0.25) * 75;
-      const glow = c.createRadialGradient(160, sunY, 2, 160, sunY, 40);
-      glow.addColorStop(0, `rgba(255,230,150,${0.9 * t})`);
-      glow.addColorStop(1, 'rgba(255,200,100,0)');
-      c.fillStyle = glow;
-      c.fillRect(110, sunY - 45, 100, 90);
-      c.fillStyle = `rgba(255,238,170,${Math.min(1, t * 1.4)})`;
-      c.fillRect(155, Math.round(sunY) - 5, 10, 10);
-      c.fillRect(153, Math.round(sunY) - 3, 14, 6);
-    }
-  }
-
-  private silhouette(p: SceneParams): string {
-    const t = this.skyPhase(p.progress);
-    return lerpColor(hex('#0d0a1a'), hex('#3d2c52'), t);
-  }
-
-  private drawBackdrop(c: CanvasRenderingContext2D, p: SceneParams): void {
-    const col = this.silhouette(p);
-    c.fillStyle = col;
-    switch (p.spotId) {
-      case 'champ': {
-        // rolling hills + the crew's van
-        c.beginPath();
-        c.moveTo(0, GROUND_Y);
-        for (let x = 0; x <= SCENE_W; x += 8) {
-          c.lineTo(x, GROUND_Y - 10 - 8 * Math.sin(x / 50) - 4 * Math.sin(x / 23));
-        }
-        c.lineTo(SCENE_W, GROUND_Y);
-        c.fill();
-        this.drawVan(c, 18, GROUND_Y - 2);
-        break;
-      }
-      case 'foret': {
-        for (let i = 0; i < 26; i++) {
-          const x = (i * 137) % SCENE_W;
-          const h = 34 + ((i * 53) % 30);
-          c.fillRect(x, GROUND_Y - h, 3, h);
-          for (let l = 0; l < 4; l++) {
-            const ly = GROUND_Y - h + l * 7;
-            const lw = 11 - l * 2;
-            c.fillRect(x - lw / 2 + 1, ly, lw, 3);
-          }
-        }
-        this.drawVan(c, 270, GROUND_Y - 2);
-        break;
-      }
-      case 'carriere': {
-        // sheer rock walls boxing the floor in
-        c.beginPath();
-        c.moveTo(0, GROUND_Y);
-        c.lineTo(0, 18);
-        c.lineTo(36, 30);
-        c.lineTo(58, 64);
-        c.lineTo(78, GROUND_Y);
-        c.fill();
-        c.beginPath();
-        c.moveTo(SCENE_W, GROUND_Y);
-        c.lineTo(SCENE_W, 12);
-        c.lineTo(SCENE_W - 42, 26);
-        c.lineTo(SCENE_W - 62, 58);
-        c.lineTo(SCENE_W - 80, GROUND_Y);
-        c.fill();
-        break;
-      }
-      case 'hangar': {
-        // city skyline behind a big shed skeleton
-        for (let i = 0; i < 14; i++) {
-          const x = i * 24;
-          const h = 26 + ((i * 31) % 38);
-          c.fillRect(x, GROUND_Y - h, 18, h);
-          c.fillStyle = 'rgba(255, 220, 120, 0.25)';
-          for (let wy = GROUND_Y - h + 4; wy < GROUND_Y - 6; wy += 7) {
-            if ((wy + i) % 3 === 0) c.fillRect(x + 4, wy, 2, 3);
-            if ((wy + i) % 4 === 0) c.fillRect(x + 11, wy, 2, 3);
-          }
-          c.fillStyle = this.silhouette(p);
-        }
-        c.fillRect(0, 8, SCENE_W, 6);
-        for (let x = 8; x < SCENE_W; x += 40) c.fillRect(x, 8, 5, GROUND_Y - 8);
-        break;
-      }
-      case 'friche': {
-        // chimneys, gantries, dead factory
-        c.fillRect(20, 26, 12, GROUND_Y - 26);
-        c.fillRect(44, 44, 9, GROUND_Y - 44);
-        c.fillRect(250, 20, 14, GROUND_Y - 20);
-        c.fillRect(284, 50, 10, GROUND_Y - 50);
-        c.fillRect(60, 70, 130, 6);
-        c.fillRect(120, 70, 6, GROUND_Y - 70);
-        c.fillRect(96, 52, 60, 4);
-        break;
-      }
-      case 'teknival': {
-        // endless plain with distant sound walls and tents
-        for (let i = 0; i < 9; i++) {
-          const x = 10 + i * 36;
-          c.fillRect(x, GROUND_Y - 14, 10, 14);
-          c.fillRect(x + 2, GROUND_Y - 18, 6, 4);
-        }
-        for (let i = 0; i < 12; i++) {
-          const x = (i * 29 + 7) % SCENE_W;
-          c.beginPath();
-          c.moveTo(x, GROUND_Y - 1);
-          c.lineTo(x + 5, GROUND_Y - 7);
-          c.lineTo(x + 10, GROUND_Y - 1);
-          c.fill();
-        }
-        break;
-      }
-    }
-  }
-
-  private drawVan(c: CanvasRenderingContext2D, x: number, y: number): void {
-    c.fillStyle = '#4a4458';
-    c.fillRect(x, y - 14, 30, 12);
-    c.fillRect(x + 24, y - 18, 6, 4);
-    c.fillStyle = '#2a2433';
-    c.fillRect(x + 4, y - 11, 7, 5);
-    c.fillStyle = '#15121c';
-    c.fillRect(x + 4, y - 3, 5, 4);
-    c.fillRect(x + 21, y - 3, 5, 4);
-  }
-
-  private drawGround(c: CanvasRenderingContext2D, p: SceneParams): void {
-    const t = this.skyPhase(p.progress);
-    const groundCols: Record<SpotId, [string, string]> = {
-      champ: ['#1d2415', '#3a4423'],
-      foret: ['#161e12', '#2c3a1e'],
-      carriere: ['#221f24', '#3e3a40'],
-      hangar: ['#1d1b20', '#34313a'],
-      friche: ['#211d1b', '#3b342e'],
-      teknival: ['#1c2113', '#384022'],
-    };
-    const [nightG, dawnG] = groundCols[p.spotId];
-    c.fillStyle = lerpColor(hex(nightG), hex(dawnG), t);
-    c.fillRect(0, GROUND_Y, SCENE_W, SCENE_H - GROUND_Y);
-    // mud/texture specks
-    c.fillStyle = 'rgba(0,0,0,0.25)';
-    for (let i = 0; i < 90; i++) {
-      const x = (i * 67) % SCENE_W;
-      const y = GROUND_Y + ((i * 41) % (SCENE_H - GROUND_Y));
-      c.fillRect(x, y, 2, 1);
-    }
-  }
-
-  /** The hero asset: speaker stacks scale visibly with owned gear. */
-  private drawStacks(c: CanvasRenderingContext2D, p: SceneParams): void {
-    const kick = p.brownout ? 0 : p.beatPhase < 0.15 ? 1 : 0;
-    const subTier = p.gear.subs;
-    const ampTier = p.gear.amps;
-    const rows = 2 + subTier;       // sub cabinets per stack
-    const tops = 1 + ampTier;       // mid/top cabinets
-    for (const side of [-1, 1]) {
-      const cx = 160 + side * (52 + subTier * 6);
-      const w = 16 + subTier * 3;
-      let y = GROUND_Y + 14;
-      // subs (big cabinets with a cone)
-      for (let i = 0; i < rows; i++) {
-        y -= 11;
-        const x = Math.round(cx - w / 2);
-        c.fillStyle = '#181420';
-        c.fillRect(x, y, w, 10);
-        c.fillStyle = '#0c0a12';
-        c.fillRect(x + 2, y + 2, w - 4, 6);
-        // cone pulses on the kick
-        c.fillStyle = kick ? '#5a5470' : '#2e2a3c';
-        const cone = Math.round(w / 2) - 3 + kick;
-        c.fillRect(Math.round(cx - cone / 2), y + 5 - Math.round(cone / 2) + 2, cone, cone);
-      }
-      // tops
-      for (let i = 0; i < tops; i++) {
-        y -= 7;
-        const tw = w - 6;
-        const x = Math.round(cx - tw / 2);
-        c.fillStyle = '#1c1826';
-        c.fillRect(x, y, tw, 6);
-        c.fillStyle = kick ? '#6c6488' : '#363046';
-        c.fillRect(x + 2, y + 2, 2, 2);
-        c.fillRect(x + tw - 4, y + 2, 2, 2);
-      }
-    }
-    // generator at the side, sputtering during brownouts
-    const gx = 290;
-    c.fillStyle = '#23202c';
-    c.fillRect(gx, GROUND_Y + 6, 16, 9);
-    c.fillStyle = p.brownout ? '#ff5544' : '#44ff88';
-    c.fillRect(gx + 13, GROUND_Y + 8, 2, 2);
-    if (!p.brownout && p.gear.gen >= 0) {
-      c.fillStyle = 'rgba(180,180,180,0.25)';
-      c.fillRect(gx + 2, GROUND_Y + 2 - (Date.now() / 300 % 3 | 0), 2, 2);
-    }
-  }
-
-  private drawBooth(c: CanvasRenderingContext2D, p: SceneParams): void {
-    // DJ table front-center-bottom
-    const x = 138;
-    const y = SCENE_H - 26;
-    c.fillStyle = '#241f30';
-    c.fillRect(x, y, 44, 14);
-    c.fillStyle = '#161220';
-    c.fillRect(x + 2, y + 2, 40, 4);
-    // desk LEDs follow the beat
-    const on = p.beatPhase < 0.2 && !p.brownout;
-    c.fillStyle = on ? '#39ff88' : '#1d4733';
-    c.fillRect(x + 5, y + 8, 3, 2);
-    c.fillStyle = on ? '#ffcc33' : '#4d4220';
-    c.fillRect(x + 11, y + 8, 3, 2);
-    c.fillStyle = p.heat > 0.6 ? '#ff3344' : '#4d1d22';
-    c.fillRect(x + 17, y + 8, 3, 2);
-    // the tonton derrière les platines
-    c.fillStyle = '#e8b88a';
-    c.fillRect(x + 28, y - 6, 3, 3);
-    c.fillStyle = '#30284a';
-    c.fillRect(x + 27, y - 3, 5, 4);
-  }
-
-  private drawLights(c: CanvasRenderingContext2D, p: SceneParams, timeMs: number): void {
-    if (p.brownout || p.vibe < 0.3) return;
-    const beams = 2 + Math.floor(p.vibe * 3);
-    for (let i = 0; i < beams; i++) {
-      const sweep = Math.sin(timeMs / (700 + i * 130) + i * 2.1);
-      const hue = (timeMs / 30 + i * 60) % 360;
-      c.strokeStyle = `hsla(${hue}, 90%, 60%, ${0.10 + p.vibe * 0.12})`;
-      c.lineWidth = 3;
-      c.beginPath();
-      const ox = 160 + (i - beams / 2) * 30;
-      c.moveTo(ox, GROUND_Y - 4);
-      c.lineTo(ox + sweep * 90, 0);
-      c.stroke();
-    }
-  }
-
-  private drawGyro(c: CanvasRenderingContext2D, p: SceneParams, timeMs: number): void {
-    // les gyrophares — blue strobes sweeping in from the edges
-    const flash = Math.sin(timeMs / 110) > 0;
-    const intensity = p.busted ? 0.4 : (p.heat - 0.85) * 2;
-    c.fillStyle = flash
-      ? `rgba(40, 90, 255, ${0.25 * intensity + 0.1})`
-      : `rgba(255, 40, 60, ${0.18 * intensity + 0.06})`;
-    c.fillRect(0, 0, 46, SCENE_H);
-    c.fillRect(SCENE_W - 46, 0, 46, SCENE_H);
-  }
+const NIGHT_TOP = hex('#070512');
+const DAWN_TOP = hex('#f08a4b');
+export function skyAccent(progress: number): string {
+  return lerpColor(NIGHT_TOP, DAWN_TOP, Math.pow(Math.max(0, (progress - 0.55) / 0.45), 1.5));
 }

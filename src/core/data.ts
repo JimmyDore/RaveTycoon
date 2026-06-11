@@ -180,7 +180,7 @@ export const DJS: DjDef[] = [
     risk: 'normal',
     cut: 0.05,
     repReq: 0,
-    sprite: 0,
+    sprite: 3,
   },
   {
     id: 'gamine',
@@ -192,7 +192,7 @@ export const DJS: DjDef[] = [
     risk: 'chaud',
     cut: 0.1,
     repReq: 15,
-    sprite: 1,
+    sprite: 7,
   },
   {
     id: 'boblepine',
@@ -204,7 +204,7 @@ export const DJS: DjDef[] = [
     risk: 'discret',
     cut: 0.12,
     repReq: 40,
-    sprite: 2,
+    sprite: 11,
   },
   {
     id: 'kilowatt',
@@ -216,7 +216,7 @@ export const DJS: DjDef[] = [
     risk: 'chaud',
     cut: 0.15,
     repReq: 90,
-    sprite: 3,
+    sprite: 2,
   },
   {
     id: 'memeacide',
@@ -228,7 +228,7 @@ export const DJS: DjDef[] = [
     risk: 'normal',
     cut: 0.18,
     repReq: 160,
-    sprite: 4,
+    sprite: 15,
   },
   {
     id: 'notaire',
@@ -240,7 +240,7 @@ export const DJS: DjDef[] = [
     risk: 'discret',
     cut: 0.22,
     repReq: 260,
-    sprite: 5,
+    sprite: 6,
   },
   {
     id: 'sirene',
@@ -252,7 +252,7 @@ export const DJS: DjDef[] = [
     risk: 'chaud',
     cut: 0.25,
     repReq: 380,
-    sprite: 6,
+    sprite: 17,
   },
   {
     id: 'fantome',
@@ -264,7 +264,7 @@ export const DJS: DjDef[] = [
     risk: 'discret',
     cut: 0.3,
     repReq: 500,
-    sprite: 7,
+    sprite: 19,
   },
 ];
 

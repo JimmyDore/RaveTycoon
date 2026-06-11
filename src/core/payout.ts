@@ -25,7 +25,6 @@ export function cutsTotal(night: NightState): number {
 
 /** Sunrise reached: bank × prix libre, minus the crew's cuts. */
 export function settleNight(state: GameState, night: NightState): NightResult {
-  const spot = getSpot(night.spotId);
   const vibe = avgVibe(night);
   const donationMult = 1 + 0.8 * vibe + 0.6 * (night.peakCrowd / night.cap);
   const gross = Math.round(night.bank * donationMult);

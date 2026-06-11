@@ -9,18 +9,18 @@ import {
 } from './synth';
 
 export interface EngineParams {
-  /** master fader [0,1] */
-  volume: number;
-  /** bass fader [0,1] */
-  bass: number;
-  /** clipping amount [0,1] — drives audible distortion */
-  clipping: number;
-  /** sound currently cut by a generator brownout */
-  brownout: boolean;
+  /** set energy arc [0,1] — the simulation is the DJ */
+  energy: number;
+  /** set quality [0,~1.4] — richer mixes for better DJs */
+  quality: number;
+  /** brief "pousser" — audibly clips and distorts */
+  pushed: boolean;
+  /** sound currently cut (brownout / repairs) */
+  soundCut: boolean;
   /** normalized crowd size [0,1] */
   crowd: number;
-  blownAmp: boolean;
-  blownSub: boolean;
+  /** blown speakers crackle */
+  murBlown: boolean;
 }
 
 interface StemNodes {
@@ -148,27 +148,40 @@ export class AudioEngine {
     if (this.ctx) void this.ctx.suspend();
   }
 
-  /** Called every frame from the game loop. */
+  /**
+   * Called every frame from the game loop. The simulation drives the desk:
+   * stems layer in as the set's energy climbs, pushing audibly clips.
+   */
   update(p: EngineParams): void {
     if (!this.ctx || !this.master || !this.lowshelf || !this.shaper || !this.running) return;
     const t = this.ctx.currentTime;
-    const ramp = 0.08;
+    const ramp = 0.12;
+    const e = Math.min(1, Math.max(0, p.energy));
 
-    // perceptual volume curve; brownout cuts the desk entirely
-    let target = p.brownout ? 0 : Math.pow(p.volume, 1.4) * 0.9;
-    if (p.blownAmp) target *= 0.5;
-    this.master.gain.setTargetAtTime(target, t, p.brownout ? 0.02 : ramp);
+    let target = p.soundCut ? 0 : (0.3 + 0.55 * e) * (p.pushed ? 1.1 : 1) * 0.85;
+    if (p.murBlown) target *= 0.55;
+    this.master.gain.setTargetAtTime(target, t, p.soundCut ? 0.02 : ramp);
 
-    const sub = this.stems.get('sub');
-    if (sub) {
-      let subTarget = p.bass * 1.25;
-      if (p.blownSub) subTarget *= 0.25;
-      sub.gain.gain.setTargetAtTime(subTarget, t, ramp);
+    // stem layering: kick always; sub from low energy; hats then lead join later.
+    // better DJs (quality) bring the upper layers in earlier and louder.
+    const q = Math.min(1.2, Math.max(0.3, p.quality));
+    const layer = (threshold: number, width: number) =>
+      Math.min(1, Math.max(0, (e * q - threshold) / width));
+    const gains: Record<string, number> = {
+      kick: 0.85,
+      sub: (0.5 + 0.8 * layer(0.1, 0.25)) * (p.murBlown ? 0.3 : 1),
+      hats: 0.7 * layer(0.3, 0.25),
+      lead: 0.85 * layer(0.45, 0.3),
+    };
+    for (const [name, gain] of Object.entries(gains)) {
+      const stem = this.stems.get(name as 'kick' | 'sub' | 'lead' | 'hats');
+      if (stem) stem.gain.gain.setTargetAtTime(gain, t, ramp);
     }
-    this.lowshelf.gain.setTargetAtTime(p.bass * 9 - 3, t, ramp);
+    this.lowshelf.gain.setTargetAtTime((0.4 + 0.6 * e) * 8 - 3, t, ramp);
 
-    // quantize clipping into 8 levels so we don't rebuild the curve each frame
-    const level = Math.round(p.clipping * 8);
+    // pushing the rig past what it likes = audible distortion
+    const clipping = p.pushed ? 0.35 + 0.5 * e : 0;
+    const level = Math.round(clipping * 8);
     if (level !== this.curveLevel) {
       this.curveLevel = level;
       this.shaper.curve = distortionCurve(clipDrive(level / 8));
@@ -178,8 +191,7 @@ export class AudioEngine {
       this.crowdGain.gain.setTargetAtTime(Math.min(0.14, p.crowd * 0.14), t, 0.4);
     }
     if (this.crackleGain) {
-      const crackle = (p.blownAmp ? 0.05 : 0) + (p.blownSub ? 0.05 : 0);
-      this.crackleGain.gain.setTargetAtTime(crackle, t, 0.2);
+      this.crackleGain.gain.setTargetAtTime(p.murBlown ? 0.08 : 0, t, 0.2);
     }
   }
 

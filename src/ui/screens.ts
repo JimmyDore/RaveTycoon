@@ -1,13 +1,17 @@
-import { GEAR, GEAR_CATEGORIES, GENRES, SPOTS, getGenre, getSpot } from '../core/data';
+import { DJS, GEAR, GEAR_CATEGORIES, GENRES, SPOTS, getDj, getGenre, getSpot } from '../core/data';
+import { djLevel, lockedDjs, recruitableDjs } from '../core/crew';
 import { rushCost } from '../core/idle';
 import { isSpotUnlocked } from '../core/payout';
+import { computeSetQuality } from '../core/night';
 import type {
-  Controls,
+  Brief,
+  DjDef,
   GameState,
   GearCategory,
   GenreId,
   NightResult,
-  RaveState,
+  NightState,
+  PendingEvent,
   SpotId,
 } from '../core/types';
 import { STR, fmtCash, fmtCountdown, fmtTime } from './strings';
@@ -24,73 +28,42 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
-// --- touch fader -----------------------------------------------------------------
-
-/** Big vertical fader, pointer-driven — no hover, no keyboard required. */
-class Fader {
-  readonly root: HTMLElement;
-  private track: HTMLElement;
-  private fill: HTMLElement;
-  private thumb: HTMLElement;
-  private dangerZone: HTMLElement;
-  value: number;
-
-  constructor(
-    label: string,
-    initial: number,
-    private onInput: (v: number) => void,
-    accent: string,
-  ) {
-    this.value = initial;
-    this.root = el('div', 'fader');
-    this.root.style.setProperty('--accent', accent);
-    this.track = el('div', 'fader-track');
-    this.dangerZone = el('div', 'fader-danger');
-    this.fill = el('div', 'fader-fill');
-    this.thumb = el('div', 'fader-thumb');
-    this.track.append(this.dangerZone, this.fill, this.thumb);
-    const labelEl = el('div', 'fader-label', label);
-    this.root.append(this.track, labelEl);
-
-    const move = (clientY: number) => {
-      const rect = this.track.getBoundingClientRect();
-      const v = 1 - (clientY - rect.top) / rect.height;
-      this.set(Math.min(1, Math.max(0, v)));
-      this.onInput(this.value);
-    };
-    this.track.addEventListener('pointerdown', (e) => {
-      try {
-        this.track.setPointerCapture(e.pointerId);
-      } catch {
-        // synthetic pointer events have no active pointer to capture
-      }
-      move(e.clientY);
-    });
-    this.track.addEventListener('pointermove', (e) => {
-      if (this.track.hasPointerCapture(e.pointerId)) move(e.clientY);
-    });
-    this.set(initial);
-  }
-
-  set(v: number): void {
-    this.value = v;
-    const pct = `${(v * 100).toFixed(1)}%`;
-    this.fill.style.height = pct;
-    this.thumb.style.bottom = pct;
-  }
-
-  /** Mark the zone above `threshold` as dangerous (clipping / overdraw). */
-  setDanger(threshold: number): void {
-    const t = Math.min(1, Math.max(0, threshold));
-    this.dangerZone.style.height = `${((1 - t) * 100).toFixed(1)}%`;
-    this.root.classList.toggle('in-danger', this.value > t);
-  }
+function portrait(djId: string, cls = 'dj-portrait'): HTMLElement {
+  const img = el('img', cls) as HTMLImageElement;
+  img.src = `/assets/portraits/${djId}.png`;
+  img.alt = getDj(djId).nom;
+  return img;
 }
 
-// --- prepare screen ----------------------------------------------------------------
+function statDots(value: number, max = 5): HTMLElement {
+  const box = el('span', 'dots');
+  for (let i = 0; i < max; i++) {
+    box.append(el('span', `dot${i < value ? ' on' : ''}`));
+  }
+  return box;
+}
+
+function fatigueBar(fatigue: number): HTMLElement {
+  const bar = el('div', 'fatigue-bar');
+  const fill = el('div', 'fatigue-fill');
+  const f = Math.min(1, fatigue);
+  fill.style.width = `${(f * 100).toFixed(0)}%`;
+  fill.classList.toggle('tired', f > 0.6);
+  bar.append(fill);
+  return bar;
+}
+
+// --- prepare screen ----------------------------------------------------------
+
+export interface PrepareSelection {
+  spot: SpotId;
+  genre: GenreId;
+  present: Set<string>;
+}
 
 export interface PrepareCallbacks {
-  onLaunch(spot: SpotId, genre: GenreId): void;
+  onLaunch(): void;
+  onRecruit(djId: string): void;
   onBuy(cat: GearCategory): void;
   onRepairStart(cat: GearCategory): void;
   onRepairRush(cat: GearCategory): void;
@@ -98,11 +71,6 @@ export interface PrepareCallbacks {
   onImport(): void;
   onNewGame(): void;
   onLeaderboard(): void;
-}
-
-export interface PrepareSelection {
-  spot: SpotId;
-  genre: GenreId;
 }
 
 export function renderPrepare(
@@ -116,35 +84,32 @@ export function renderPrepare(
   root.className = 'screen screen-prepare';
 
   const header = el('header', 'topbar');
-  const brand = el('div', 'brand', STR.title);
+  header.append(el('div', 'brand', STR.title));
   const stats = el('div', 'stats');
   stats.append(
     stat('💶', fmtCash(state.cash), STR.cash),
     stat('⭐', String(Math.floor(state.rep)), STR.rep),
     stat('📢', `${Math.round(state.buzz * 100)}%`, STR.buzz),
   );
-  header.append(brand, stats);
+  header.append(stats);
   root.append(header);
 
   if (state.wonTeknival) {
-    const won = el('div', 'won-banner', `🏆 ${STR.wonTitle}`);
-    root.append(won);
+    root.append(el('div', 'won-banner', `🏆 ${STR.wonTitle}`));
   }
 
   const main = el('div', 'prepare-grid');
 
-  // spots
-  const spotsSec = el('section', 'panel');
-  spotsSec.append(el('h2', '', STR.chooseSpot));
+  // --- spots & genres column
+  const where = el('section', 'panel');
+  where.append(el('h2', '', STR.chooseSpot));
   for (const spot of SPOTS) {
     const unlocked = isSpotUnlocked(state, spot.id);
     const card = el('button', `card spot-card${selection.spot === spot.id ? ' selected' : ''}${unlocked ? '' : ' locked'}`);
     card.disabled = !unlocked;
-    const title = el('div', 'card-title', spot.nom);
-    if (spot.id === 'teknival') title.textContent = `🏆 ${spot.nom}`;
-    card.append(title);
+    card.append(el('div', 'card-title', spot.id === 'teknival' ? `🏆 ${spot.nom}` : spot.nom));
     card.append(
-      el('div', 'card-meta', `${STR.capacity(spot.cap)} · ${STR.duration(Math.round(spot.duration / 60))}`),
+      el('div', 'card-meta', `${STR.capacity(spot.cap)} · ${STR.duration(Math.round(spot.duration / 60))} · ${STR.setsCount(spot.setCount)}`),
     );
     card.append(el('div', 'card-desc', unlocked ? spot.description : `🔒 ${STR.repNeeded(spot.repReq)}`));
     if (unlocked) {
@@ -153,13 +118,9 @@ export function renderPrepare(
         renderPrepare(root, state, selection, now, cb);
       });
     }
-    spotsSec.append(card);
+    where.append(card);
   }
-  main.append(spotsSec);
-
-  // genres
-  const genresSec = el('section', 'panel');
-  genresSec.append(el('h2', '', STR.chooseGenre));
+  where.append(el('h2', 'mt', STR.chooseGenre));
   for (const genre of GENRES) {
     const card = el('button', `card genre-card${selection.genre === genre.id ? ' selected' : ''}`);
     card.append(el('div', 'card-title', `${genre.nom} · ${genre.bpm} BPM`));
@@ -168,11 +129,66 @@ export function renderPrepare(
       selection.genre = genre.id;
       renderPrepare(root, state, selection, now, cb);
     });
-    genresSec.append(card);
+    where.append(card);
   }
-  main.append(genresSec);
+  main.append(where);
 
-  // gear shop + repairs
+  // --- crew column
+  const crewSec = el('section', 'panel');
+  crewSec.append(el('h2', '', STR.chooseCrew));
+  for (const member of state.crew) {
+    const def = getDj(member.id);
+    const aboard = selection.present.has(member.id);
+    const card = el('button', `card dj-card${aboard ? ' selected' : ''}`);
+    const row = el('div', 'dj-row');
+    row.append(portrait(member.id));
+    const info = el('div', 'dj-info');
+    const lvl = djLevel(member);
+    info.append(el('div', 'card-title', `${def.nom}${lvl > 0 ? ` · ${STR.level(lvl)}` : ''}`));
+    const statsLine = el('div', 'dj-stats');
+    statsLine.append(el('span', 'dj-stat-label', STR.technique), statDots(def.technique + Math.floor(lvl * 0.5)));
+    statsLine.append(el('span', 'dj-stat-label', STR.charisme), statDots(def.charisme));
+    info.append(statsLine);
+    const aff = GENRES.map((g) => `${g.nom} ${'★'.repeat(Math.round(def.affinities[g.id] * 2.5))}`).join(' · ');
+    info.append(el('div', 'card-desc', `${aff}`));
+    const riskLine = el('div', 'dj-risk', `${STR.risk[def.risk]}${STR.riskHint[def.risk] ? ' — ' + STR.riskHint[def.risk] : ''} · ${STR.cut(def.cut)}`);
+    info.append(riskLine);
+    const fat = el('div', 'dj-fatigue');
+    fat.append(el('span', 'dj-stat-label', STR.fatigue), fatigueBar(member.fatigue));
+    info.append(fat);
+    row.append(info);
+    card.append(row);
+    card.addEventListener('click', () => {
+      if (aboard) selection.present.delete(member.id);
+      else selection.present.add(member.id);
+      renderPrepare(root, state, selection, now, cb);
+    });
+    crewSec.append(card);
+  }
+  for (const def of recruitableDjs(state)) {
+    const card = el('div', 'card dj-card recruitable');
+    const row = el('div', 'dj-row');
+    row.append(portrait(def.id));
+    const info = el('div', 'dj-info');
+    info.append(el('div', 'card-title', `✨ ${def.nom}`));
+    info.append(el('div', 'card-desc', def.description));
+    info.append(el('div', 'dj-risk', `${STR.risk[def.risk]} · ${STR.cut(def.cut)}`));
+    const btn = el('button', 'btn small accent', STR.recruit);
+    btn.addEventListener('click', () => cb.onRecruit(def.id));
+    info.append(btn);
+    row.append(info);
+    card.append(row);
+    crewSec.append(card);
+  }
+  for (const def of lockedDjs(state)) {
+    const card = el('div', 'card dj-card locked');
+    card.append(el('div', 'card-title', `🔒 ${def.nom}`));
+    card.append(el('div', 'card-desc', `${STR.repNeeded(def.repReq)}`));
+    crewSec.append(card);
+  }
+  main.append(crewSec);
+
+  // --- gear column
   const shopSec = el('section', 'panel');
   shopSec.append(el('h2', '', STR.shop));
   for (const cat of GEAR_CATEGORIES) {
@@ -183,10 +199,7 @@ export function renderPrepare(
     const info = el('div', 'gear-info');
     info.append(el('div', 'gear-cat', STR.gearCats[cat]));
     const nameLine = el('div', 'gear-name', current.nom);
-    if (state.damaged[cat]) {
-      const dmg = el('span', 'gear-damaged', ` ${STR.damaged}`);
-      nameLine.append(dmg);
-    }
+    if (state.damaged[cat]) nameLine.append(el('span', 'gear-damaged', ` ${STR.damaged}`));
     info.append(nameLine);
     info.append(el('div', 'gear-effect', STR.gearEffect[cat]));
     row.append(info);
@@ -217,17 +230,22 @@ export function renderPrepare(
     row.append(actions);
     shopSec.append(row);
   }
-  const buzzHint = el('p', 'hint', STR.buzzHint);
-  shopSec.append(buzzHint);
+  shopSec.append(el('p', 'hint', STR.buzzHint));
   main.append(shopSec);
   root.append(main);
 
-  // footer: launch + meta actions
+  // --- footer
   const footer = el('footer', 'prepare-footer');
-  const damagedAny = GEAR_CATEGORIES.some((c) => state.damaged[c]);
-  const launch = el('button', 'btn launch', `▶ ${STR.launch} — ${getSpot(selection.spot).nom} / ${getGenre(selection.genre).nom}`);
-  if (damagedAny) launch.append(el('span', 'launch-warning', ' (matos HS : son dégradé)'));
-  launch.addEventListener('click', () => cb.onLaunch(selection.spot, selection.genre));
+  const canLaunch = selection.present.size > 0;
+  const launch = el(
+    'button',
+    'btn launch',
+    canLaunch
+      ? `▶ ${STR.launch} — ${getSpot(selection.spot).nom} / ${getGenre(selection.genre).nom}`
+      : STR.needOneDj,
+  );
+  launch.disabled = !canLaunch;
+  launch.addEventListener('click', () => cb.onLaunch());
   footer.append(launch);
 
   const meta = el('div', 'meta-actions');
@@ -254,25 +272,28 @@ function stat(icon: string, value: string, label: string): HTMLElement {
   return box;
 }
 
-// --- rave screen -------------------------------------------------------------------
+// --- night screen ------------------------------------------------------------
 
-export interface RaveScreen {
+export interface NightScreen {
   canvas: HTMLCanvasElement;
-  controls: Controls;
-  update(rave: RaveState, ampHeadroom: number, subHeadroom: number): void;
+  update(night: NightState): void;
   toast(msg: string): void;
+  showTransition(state: GameState, night: NightState, onStart: (djId: string, brief: Brief) => void): void;
+  showEvent(pending: PendingEvent, onChoose: (index: number) => string): void;
 }
 
-export function renderRave(root: HTMLElement): RaveScreen {
+export function renderNight(root: HTMLElement): NightScreen {
   root.innerHTML = '';
-  root.className = 'screen screen-rave';
+  root.className = 'screen screen-night';
 
   const sceneWrap = el('div', 'scene-wrap');
   const canvas = el('canvas', 'scene-canvas');
   sceneWrap.append(canvas);
 
-  // HUD overlays
   const hudTop = el('div', 'hud-top');
+  const setBox = el('div', 'hud-stat');
+  const setValue = el('div', 'hud-stat-value', '');
+  setBox.append(setValue, el('div', 'hud-stat-label', '🎚'));
   const clock = el('div', 'hud-clock');
   const clockValue = el('div', 'hud-clock-value', '0:00');
   clock.append(clockValue, el('div', 'hud-clock-label', STR.sunriseIn));
@@ -282,50 +303,49 @@ export function renderRave(root: HTMLElement): RaveScreen {
   const bankBox = el('div', 'hud-stat');
   const bankValue = el('div', 'hud-stat-value', '0 €');
   bankBox.append(bankValue, el('div', 'hud-stat-label', STR.bankLabel));
-  hudTop.append(crowdBox, clock, bankBox);
+  hudTop.append(setBox, crowdBox, clock, bankBox);
   sceneWrap.append(hudTop);
 
-  // heat meter
+  const bottomBar = el('div', 'night-bottom');
+  const nowPlaying = el('div', 'now-playing');
   const heatWrap = el('div', 'heat-wrap');
   const heatBar = el('div', 'heat-bar');
   const heatFill = el('div', 'heat-fill');
   heatBar.append(heatFill);
   heatWrap.append(el('div', 'heat-label', `👮 ${STR.heat}`), heatBar);
-  sceneWrap.append(heatWrap);
+  const vibeWrap = el('div', 'vibe-wrap');
+  const vibeBar = el('div', 'vibe-bar');
+  const vibeFill = el('div', 'vibe-fill');
+  vibeBar.append(vibeFill);
+  vibeWrap.append(el('div', 'heat-label', `🔥 ${STR.vibeLabel}`), vibeBar);
+  bottomBar.append(nowPlaying, heatWrap, vibeWrap);
+  sceneWrap.append(bottomBar);
 
   const toasts = el('div', 'toasts');
   sceneWrap.append(toasts);
-  root.append(sceneWrap);
 
-  // the desk
-  // safe starting positions: demand (0.6·v + 0.8·b = 0.46) under tier-0 supply
-  const controls: Controls = { volume: 0.4, bass: 0.28, power: 0.8 };
-  const desk = el('div', 'desk');
-  const volFader = new Fader(STR.volume, controls.volume, (v) => (controls.volume = v), '#ff5d8f');
-  const bassFader = new Fader(STR.bass, controls.bass, (v) => (controls.bass = v), '#7b5dff');
-  const powerFader = new Fader(STR.power, controls.power, (v) => (controls.power = v), '#3ddc97');
-  desk.append(volFader.root, bassFader.root, powerFader.root);
-  root.append(desk);
+  const modal = el('div', 'night-modal hidden');
+  sceneWrap.append(modal);
+  root.append(sceneWrap);
 
   let lastToast = '';
   let lastToastAt = 0;
 
   return {
     canvas,
-    controls,
-    update(rave, ampHeadroom, subHeadroom) {
-      clockValue.textContent = fmtTime(rave.duration - rave.t);
-      crowdValue.textContent = String(Math.round(rave.crowd));
-      bankValue.textContent = fmtCash(rave.bank);
-      heatFill.style.width = `${(rave.heat * 100).toFixed(1)}%`;
-      heatFill.classList.toggle('hot', rave.heat > 0.7);
-      volFader.setDanger(ampHeadroom);
-      bassFader.setDanger(subHeadroom);
-      // generator danger: where current demand would outrun supply
-      const demand = 0.6 * controls.volume + 0.8 * controls.bass;
-      const needed = rave.genCapacity > 0 ? demand / rave.genCapacity : 1;
-      powerFader.setDanger(1.01); // power itself is never "too high"
-      powerFader.root.classList.toggle('in-danger', powerFader.value < Math.min(needed, 1));
+    update(night) {
+      setValue.textContent = `${Math.min(night.setIndex + 1, night.setCount)}/${night.setCount}`;
+      clockValue.textContent = fmtTime(night.duration - night.t);
+      crowdValue.textContent = String(Math.round(night.crowd));
+      bankValue.textContent = fmtCash(night.bank);
+      heatFill.style.width = `${(night.heat * 100).toFixed(1)}%`;
+      heatFill.classList.toggle('hot', night.heat > 0.7);
+      vibeFill.style.width = `${(night.vibe * 100).toFixed(1)}%`;
+      if (night.currentDj && night.phase === 'playing') {
+        nowPlaying.textContent = `🎧 ${STR.nowPlaying(getDj(night.currentDj).nom)} · ${STR.briefs[night.brief]}`;
+      } else {
+        nowPlaying.textContent = '';
+      }
     },
     toast(msg) {
       const now = performance.now();
@@ -340,10 +360,99 @@ export function renderRave(root: HTMLElement): RaveScreen {
         setTimeout(() => t.remove(), 400);
       }, 3500);
     },
+    showTransition(state, night, onStart) {
+      modal.innerHTML = '';
+      modal.className = 'night-modal';
+      const panel = el('div', 'modal-panel');
+      panel.append(el('h2', '', `${STR.setLabel(night.setIndex + 1, night.setCount)} — ${STR.whoPlays}`));
+
+      let chosenDj = night.presentDjs[0];
+      let chosenBrief: Brief = 'normal';
+      const djList = el('div', 'pick-dj-list');
+      const briefRow = el('div', 'brief-row');
+      const go = el('button', 'btn launch', STR.startSet);
+
+      const refresh = () => {
+        for (const child of Array.from(djList.children) as HTMLElement[]) {
+          child.classList.toggle('selected', child.dataset.dj === chosenDj);
+        }
+        for (const child of Array.from(briefRow.children) as HTMLElement[]) {
+          child.classList.toggle('selected', child.dataset.brief === chosenBrief);
+        }
+      };
+
+      for (const djId of night.presentDjs) {
+        const def = getDj(djId);
+        const member = state.crew.find((d) => d.id === djId)!;
+        const card = el('button', 'card dj-pick');
+        card.dataset.dj = djId;
+        const row = el('div', 'dj-row');
+        row.append(portrait(djId, 'dj-portrait small'));
+        const info = el('div', 'dj-info');
+        info.append(el('div', 'card-title', def.nom));
+        const q = computeSetQuality(state, night, djId, 'normal');
+        const stars = '♪'.repeat(Math.max(1, Math.round(q * 5)));
+        info.append(el('div', 'card-desc', `${stars} · ${STR.risk[def.risk]} · ${STR.cut(def.cut)}`));
+        const fat = el('div', 'dj-fatigue');
+        fat.append(fatigueBar(member.fatigue));
+        info.append(fat);
+        row.append(info);
+        card.append(row);
+        card.addEventListener('click', () => {
+          chosenDj = djId;
+          refresh();
+        });
+        djList.append(card);
+      }
+      panel.append(djList);
+
+      panel.append(el('h3', '', STR.briefLabel));
+      for (const brief of ['safe', 'normal', 'pousser'] as Brief[]) {
+        const b = el('button', 'card brief-pick');
+        b.dataset.brief = brief;
+        b.append(el('div', 'card-title', STR.briefs[brief]));
+        b.append(el('div', 'card-desc', STR.briefHints[brief]));
+        b.addEventListener('click', () => {
+          chosenBrief = brief;
+          refresh();
+        });
+        briefRow.append(b);
+      }
+      panel.append(briefRow);
+
+      go.addEventListener('click', () => {
+        modal.className = 'night-modal hidden';
+        onStart(chosenDj, chosenBrief);
+      });
+      panel.append(go);
+      modal.append(panel);
+      refresh();
+    },
+    showEvent(pending, onChoose) {
+      modal.innerHTML = '';
+      modal.className = 'night-modal';
+      const panel = el('div', 'modal-panel event-panel');
+      panel.append(el('h2', '', `⚠️ ${pending.def.titre}`));
+      panel.append(el('p', 'event-text', pending.def.texte));
+      pending.def.options.forEach((option, i) => {
+        const btn = el('button', 'card event-option');
+        btn.append(el('div', 'card-title', option.label));
+        btn.addEventListener('click', () => {
+          const outcome = onChoose(i);
+          panel.innerHTML = '';
+          panel.append(el('p', 'event-outcome', outcome));
+          setTimeout(() => {
+            modal.className = 'night-modal hidden';
+          }, 1800);
+        });
+        panel.append(btn);
+      });
+      modal.append(panel);
+    },
   };
 }
 
-// --- recap screen -------------------------------------------------------------------
+// --- recap screen -------------------------------------------------------------
 
 export interface RecapCallbacks {
   onContinue(): void;
@@ -367,9 +476,20 @@ export function renderRecap(
   } else {
     panel.append(el('h1', 'recap-title', result.busted ? `🚨 ${STR.busted}` : `🌅 ${STR.sunrise}`));
   }
-  panel.append(
-    el('div', 'recap-sub', `${getSpot(result.spotId).nom} · ${getGenre(result.genreId).nom}`),
-  );
+  panel.append(el('div', 'recap-sub', `${getSpot(result.spotId).nom} · ${getGenre(result.genreId).nom}`));
+
+  // the night's lineup
+  const lineup = el('div', 'recap-lineup');
+  const seen = new Set<string>();
+  for (const set of result.lineup) {
+    if (seen.has(set.djId)) continue;
+    seen.add(set.djId);
+    lineup.append(portrait(set.djId, 'dj-portrait small'));
+  }
+  if (seen.size > 0) {
+    panel.append(el('div', 'recap-label', STR.lineupLabel));
+    panel.append(lineup);
+  }
 
   const lines = el('div', 'recap-lines');
   lines.append(recapLine(STR.peakCrowd, `${result.peakCrowd} ${STR.crowdLabel}`));
@@ -377,11 +497,12 @@ export function renderRecap(
   if (!result.busted) {
     lines.append(recapLine(STR.donations, STR.donationsMult(result.donationMult.toFixed(2))));
   } else {
-    if (result.bank > result.payout) lines.append(recapLine(STR.bustCut, `−${fmtCash(result.bank - result.payout)}`));
+    if (result.bank > result.gross) lines.append(recapLine(STR.bustCut, `−${fmtCash(result.bank - result.gross)}`));
     if (result.fine > 0) lines.append(recapLine(STR.fine, `−${fmtCash(result.fine)}`));
-    if (result.seized) {
-      lines.append(recapLine('👮', STR.seized(STR.gearCats[result.seized])));
-    }
+    if (result.seized) lines.append(recapLine('👮', STR.seized(STR.gearCats[result.seized])));
+  }
+  if (result.cutsTotal > 0 && result.gross > 0) {
+    lines.append(recapLine(STR.djCuts(result.cutsTotal), `−${fmtCash(result.gross - result.payout)}`));
   }
   lines.append(recapLine(STR.rep, STR.repGained(result.repGained)));
   const totalLine = recapLine(STR.total, fmtCash(result.payout));
@@ -389,7 +510,6 @@ export function renderRecap(
   lines.append(totalLine);
   panel.append(lines);
 
-  // score submission
   const scoreRow = el('div', 'score-row');
   const pseudoInput = el('input', 'pseudo-input') as HTMLInputElement;
   pseudoInput.placeholder = STR.pseudoPlaceholder;
@@ -426,7 +546,7 @@ function recapLine(label: string, value: string): HTMLElement {
   return line;
 }
 
-// --- leaderboard screen ---------------------------------------------------------------
+// --- leaderboard ----------------------------------------------------------------
 
 export function renderLeaderboard(
   root: HTMLElement,
@@ -463,8 +583,7 @@ export function renderLeaderboard(
     }
     rows.forEach((row, i) => {
       const line = el('div', 'lb-row');
-      const value =
-        kind === 'payout' ? fmtCash(row.payout) : `${row.crowd} ${STR.crowdLabel}`;
+      const value = kind === 'payout' ? fmtCash(row.payout) : `${row.crowd} ${STR.crowdLabel}`;
       line.append(
         el('span', 'lb-rank', `${i + 1}.`),
         el('span', 'lb-pseudo', row.pseudo + (row.busted ? ' 🚨' : '')),
@@ -488,4 +607,9 @@ export function renderLeaderboard(
   panel.append(back);
   root.append(panel);
   void show('crowd');
+}
+
+/** Used by main.ts to celebrate fresh recruits on the prepare screen. */
+export function newlyRecruitable(state: GameState, prevRep: number): DjDef[] {
+  return DJS.filter((d) => d.repReq > prevRep && d.repReq <= state.rep);
 }

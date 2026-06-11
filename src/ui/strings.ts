@@ -4,17 +4,18 @@
  */
 export const STR = {
   title: 'Rave Tycoon',
-  tagline: 'Monte ton sound system. Tiens jusqu’au lever du soleil.',
+  tagline: 'Monte ton sound system. Mène ton crew jusqu’au lever du soleil.',
 
   // prepare screen
   prepare: 'Préparation',
   chooseSpot: 'Le spot',
   chooseGenre: 'Le son',
+  chooseCrew: 'Le crew',
   locked: 'Verrouillé',
   repNeeded: (n: number) => `${n} rép nécessaire`,
   launch: 'Lancer la teuf',
+  needOneDj: 'Embarque au moins un DJ',
   shop: 'Le matos',
-  owned: 'Installé',
   buy: 'Acheter',
   maxed: 'Au max',
   damaged: 'HS',
@@ -25,31 +26,70 @@ export const STR = {
   cash: 'Caisse',
   rep: 'Réputation',
   buzz: 'Buzz',
-  buzzHint: 'Le bouche-à-oreille booste l’affluence de la prochaine teuf. Il retombe si tu restes silencieux.',
+  buzzHint:
+    'Le bouche-à-oreille booste l’affluence de la prochaine teuf et retombe si tu restes silencieux. Le crew récupère sa fatigue avec le temps.',
   duration: (min: number) => `~${min} min`,
+  setsCount: (n: number) => `${n} sets`,
   capacity: (n: number) => `${n} pers. max`,
-  gearCats: { amps: 'Amplis', subs: 'Enceintes', gen: 'Groupe électrogène' } as const,
+  gearCats: {
+    platines: 'Platines',
+    mur: 'Mur de son',
+    groupe: 'Groupe électrogène',
+    lumieres: 'Lumières',
+    logistique: 'Logistique',
+  } as const,
   gearEffect: {
-    amps: 'Plus de marge avant de clipper',
-    subs: 'Plus de basses sans tout cramer',
-    gen: 'Plus de budget électrique',
+    platines: 'Meilleurs sets pour tous les DJs',
+    mur: 'Plus de monde devant le mur',
+    groupe: 'Moins de coupures de courant',
+    lumieres: 'Plus d’ambiance, plus de spectacle',
+    logistique: 'Guetteurs et plans de repli — moins de chaleur',
   } as const,
 
-  // rave HUD
-  volume: 'VOLUME',
-  bass: 'BASSES',
-  power: 'GROUPE',
+  // crew
+  technique: 'Technique',
+  charisme: 'Charisme',
+  fatigue: 'Fatigue',
+  exhausted: 'Cramé·e',
+  fresh: 'Frais·che',
+  cut: (pct: number) => `${Math.round(pct * 100)} % de la recette`,
+  level: (n: number) => `Niv. ${n}`,
+  risk: { discret: 'Discret', normal: 'Normal', chaud: 'Chaud bouillant' } as const,
+  riskHint: { discret: 'passe sous les radars', normal: '', chaud: 'attire les bleus' } as const,
+  recruit: 'Recruter',
+  inCrew: 'Dans le crew',
+  bringTonight: 'Embarquer ce soir',
+  affinity: 'Affinités',
+  newRecruit: (nom: string) => `${nom} veut rejoindre le crew !`,
+
+  // night screen
+  setLabel: (n: number, total: number) => `Set ${n}/${total}`,
+  whoPlays: 'Qui prend les platines ?',
+  briefLabel: 'La consigne',
+  briefs: {
+    safe: 'Jouer safe',
+    normal: 'Set normal',
+    pousser: 'Pousser le son',
+  } as const,
+  briefHints: {
+    safe: 'La chaleur retombe, le public s’ennuie un peu',
+    normal: 'Le plan prévu, ni plus ni moins',
+    pousser: 'Plus de monde, plus de vibe — et les bleus rappliquent',
+  } as const,
+  startSet: 'Balance le son',
+  nowPlaying: (nom: string) => `${nom} aux platines`,
   heat: 'Les bleus',
   crowdLabel: 'teufeurs',
   bankLabel: 'buvette',
   sunriseIn: 'lever du soleil',
+  vibeLabel: 'ambiance',
   events: {
-    brownout: '⚡ Le groupe décroche ! Baisse le son ou monte le jus.',
-    'blown-amp': '🔥 Ampli cramé ! Le son est dégradé pour la nuit.',
-    'blown-sub': '💥 Enceinte explosée ! Les basses sont à genoux.',
+    brownout: '⚡ Le groupe décroche ! Le son se coupe.',
+    'mur-blown': '💥 Une enceinte vient de lâcher !',
     bust: '🚨 LES BLEUS ! La teuf est terminée.',
     sunrise: '🌅 Le soleil se lève sur le dancefloor…',
-    heatWarning: '👮 Ça sent le roussi… calme le son.',
+    'set-ended': '🎚 Fin du set — à qui le tour ?',
+    heatWarning: '👮 Ça sent le roussi… calme le jeu.',
   },
 
   // recap
@@ -57,19 +97,20 @@ export const STR = {
   busted: 'PERQUISITIONNÉ',
   wonTitle: 'LÉGENDE DU TEKNIVAL',
   wonText:
-    'Tu as tenu le mur de son jusqu’au matin devant une marée humaine. Le téléphone arabe de la scène ne parle plus que de toi. Le camion repart, et l’histoire est en marche.',
+    'Ton crew a tenu le mur de son jusqu’au matin devant une marée humaine. Le téléphone arabe de la scène ne parle plus que de vous. Le camion repart, et l’histoire est en marche.',
   peakCrowd: 'Pic d’affluence',
   barTotal: 'Recette buvette',
   donations: 'Prix libre',
   donationsMult: (m: string) => `×${m} (ambiance + affluence)`,
+  djCuts: (pct: number) => `Parts du crew (−${Math.round(pct * 100)} %)`,
+  lineupLabel: 'Le line-up de la nuit',
   fine: 'Amende',
   seized: (gear: string) => `Matos saisi : ${gear}`,
   bustCut: 'Recette perdue dans la panique',
   repGained: (n: number) => `+${n} réputation`,
-  total: 'Total',
+  total: 'Pour la caisse',
   continue: 'Retour au camion',
   share: 'Partager la carte',
-  shareSaved: 'Carte enregistrée !',
 
   // leaderboard
   leaderboard: 'Classement',
@@ -93,9 +134,8 @@ export const STR = {
   newGameConfirm: 'Tout effacer et repartir de zéro ?',
 
   // misc
-  startHint: 'Touche les faders pour démarrer le son',
   firstTimeHint:
-    'Pousse le volume et les basses pour attirer du monde — mais surveille la jauge des bleus et la marge de ton matos.',
+    'Choisis ton spot, ton son et qui mixe — puis fais les bons choix pendant la nuit. Pousser le son remplit le champ… et la jauge des bleus.',
 } as const;
 
 export function fmtCash(n: number): string {
