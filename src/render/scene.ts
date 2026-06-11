@@ -225,13 +225,26 @@ export class SceneRenderer {
     const kick = !p.soundCut && p.beatPhase < 0.18;
     const cx = SCENE_W / 2;
 
-    // platform
-    c.fillStyle = '#171221';
-    c.fillRect(cx - 120, 14, 240, STAGE_BOTTOM - 26);
-    c.fillStyle = '#211a30';
-    c.fillRect(cx - 120, STAGE_BOTTOM - 16, 240, 6);
-    c.fillStyle = '#0e0a16';
-    c.fillRect(cx - 124, 10, 248, 6);
+    // wooden stage deck (fallback: the old flat platform)
+    const deck = this.bank.props.stage_deck;
+    if (deck) {
+      c.drawImage(deck, cx - 96, STAGE_BOTTOM - 90);
+    } else {
+      c.fillStyle = '#171221';
+      c.fillRect(cx - 120, 14, 240, STAGE_BOTTOM - 26);
+      c.fillStyle = '#211a30';
+      c.fillRect(cx - 120, STAGE_BOTTOM - 16, 240, 6);
+      c.fillStyle = '#0e0a16';
+      c.fillRect(cx - 124, 10, 248, 6);
+    }
+
+    // truss rig over the deck: top bar + hanging spotlights, legs spliced
+    // from the tall source sprite so the whole thing fits the stage band
+    const truss = this.bank.props.stage_big;
+    if (truss) {
+      c.drawImage(truss, 0, 8, 176, 64, cx - 88, -2, 176, 64);
+      c.drawImage(truss, 0, 120, 176, 22, cx - 88, 62, 176, 22);
+    }
 
     // spotlight masts
     this.prop(c, 'stage_spot_left', cx - 150, 8);
@@ -261,17 +274,7 @@ export class SceneRenderer {
       if (med && tier >= 1) c.drawImage(med, baseX + 8, y + 18);
     }
 
-    // booth
-    c.fillStyle = '#0c0914';
-    c.fillRect(cx - 30, STAGE_BOTTOM - 42, 60, 22);
-    c.fillStyle = kick ? '#3affa0' : '#1c5e42';
-    c.fillRect(cx - 24, STAGE_BOTTOM - 38, 4, 2);
-    c.fillStyle = kick ? '#ffd166' : '#6e5a26';
-    c.fillRect(cx - 16, STAGE_BOTTOM - 38, 4, 2);
-    c.fillStyle = p.heat > 0.6 ? '#ff3b4e' : '#5e1c24';
-    c.fillRect(cx - 8, STAGE_BOTTOM - 38, 4, 2);
-
-    // the DJ, facing the crowd
+    // the DJ, facing the crowd, behind the decks
     if (p.djCharacter !== null) {
       const bob = kick ? -1 : 0;
       drawRaverFrame(
@@ -282,9 +285,25 @@ export class SceneRenderer {
         'down',
         Math.floor(timeMs / 200) % 6,
         Math.round(cx - 8),
-        STAGE_BOTTOM - 74 + bob,
+        STAGE_BOTTOM - 64 + bob,
       );
     }
+
+    // booth: real turntable rig (fallback: the old black table)
+    const djSet = this.bank.props.dj_set;
+    if (djSet) {
+      c.drawImage(djSet, cx - 24, STAGE_BOTTOM - 38);
+    } else {
+      c.fillStyle = '#0c0914';
+      c.fillRect(cx - 30, STAGE_BOTTOM - 42, 60, 22);
+    }
+    // status LEDs on the mixer: two blink with the kick, red tracks heat
+    c.fillStyle = kick ? '#3affa0' : '#1c5e42';
+    c.fillRect(cx - 3, STAGE_BOTTOM - 31, 2, 2);
+    c.fillStyle = kick ? '#ffd166' : '#6e5a26';
+    c.fillRect(cx + 1, STAGE_BOTTOM - 31, 2, 2);
+    c.fillStyle = p.heat > 0.6 ? '#ff3b4e' : '#5e1c24';
+    c.fillRect(cx - 1, STAGE_BOTTOM - 27, 2, 2);
   }
 
   /** Night darkness with warm light pools; fades out as sunrise approaches. */

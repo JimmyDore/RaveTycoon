@@ -126,6 +126,8 @@ const PROPS = {
   speaker_small: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Small_Loudspeaker.png`,
   stage_big: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Example_Big_Stage_Structure.png`,
   stage_small: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Example_Small_Stage_Structure.png`,
+  stage_deck: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Example_Big_Stage_1.png`,
+  dj_set: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_DJ_Set.png`,
   stage_spot_left: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Stage_Spotlight_Left.png`,
   stage_spot_right: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Stage_Spotlight_Right.png`,
   // camp / nature

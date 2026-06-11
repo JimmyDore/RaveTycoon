@@ -15,7 +15,7 @@ export type Direction = keyof typeof DIR;
 
 const PROP_NAMES = [
   'speaker_big', 'speaker_medium', 'speaker_small',
-  'stage_big', 'stage_small', 'stage_spot_left', 'stage_spot_right',
+  'stage_big', 'stage_small', 'stage_deck', 'dj_set', 'stage_spot_left', 'stage_spot_right',
   'tent_1', 'tent_2', 'tent_3', 'tent_4', 'campfire_1',
   'tree_big', 'tree_med_1', 'tree_med_2', 'tree_med_3', 'bush_1', 'bush_2',
   'camper_left', 'camper_right',
