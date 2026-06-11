@@ -1,4 +1,5 @@
 import type { GenreId } from '../core/types';
+import { parseManifest, STEM_NAMES, type StemManifest, type StemName } from './manifest';
 import {
   clipDrive,
   distortionCurve,
@@ -28,14 +29,12 @@ interface StemNodes {
   gain: GainNode;
 }
 
-const STEM_NAMES = ['kick', 'sub', 'lead', 'hats'] as const;
-type StemName = (typeof STEM_NAMES)[number];
-
 /**
  * Adaptive stem mixer. The desk genuinely mixes the music: volume = master
  * gain (distorting past headroom), bass = sub stem + lowshelf, power
- * overdraw = brownout dips. All stems are synthesized offline at start —
- * no audio assets.
+ * overdraw = brownout dips. Stems are loaded from /audio/ when a manifest
+ * is present, otherwise synthesized offline at start — no audio assets
+ * required.
  */
 export class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -45,10 +44,46 @@ export class AudioEngine {
   private stems = new Map<StemName, StemNodes>();
   private crowdGain: GainNode | null = null;
   private crackleGain: GainNode | null = null;
-  private patterns: GenrePatterns | null = null;
   private loopStart = 0;
   private curveLevel = -1;
   private running = false;
+  private bpm = 0; // bpm of whatever is currently looping
+  private manifest: StemManifest | null | undefined; // undefined = not fetched yet
+
+  private async fetchManifest(): Promise<StemManifest | null> {
+    if (this.manifest !== undefined) return this.manifest;
+    try {
+      const res = await fetch('/audio/manifest.json');
+      this.manifest = res.ok ? parseManifest(await res.json()) : null;
+    } catch {
+      this.manifest = null;
+    }
+    return this.manifest;
+  }
+
+  /** Real stems from /audio/, or null → caller falls back to synthesis. */
+  private async loadRealStems(
+    ctx: AudioContext,
+    genreId: GenreId,
+  ): Promise<{ buffers: StemBuffers; bpm: number } | null> {
+    const manifest = await this.fetchManifest();
+    const entry = manifest?.[genreId];
+    if (!entry) return null;
+    try {
+      const buffers = {} as StemBuffers;
+      await Promise.all(
+        STEM_NAMES.map(async (name) => {
+          const res = await fetch(`/audio/${entry.stems[name]}`);
+          if (!res.ok) throw new Error(`missing stem ${entry.stems[name]}`);
+          buffers[name] = await ctx.decodeAudioData(await res.arrayBuffer());
+        }),
+      );
+      return { buffers, bpm: entry.bpm };
+    } catch (err) {
+      console.warn('[audio] stem load failed, falling back to synth:', err);
+      return null;
+    }
+  }
 
   get isRunning(): boolean {
     return this.running;
@@ -67,7 +102,6 @@ export class AudioEngine {
     const ctx = this.ensureCtx();
     this.stopStems();
     const patterns = patternsFor(genreId);
-    this.patterns = patterns;
 
     // master chain: stems → lowshelf → waveshaper → master → compressor → out
     const comp = ctx.createDynamicsCompressor();
@@ -88,7 +122,9 @@ export class AudioEngine {
     this.lowshelf.connect(this.shaper);
     this.curveLevel = -1;
 
-    const buffers = await renderStems(patterns, ctx.sampleRate);
+    const real = await this.loadRealStems(ctx, genreId);
+    const buffers = real ? real.buffers : await renderStems(patterns, ctx.sampleRate);
+    this.bpm = real ? real.bpm : patterns.bpm;
     const t0 = ctx.currentTime + 0.05;
     for (const name of STEM_NAMES) {
       const source = ctx.createBufferSource();
@@ -197,8 +233,8 @@ export class AudioEngine {
 
   /** Beat phase in [0,1) for dance-animation sync. */
   beatPhase(): number {
-    if (!this.ctx || !this.patterns || !this.running) return 0;
-    const beat = (this.ctx.currentTime - this.loopStart) / (60 / this.patterns.bpm);
+    if (!this.ctx || !this.bpm || !this.running) return 0;
+    const beat = (this.ctx.currentTime - this.loopStart) / (60 / this.bpm);
     return beat >= 0 ? beat % 1 : 0;
   }
 
