@@ -178,9 +178,10 @@ async function copyNamed(map, dir) {
 async function buildTerrain() {
   await mkdir(`${OUT}/terrain`, { recursive: true });
   const candidates = {
-    grass_1: `${THEMES}/1_Terrains_and_Fences_Singles_16x16/ME_Singles_Terrains_and_Fences_16x16_Grass_1_1.png`,
-    grass_2: `${THEMES}/1_Terrains_and_Fences_Singles_16x16/ME_Singles_Terrains_and_Fences_16x16_Grass_1_2.png`,
-    grass_3: `${THEMES}/1_Terrains_and_Fences_Singles_16x16/ME_Singles_Terrains_and_Fences_16x16_Grass_2_1.png`,
+    // plain center tiles (the low-numbered ones are autotile edges)
+    grass_1: `${THEMES}/1_Terrains_and_Fences_Singles_16x16/ME_Singles_Terrains_and_Fences_16x16_Grass_2_10.png`,
+    grass_2: `${THEMES}/1_Terrains_and_Fences_Singles_16x16/ME_Singles_Terrains_and_Fences_16x16_Grass_2_9.png`,
+    grass_3: `${THEMES}/1_Terrains_and_Fences_Singles_16x16/ME_Singles_Terrains_and_Fences_16x16_Grass_1_21.png`,
     asphalt_1: `${THEMES}/2_City_Terrains_Singles_16x16/ME_Singles_City_Terrains_16x16_Asphalt_1_Variation_1.png`,
     asphalt_2: `${THEMES}/2_City_Terrains_Singles_16x16/ME_Singles_City_Terrains_16x16_Asphalt_1_Variation_2.png`,
     asphalt_3: `${THEMES}/2_City_Terrains_Singles_16x16/ME_Singles_City_Terrains_16x16_Asphalt_1_Variation_5.png`,
