@@ -1,66 +1,76 @@
-import { GEAR, GEAR_CATEGORIES, getSpot } from './data';
-import type { GameState, GearCategory, NightResult, RaveState } from './types';
+import { GEAR, GEAR_CATEGORIES, getDj, getSpot } from './data';
 import { buzzAfterNight } from './idle';
+import type { GameState, GearCategory, NightResult, NightState } from './types';
 
-function avgVibe(rave: RaveState): number {
-  return rave.vibeSamples > 0 ? rave.vibeSum / rave.vibeSamples : 0;
+function avgVibe(night: NightState): number {
+  return night.vibeSamples > 0 ? night.vibeSum / night.vibeSamples : 0;
 }
 
-function carryDamage(state: GameState, rave: RaveState): void {
-  if (rave.ampBlown) state.damaged.amps = true;
-  if (rave.subBlown) state.damaged.subs = true;
-  if (rave.genStress >= 1) state.damaged.gen = true;
+function carryDamage(state: GameState, night: NightState): void {
+  if (night.murBlown) state.damaged.mur = true;
 }
 
 function trackRecords(state: GameState, result: NightResult): void {
-  state.bestCrowd = Math.max(state.bestCrowd, Math.round(result.peakCrowd));
+  state.bestCrowd = Math.max(state.bestCrowd, result.peakCrowd);
   state.bestPayout = Math.max(state.bestPayout, result.payout);
 }
 
-/** Sunrise reached: bank × donation multiplier, reputation, buzz. */
-export function settleNight(state: GameState, rave: RaveState): NightResult {
-  const spot = getSpot(rave.spotId);
-  const vibe = avgVibe(rave);
-  const donationMult = 1 + 0.8 * vibe + 0.6 * (rave.peakCrowd / spot.cap);
-  const payout = Math.round(rave.bank * donationMult);
-  const survivedHighHeat = rave.peakHeat >= 0.8;
-  const repGained = Math.round(rave.peakCrowd / 10 + (survivedHighHeat ? 15 : 0));
-  const won = rave.spotId === 'teknival';
+/** Sum of cuts for the unique DJs who played tonight. */
+export function cutsTotal(night: NightState): number {
+  const played = new Set(night.playedSets.map((s) => s.djId));
+  let total = 0;
+  for (const id of played) total += getDj(id).cut;
+  return Math.min(0.6, total);
+}
+
+/** Sunrise reached: bank × prix libre, minus the crew's cuts. */
+export function settleNight(state: GameState, night: NightState): NightResult {
+  const spot = getSpot(night.spotId);
+  const vibe = avgVibe(night);
+  const donationMult = 1 + 0.8 * vibe + 0.6 * (night.peakCrowd / night.cap);
+  const gross = Math.round(night.bank * donationMult);
+  const cuts = cutsTotal(night);
+  const payout = Math.round(gross * (1 - cuts));
+  const survivedHighHeat = night.peakHeat >= 0.8;
+  const repGained = Math.round(night.peakCrowd / 10 + (survivedHighHeat ? 15 : 0) + night.repBonus);
+  const won = night.spotId === 'teknival';
 
   state.cash += payout;
   state.rep += repGained;
   state.nights += 1;
   if (won) state.wonTeknival = true;
-  carryDamage(state, rave);
-  const quality = Math.min(1, 0.6 * vibe + 0.5 * (rave.peakCrowd / spot.cap));
+  carryDamage(state, night);
+  const quality = Math.min(1, 0.6 * vibe + 0.5 * (night.peakCrowd / night.cap));
   buzzAfterNight(state, quality);
 
   const result: NightResult = {
-    spotId: rave.spotId,
-    genreId: rave.genreId,
+    spotId: night.spotId,
+    genreId: night.genreId,
     busted: false,
     won,
-    bank: Math.round(rave.bank),
+    bank: Math.round(night.bank),
     donationMult,
+    gross,
+    cutsTotal: cuts,
     payout,
     fine: 0,
     seized: null,
     repGained,
-    peakCrowd: Math.round(rave.peakCrowd),
+    peakCrowd: Math.round(night.peakCrowd),
     avgVibe: vibe,
-    duration: rave.t,
+    duration: night.t,
+    lineup: night.playedSets,
   };
   trackRecords(state, result);
   return result;
 }
 
-/** Pick the most valuable seizable gear the player owns (never tier 0). */
+/** Most valuable seizable gear owned (never tier 0). */
 function bestSeizable(state: GameState): GearCategory | null {
   let best: GearCategory | null = null;
   let bestValue = -1;
   for (const cat of GEAR_CATEGORIES) {
-    const tier = state.gear[cat];
-    const item = GEAR[cat][tier];
+    const item = GEAR[cat][state.gear[cat]];
     if (item.seizable && item.price > bestValue) {
       best = cat;
       bestValue = item.price;
@@ -70,62 +80,63 @@ function bestSeizable(state: GameState): GearCategory | null {
 }
 
 /**
- * Cops shut it down. Consequences escalate with the number of prior busts:
- * #1 lose half the bank, #2 lose the bank plus a fine, #3+ fine plus gear
- * seizure. Tier-0 starter gear can never be seized — no softlock.
+ * Busted. Escalation with prior offenses: #1 lose half the bank, #2 lose it
+ * all plus a fine, #3+ fine plus seizure of the priciest seizable gear.
+ * Logistique softens the blow by one step the first time it would seize.
  */
-export function applyBust(state: GameState, rave: RaveState): NightResult {
-  const spot = getSpot(rave.spotId);
+export function applyBust(state: GameState, night: NightState): NightResult {
+  const spot = getSpot(night.spotId);
   state.busts += 1;
   const offense = state.busts;
 
-  let payout = 0;
+  let gross = 0;
   let fine = 0;
   let seized: GearCategory | null = null;
 
   if (offense === 1) {
-    payout = Math.round(rave.bank * 0.5);
+    gross = Math.round(night.bank * 0.5);
   } else if (offense === 2) {
-    payout = 0;
     fine = 200 * spot.tier;
   } else {
-    payout = 0;
     fine = 200 * spot.tier;
     seized = bestSeizable(state);
     if (seized) state.gear[seized] = Math.max(0, state.gear[seized] - 1);
   }
 
+  const cuts = cutsTotal(night);
+  const payout = Math.round(gross * (1 - cuts));
   state.cash = Math.max(0, state.cash + payout - fine);
-  // a legendary bust still makes the rounds in the scene
-  const repGained = Math.round(rave.peakCrowd / 20);
+  const repGained = Math.round(night.peakCrowd / 20 + night.repBonus);
   state.rep += repGained;
   state.nights += 1;
-  carryDamage(state, rave);
+  carryDamage(state, night);
 
   const result: NightResult = {
-    spotId: rave.spotId,
-    genreId: rave.genreId,
+    spotId: night.spotId,
+    genreId: night.genreId,
     busted: true,
     won: false,
-    bank: Math.round(rave.bank),
+    bank: Math.round(night.bank),
     donationMult: 0,
+    gross,
+    cutsTotal: cuts,
     payout,
     fine,
     seized,
     repGained,
-    peakCrowd: Math.round(rave.peakCrowd),
-    avgVibe: avgVibe(rave),
-    duration: rave.t,
+    peakCrowd: Math.round(night.peakCrowd),
+    avgVibe: avgVibe(night),
+    duration: night.t,
+    lineup: night.playedSets,
   };
   trackRecords(state, result);
   return result;
 }
 
-export function isSpotUnlocked(state: GameState, spotId: RaveState['spotId']): boolean {
+export function isSpotUnlocked(state: GameState, spotId: NightState['spotId']): boolean {
   return state.rep >= getSpot(spotId).repReq;
 }
 
-/** Buy the next tier in a category. Returns false when maxed or unaffordable. */
 export function buyGearUpgrade(state: GameState, cat: GearCategory): boolean {
   const next = GEAR[cat][state.gear[cat] + 1];
   if (!next || state.cash < next.price) return false;

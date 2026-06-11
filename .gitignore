@@ -7,3 +7,5 @@ server/data/
 
 # paid asset packs — LimeZu license forbids redistribution, never commit
 assets-src/
+
+public/assets/

@@ -1,6 +1,6 @@
 import type { GameState } from './types';
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 export const STORAGE_KEY = 'rave-tycoon-save';
 
 /** Minimal storage interface so tests can inject a stub. */
@@ -17,9 +17,11 @@ export function newGame(now = 0): GameState {
     buzz: 0,
     busts: 0,
     nights: 0,
-    gear: { amps: 0, subs: 0, gen: 0 },
-    damaged: { amps: false, subs: false, gen: false },
+    gear: { platines: 0, mur: 0, groupe: 0, lumieres: 0, logistique: 0 },
+    damaged: {},
     repairs: [],
+    // the founding DJ — le pote du camion, là depuis le début
+    crew: [{ id: 'tonton', xp: 0, fatigue: 0, setsPlayed: 0 }],
     pseudo: '',
     lastSeen: now,
     bestCrowd: 0,
@@ -39,8 +41,10 @@ function isValidState(s: unknown): s is GameState {
     typeof o.busts === 'number' &&
     typeof o.gear === 'object' &&
     o.gear !== null &&
-    typeof (o.gear as Record<string, unknown>).amps === 'number' &&
-    typeof o.damaged === 'object' &&
+    typeof (o.gear as Record<string, unknown>).platines === 'number' &&
+    typeof (o.gear as Record<string, unknown>).mur === 'number' &&
+    Array.isArray(o.crew) &&
+    (o.crew as unknown[]).length >= 1 &&
     Array.isArray(o.repairs)
   );
 }
@@ -49,6 +53,7 @@ export function serialize(state: GameState): string {
   return JSON.stringify(state);
 }
 
+/** v1 saves (different game) fall back to a fresh start. */
 export function deserialize(json: string): GameState | null {
   try {
     const parsed = JSON.parse(json);
@@ -68,7 +73,7 @@ export function loadGame(storage: KVStorage): GameState | null {
   return deserialize(raw);
 }
 
-// --- export/import codes (cross-device portability) -------------------------
+// --- export/import codes -----------------------------------------------------
 
 function checksum(s: string): number {
   let h = 5381;

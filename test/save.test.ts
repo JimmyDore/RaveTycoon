@@ -21,9 +21,10 @@ function memStorage(): KVStorage & { data: Map<string, string> } {
 }
 
 describe('newGame', () => {
-  it('grants tier-0 gear in every category and zero everything else', () => {
+  it('grants tier-0 gear, the founding DJ, and zero everything else', () => {
     const state = newGame();
-    expect(state.gear).toEqual({ amps: 0, subs: 0, gen: 0 });
+    expect(state.gear).toEqual({ platines: 0, mur: 0, groupe: 0, lumieres: 0, logistique: 0 });
+    expect(state.crew.map((d) => d.id)).toEqual(['tonton']);
     expect(state.cash).toBe(0);
     expect(state.rep).toBe(0);
     expect(state.wonTeknival).toBe(false);
@@ -35,9 +36,10 @@ describe('serialize / load', () => {
     const state = newGame(123);
     state.cash = 1234;
     state.rep = 88;
-    state.gear.subs = 2;
-    state.damaged.amps = true;
-    state.repairs.push({ category: 'amps', readyAt: 999 });
+    state.gear.mur = 2;
+    state.damaged.mur = true;
+    state.repairs.push({ category: 'mur', readyAt: 999 });
+    state.crew.push({ id: 'gamine', xp: 500, fatigue: 0.4, setsPlayed: 7 });
     expect(deserialize(serialize(state))).toEqual(state);
   });
 

@@ -1,4 +1,5 @@
-import { GEAR } from './data';
+import { GEAR, GEAR_CATEGORIES } from './data';
+import { recoverFatigue } from './crew';
 import type { GameState, GearCategory } from './types';
 
 export const BUZZ_HALF_LIFE_HOURS = 24;
@@ -7,8 +8,8 @@ export const REPAIR_MINUTES_PER_TIER = 30;
 export const RUSH_COST_PER_TIER = 80;
 
 /**
- * Apply real-world elapsed time: buzz decays (the scene forgets you),
- * finished repairs complete. No passive income, ever.
+ * Apply real-world elapsed time: buzz decays, repairs finish, the crew
+ * recovers. No passive income, ever.
  */
 export function applyIdleTime(state: GameState, nowMs: number): void {
   const hours = Math.max(0, nowMs - state.lastSeen) / 3_600_000;
@@ -21,6 +22,7 @@ export function applyIdleTime(state: GameState, nowMs: number): void {
     }
     return true;
   });
+  recoverFatigue(state, hours);
   state.lastSeen = nowMs;
 }
 
@@ -38,7 +40,6 @@ export function rushCost(state: GameState, cat: GearCategory): number {
   return Math.max(1, state.gear[cat]) * RUSH_COST_PER_TIER;
 }
 
-/** Start a free, real-time repair. Returns false when nothing to repair. */
 export function startRepair(state: GameState, cat: GearCategory, nowMs: number): boolean {
   if (!state.damaged[cat]) return false;
   if (state.repairs.some((j) => j.category === cat)) return false;
@@ -46,7 +47,6 @@ export function startRepair(state: GameState, cat: GearCategory, nowMs: number):
   return true;
 }
 
-/** Pay to fix it now. Returns false when unaffordable or nothing to repair. */
 export function rushRepair(state: GameState, cat: GearCategory): boolean {
   if (!state.damaged[cat]) return false;
   const cost = rushCost(state, cat);
@@ -55,6 +55,10 @@ export function rushRepair(state: GameState, cat: GearCategory): boolean {
   state.damaged[cat] = false;
   state.repairs = state.repairs.filter((j) => j.category !== cat);
   return true;
+}
+
+export function damagedCategories(state: GameState): GearCategory[] {
+  return GEAR_CATEGORIES.filter((c) => state.damaged[c]);
 }
 
 export function gearName(state: GameState, cat: GearCategory): string {

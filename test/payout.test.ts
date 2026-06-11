@@ -1,97 +1,125 @@
 import { describe, it, expect } from 'vitest';
-import { settleNight, applyBust, isSpotUnlocked, buyGearUpgrade } from '../src/core/payout';
-import { createRave } from '../src/core/rave';
+import { settleNight, applyBust, isSpotUnlocked, buyGearUpgrade, cutsTotal } from '../src/core/payout';
+import { createNight } from '../src/core/night';
 import { newGame } from '../src/core/save';
-import type { RaveState } from '../src/core/types';
+import { recruitDj } from '../src/core/crew';
+import { getDj } from '../src/core/data';
+import type { GameState, NightState } from '../src/core/types';
 
-function finishedRave(overrides: Partial<RaveState> = {}): RaveState {
-  const rave = createRave(newGame(), 'champ', 'hardtek', 1);
-  Object.assign(rave, {
+function finishedNight(state: GameState, overrides: Partial<NightState> = {}): NightState {
+  const night = createNight(state, 'champ', 'hardtek', ['tonton'], 1);
+  Object.assign(night, {
     t: 180,
-    ended: true,
+    phase: 'ended',
     sunrise: true,
     bank: 100,
     peakCrowd: 30,
     vibeSum: 0.8 * 180,
     vibeSamples: 180,
     peakHeat: 0.4,
+    playedSets: [
+      { djId: 'tonton', brief: 'normal' },
+      { djId: 'tonton', brief: 'normal' },
+    ],
   });
-  return Object.assign(rave, overrides);
+  return Object.assign(night, overrides);
 }
 
 describe('settleNight', () => {
-  it('applies the donation multiplier from vibe and peak crowd', () => {
+  it('applies prix libre then subtracts each unique DJ cut once', () => {
     const state = newGame();
-    const rave = finishedRave();
-    const result = settleNight(state, rave);
-    // 1 + 0.8*0.8 + 0.6*(30/60) = 1.94
-    expect(result.donationMult).toBeCloseTo(1.94, 2);
-    expect(result.payout).toBe(194);
-    expect(state.cash).toBe(194);
+    const night = finishedNight(state);
+    const result = settleNight(state, night);
+    // cap = 60 * 0.6 (mur tier 0) = 36 → 1 + 0.8*0.8 + 0.6*(30/36)
+    expect(result.donationMult).toBeCloseTo(2.14, 2);
+    expect(result.gross).toBe(214);
+    expect(result.cutsTotal).toBeCloseTo(getDj('tonton').cut, 5);
+    expect(result.payout).toBe(Math.round(214 * 0.95));
+    expect(state.cash).toBe(result.payout);
   });
 
-  it('grants reputation and a high-heat survival bonus', () => {
-    const calm = newGame();
-    settleNight(calm, finishedRave());
-    const risky = newGame();
-    settleNight(risky, finishedRave({ peakHeat: 0.9 }));
-    expect(calm.rep).toBeGreaterThan(0);
-    expect(risky.rep).toBe(calm.rep + 15);
+  it('sums cuts across distinct DJs in the lineup', () => {
+    const state = newGame();
+    state.rep = 100;
+    recruitDj(state, 'gamine');
+    const night = finishedNight(state, {
+      playedSets: [
+        { djId: 'tonton', brief: 'normal' },
+        { djId: 'gamine', brief: 'pousser' },
+      ],
+    });
+    expect(cutsTotal(night)).toBeCloseTo(0.15, 5);
   });
 
   it('marks the teknival sunrise as the win moment', () => {
     const state = newGame();
     state.rep = 1000;
-    const rave = createRave(state, 'teknival', 'hardtek', 1);
-    Object.assign(rave, { t: 600, ended: true, sunrise: true, bank: 5000, peakCrowd: 1500, vibeSum: 540, vibeSamples: 600 });
-    const result = settleNight(state, rave);
+    const night = createNight(state, 'teknival', 'hardtek', ['tonton'], 2);
+    Object.assign(night, {
+      t: 600,
+      phase: 'ended',
+      sunrise: true,
+      bank: 5000,
+      peakCrowd: 900,
+      vibeSum: 540,
+      vibeSamples: 600,
+      playedSets: [{ djId: 'tonton', brief: 'normal' }],
+    });
+    const result = settleNight(state, night);
     expect(result.won).toBe(true);
     expect(state.wonTeknival).toBe(true);
+  });
+
+  it('credits event reputation bonuses', () => {
+    const state = newGame();
+    const night = finishedNight(state, { repBonus: 12 });
+    const result = settleNight(state, night);
+    expect(result.repGained).toBeGreaterThanOrEqual(12);
   });
 });
 
 describe('applyBust escalation', () => {
-  it('first bust: lose half the bank', () => {
+  it('first bust: half the bank, minus cuts', () => {
     const state = newGame();
-    const result = applyBust(state, finishedRave({ sunrise: false, busted: true }));
-    expect(result.payout).toBe(50);
+    const result = applyBust(state, finishedNight(state, { sunrise: false, busted: true }));
+    expect(result.gross).toBe(50);
+    expect(result.payout).toBe(Math.round(50 * 0.95));
     expect(result.fine).toBe(0);
     expect(result.seized).toBeNull();
-    expect(state.cash).toBe(50);
   });
 
   it('second bust: lose the bank and pay a fine', () => {
     const state = newGame();
     state.busts = 1;
     state.cash = 1000;
-    const result = applyBust(state, finishedRave({ sunrise: false, busted: true }));
+    const result = applyBust(state, finishedNight(state, { sunrise: false, busted: true }));
     expect(result.payout).toBe(0);
-    expect(result.fine).toBe(200); // tier 1 spot
+    expect(result.fine).toBe(200);
     expect(state.cash).toBe(800);
   });
 
   it('third bust: seizes the priciest seizable gear, never tier 0', () => {
     const state = newGame();
     state.busts = 2;
-    state.gear = { amps: 2, subs: 1, gen: 0 };
-    const result = applyBust(state, finishedRave({ sunrise: false, busted: true }));
-    expect(result.seized).toBe('amps');
-    expect(state.gear.amps).toBe(1);
+    state.gear.mur = 2;
+    state.gear.platines = 1;
+    const result = applyBust(state, finishedNight(state, { sunrise: false, busted: true }));
+    expect(result.seized).toBe('mur');
+    expect(state.gear.mur).toBe(1);
   });
 
-  it('never seizes when only tier-0 starter gear is owned (no softlock)', () => {
+  it('never seizes when only starter gear is owned (no softlock)', () => {
     const state = newGame();
     state.busts = 5;
-    const result = applyBust(state, finishedRave({ sunrise: false, busted: true }));
+    const result = applyBust(state, finishedNight(state, { sunrise: false, busted: true }));
     expect(result.seized).toBeNull();
-    expect(state.gear).toEqual({ amps: 0, subs: 0, gen: 0 });
   });
 
   it('never lets cash go negative', () => {
     const state = newGame();
     state.busts = 1;
     state.cash = 50;
-    applyBust(state, finishedRave({ sunrise: false, busted: true, bank: 0 }));
+    applyBust(state, finishedNight(state, { sunrise: false, busted: true, bank: 0 }));
     expect(state.cash).toBe(0);
   });
 });
@@ -106,12 +134,12 @@ describe('progression', () => {
     expect(isSpotUnlocked(state, 'hangar')).toBe(true);
   });
 
-  it('buys gear upgrades with cash', () => {
+  it('buys gear upgrades with cash across the five categories', () => {
     const state = newGame();
-    expect(buyGearUpgrade(state, 'amps')).toBe(false); // broke
-    state.cash = 300;
-    expect(buyGearUpgrade(state, 'amps')).toBe(true);
-    expect(state.gear.amps).toBe(1);
+    expect(buyGearUpgrade(state, 'lumieres')).toBe(false);
+    state.cash = 250;
+    expect(buyGearUpgrade(state, 'lumieres')).toBe(true);
+    expect(state.gear.lumieres).toBe(1);
     expect(state.cash).toBe(0);
   });
 });

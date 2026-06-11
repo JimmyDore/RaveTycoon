@@ -31,35 +31,46 @@ describe('buzz', () => {
 describe('repairs', () => {
   it('takes 30 minutes per tier and completes with idle time', () => {
     const state = newGame(0);
-    state.gear.amps = 2;
-    state.damaged.amps = true;
-    expect(repairDurationMs(state, 'amps')).toBe(2 * 30 * 60_000);
-    expect(startRepair(state, 'amps', 0)).toBe(true);
+    state.gear.mur = 2;
+    state.damaged.mur = true;
+    expect(repairDurationMs(state, 'mur')).toBe(2 * 30 * 60_000);
+    expect(startRepair(state, 'mur', 0)).toBe(true);
     applyIdleTime(state, 59 * 60_000);
-    expect(state.damaged.amps).toBe(true);
+    expect(state.damaged.mur).toBe(true);
     applyIdleTime(state, 60 * 60_000);
-    expect(state.damaged.amps).toBe(false);
+    expect(state.damaged.mur).toBe(false);
     expect(state.repairs).toHaveLength(0);
   });
 
   it('rush costs 80 per tier and completes instantly', () => {
     const state = newGame(0);
-    state.gear.subs = 3;
-    state.damaged.subs = true;
+    state.gear.groupe = 3;
+    state.damaged.groupe = true;
     state.cash = 1000;
-    expect(rushCost(state, 'subs')).toBe(240);
-    expect(rushRepair(state, 'subs')).toBe(true);
-    expect(state.damaged.subs).toBe(false);
+    expect(rushCost(state, 'groupe')).toBe(240);
+    expect(rushRepair(state, 'groupe')).toBe(true);
+    expect(state.damaged.groupe).toBe(false);
     expect(state.cash).toBe(760);
   });
 
   it('refuses a rush the player cannot afford', () => {
     const state = newGame(0);
-    state.gear.subs = 1;
-    state.damaged.subs = true;
+    state.gear.groupe = 1;
+    state.damaged.groupe = true;
     state.cash = 10;
-    expect(rushRepair(state, 'subs')).toBe(false);
-    expect(state.damaged.subs).toBe(true);
+    expect(rushRepair(state, 'groupe')).toBe(false);
+    expect(state.damaged.groupe).toBe(true);
+  });
+});
+
+describe('crew recovery', () => {
+  it('recovers DJ fatigue with idle time', () => {
+    const state = newGame(0);
+    state.crew[0].fatigue = 1;
+    applyIdleTime(state, 6 * HOUR);
+    expect(state.crew[0].fatigue).toBeCloseTo(0.5, 5);
+    applyIdleTime(state, 48 * HOUR);
+    expect(state.crew[0].fatigue).toBe(0);
   });
 });
 

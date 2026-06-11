@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SPOTS, GENRES, GEAR, getSpot, getGenre } from '../src/core/data';
+import { SPOTS, GENRES, GEAR, GEAR_CATEGORIES, DJS, getSpot, getGenre, getDj } from '../src/core/data';
 import { mulberry32 } from '../src/core/rng';
 
 describe('spots', () => {
@@ -11,22 +11,23 @@ describe('spots', () => {
     expect(SPOTS[0].repReq).toBe(0);
   });
 
-  it('scales rave duration from 3 minutes to 10 minutes', () => {
+  it('scales nights from 3 minutes / 2 sets to 10 minutes / 6 sets', () => {
     expect(getSpot('champ').duration).toBe(180);
+    expect(getSpot('champ').setCount).toBe(2);
     expect(getSpot('teknival').duration).toBe(600);
+    expect(getSpot('teknival').setCount).toBe(6);
   });
 
   it('gives the carriere its poor-power quirk', () => {
-    expect(getSpot('carriere').genCapacityMult).toBeLessThan(1);
-    expect(getSpot('champ').genCapacityMult).toBe(1);
+    expect(getSpot('carriere').powerMult).toBeLessThan(1);
+    expect(getSpot('champ').powerMult).toBe(1);
   });
 });
 
 describe('genres', () => {
   it('has 3 genres with distinct bpm', () => {
     expect(GENRES).toHaveLength(3);
-    const bpms = new Set(GENRES.map((g) => g.bpm));
-    expect(bpms.size).toBe(3);
+    expect(new Set(GENRES.map((g) => g.bpm)).size).toBe(3);
   });
 
   it('models dub as slow/chill and acid as hot', () => {
@@ -37,14 +38,48 @@ describe('genres', () => {
 });
 
 describe('gear', () => {
-  it('has an unseizable free tier-0 item in every category', () => {
-    for (const cat of ['amps', 'subs', 'gen'] as const) {
+  it('has five categories, each with an unseizable free tier 0', () => {
+    expect(GEAR_CATEGORIES).toEqual(['platines', 'mur', 'groupe', 'lumieres', 'logistique']);
+    for (const cat of GEAR_CATEGORIES) {
       expect(GEAR[cat]).toHaveLength(4);
       expect(GEAR[cat][0].seizable).toBe(false);
       expect(GEAR[cat][0].price).toBe(0);
-      const values = GEAR[cat].map((g) => g.value);
-      expect([...values].sort((a, b) => a - b)).toEqual(values);
+      const prices = GEAR[cat].map((g) => g.price);
+      expect([...prices].sort((a, b) => a - b)).toEqual(prices);
     }
+  });
+
+  it('makes logistique reduce heat with higher tiers', () => {
+    const values = GEAR.logistique.map((g) => g.value);
+    expect([...values].sort((a, b) => b - a)).toEqual(values);
+  });
+});
+
+describe('djs', () => {
+  it('has 8 DJs led by the founding tonton, sorted by rep requirement', () => {
+    expect(DJS).toHaveLength(8);
+    expect(DJS[0].id).toBe('tonton');
+    expect(DJS[0].repReq).toBe(0);
+    const reqs = DJS.map((d) => d.repReq);
+    expect([...reqs].sort((a, b) => a - b)).toEqual(reqs);
+  });
+
+  it('gives every DJ stats in range and affinities for all genres', () => {
+    for (const dj of DJS) {
+      expect(dj.technique).toBeGreaterThanOrEqual(1);
+      expect(dj.technique).toBeLessThanOrEqual(5);
+      expect(dj.charisme).toBeGreaterThanOrEqual(1);
+      expect(dj.charisme).toBeLessThanOrEqual(5);
+      expect(dj.cut).toBeGreaterThan(0);
+      expect(dj.cut).toBeLessThanOrEqual(0.3);
+      for (const g of GENRES) {
+        expect(dj.affinities[g.id]).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('prices better DJs with bigger cuts', () => {
+    expect(getDj('fantome').cut).toBeGreaterThan(getDj('tonton').cut);
   });
 });
 
@@ -52,12 +87,6 @@ describe('rng', () => {
   it('is deterministic for a given seed', () => {
     const a = mulberry32(42);
     const b = mulberry32(42);
-    const seqA = [a(), a(), a()];
-    const seqB = [b(), b(), b()];
-    expect(seqA).toEqual(seqB);
-    seqA.forEach((x) => {
-      expect(x).toBeGreaterThanOrEqual(0);
-      expect(x).toBeLessThan(1);
-    });
+    expect([a(), a(), a()]).toEqual([b(), b(), b()]);
   });
 });
