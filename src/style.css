@@ -684,6 +684,59 @@ button {
   to { opacity: 1; }
 }
 
+/* ---------- v2: flash-prompt (bannière non bloquante, n'assombrit pas) ---------- */
+.floor-prompt {
+  position: absolute;
+  left: 50%;
+  top: 16%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+  font: inherit;
+  max-width: min(360px, 86vw);
+  padding: 8px 14px 7px;
+  border-radius: 12px;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(180deg, rgba(43, 20, 56, 0.96), rgba(28, 14, 38, 0.96));
+  border: 1px solid #ff4f9a;
+  box-shadow: 0 4px 22px rgba(0, 0, 0, 0.55), 0 0 16px rgba(255, 79, 154, 0.35);
+  z-index: 8;
+  animation: floor-prompt-in 0.18s ease-out;
+}
+.floor-prompt.hidden {
+  display: none;
+}
+.floor-prompt-icon {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+.floor-prompt-label {
+  font-size: 0.82rem;
+  font-weight: bold;
+  text-align: center;
+  text-shadow: 0 1px 3px #000;
+}
+.floor-prompt-timer {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(11, 8, 19, 0.6);
+  overflow: hidden;
+}
+.floor-prompt-timer-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #6c4dff, #ff4f9a);
+  transition: width 0.12s linear;
+}
+@keyframes floor-prompt-in {
+  from { opacity: 0; transform: translate(-50%, -6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
 /* ---------- v2: night modal (set transitions & events) ---------- */
 .night-modal {
   position: absolute;
@@ -831,6 +884,14 @@ button {
 }
 .fatigue-fill.tired {
   background: var(--danger);
+}
+.fatigue-malus {
+  font-size: 0.7rem;
+  color: var(--accent-3);
+  white-space: nowrap;
+}
+.fatigue-malus.tired {
+  color: var(--danger);
 }
 .dj-card.recruitable {
   border-style: dashed;

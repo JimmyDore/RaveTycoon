@@ -141,6 +141,8 @@ export interface EventEffects {
   rep?: number;
   /** halve arrivals for n seconds */
   arrivalCutT?: number;
+  /** charge/décharge la jauge de montée */
+  montee?: number;
 }
 
 export interface NightEventDef {
@@ -159,6 +161,21 @@ export interface EventContext {
   djRisk: DjRisk;
   crowdRatio: number;
   gear: Record<GearCategory, number>;
+}
+
+/** Flash-prompt non bloquant du dancefloor : tap pour saisir, ignore = expire. */
+export interface FloorPromptDef {
+  id: string;
+  icon: string;
+  label: string;
+  /** secondes pour réagir (3–6) */
+  window: number;
+  /** effets au tap */
+  seize: EventEffects;
+  /** effets si ignoré (prompts « désamorçage ») */
+  lapse?: EventEffects;
+  /** poids contextuel ; 0 désactive (voir prompts.ts) */
+  weight: (ctx: EventContext) => number;
 }
 
 export interface PendingEvent {
@@ -220,6 +237,12 @@ export interface NightState {
   montee: number;
   /** plus gros drop lâché sur le set courant (reset à chaque set) */
   bestDropThisSet: number;
+  /** flash-prompt non bloquant du dancefloor, ou null */
+  floorPrompt: { def: FloorPromptDef; expiresAt: number } | null;
+  /** prochain instant (en s) où un flash-prompt peut surgir */
+  nextPromptAt: number;
+  /** ids des flash-prompts déjà tirés (sans remise) */
+  firedPrompts: string[];
   playedSets: SetRecord[];
   journal: JournalEntry[];
   busted: boolean;

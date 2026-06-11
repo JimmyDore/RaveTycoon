@@ -1,11 +1,14 @@
 import { applySetToll, effectiveTechnique, fatigueQualityMult, getCrewMember } from './crew';
 import { GEAR, getDj, getGenre, getSpot } from './data';
 import { drawEvent } from './events';
+import { drawPrompt } from './prompts';
 import { mulberry32 } from './rng';
 import type {
   Brief,
   EventContext,
+  EventEffects,
   EventOption,
+  FloorPromptDef,
   GameState,
   GenreId,
   NightState,
@@ -33,6 +36,8 @@ const MONTEE_DECAY = 0.03;
 const MONTEE_BROWNOUT_DRAIN = 0.4;
 /** seuil minimal pour pouvoir lâcher */
 export const MONTEE_MIN_DROP = 0.1;
+/** espacement de base (s) entre deux flash-prompts du dancefloor */
+const PROMPT_SPACING = 12;
 
 function clamp(x: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, x));
@@ -84,6 +89,9 @@ export function createNight(
     briefLockT: 0,
     montee: 0,
     bestDropThisSet: 0,
+    floorPrompt: null,
+    nextPromptAt: 12 + mulberry32(seed)() * 6,
+    firedPrompts: [],
     playedSets: [],
     journal: [],
     busted: false,
@@ -233,6 +241,22 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   // --- bar drip ----------------------------------------------------------------------
   night.bank += night.crowd * BAR_DRIP * spot.priceMult * dt;
 
+  // --- flash-prompts du dancefloor (non bloquants) ----------------------------------------
+  if (night.floorPrompt && night.t > night.floorPrompt.expiresAt) {
+    // ignoré : la bannière expire et applique son lapse éventuel
+    if (night.floorPrompt.def.lapse) applyEffects(state, night, night.floorPrompt.def.lapse);
+    night.floorPrompt = null;
+    night.nextPromptAt = night.t + PROMPT_SPACING + night.rng() * 6;
+  }
+  if (!night.floorPrompt && !night.pendingEvent && night.t >= night.nextPromptAt) {
+    const promptDef = drawPrompt(eventContext(state, night), night.firedPrompts, night.rng);
+    if (promptDef) {
+      night.firedPrompts.push(promptDef.id);
+      night.floorPrompt = { def: promptDef, expiresAt: night.t + promptDef.window };
+    }
+    night.nextPromptAt = night.t + PROMPT_SPACING + night.rng() * 6;
+  }
+
   // --- random events --------------------------------------------------------------------
   if (
     night.t >= night.nextEventAt &&
@@ -245,6 +269,8 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
       night.eventsFired.push(def.id);
       night.pendingEvent = { def };
       night.phase = 'event';
+      // un event modal s'ouvre : on vide le prompt pour éviter le doublon visuel
+      night.floorPrompt = null;
       night.nextEventAt = night.t + EVENT_MIN_SPACING + night.rng() * 40;
       return events;
     }
@@ -275,12 +301,11 @@ function endCurrentSet(state: GameState, night: NightState): void {
   applySetToll(member, night.brief, night.setElapsed);
 }
 
-/** Resolve a pending event with the chosen option. Returns the option for UI display. */
-export function resolveEvent(state: GameState, night: NightState, optionIndex: number): EventOption {
-  if (night.phase !== 'event' || !night.pendingEvent) throw new Error('no pending event');
-  const option = night.pendingEvent.def.options[optionIndex];
-  if (!option) throw new Error(`bad option: ${optionIndex}`);
-  const fx = option.effects;
+/**
+ * Applique un paquet d'effets aux jauges de la nuit. Partagé par les events
+ * modaux, les flash-prompts et la montée.
+ */
+export function applyEffects(state: GameState, night: NightState, fx: EventEffects): void {
   if (fx.heat) night.heat = clamp(night.heat + fx.heat, 0, 0.99);
   if (fx.vibe) night.vibe = clamp(night.vibe + fx.vibe, 0, 1);
   if (fx.crowdFrac) night.crowd = clamp(night.crowd * (1 + fx.crowdFrac), 0, night.cap);
@@ -295,14 +320,36 @@ export function resolveEvent(state: GameState, night: NightState, optionIndex: n
   if (fx.soundCut) night.soundCutT = Math.max(night.soundCutT, fx.soundCut);
   if (fx.rep) night.repBonus += fx.rep;
   if (fx.arrivalCutT) night.arrivalCutT = fx.arrivalCutT;
+  if (fx.montee) night.montee = clamp(night.montee + fx.montee, 0, 1);
   if (fx.damageRisk && night.rng() < fx.damageRisk.chance) {
     if (fx.damageRisk.category === 'mur') night.murBlown = true;
     state.damaged[fx.damageRisk.category] = true;
   }
+}
+
+/** Resolve a pending event with the chosen option. Returns the option for UI display. */
+export function resolveEvent(state: GameState, night: NightState, optionIndex: number): EventOption {
+  if (night.phase !== 'event' || !night.pendingEvent) throw new Error('no pending event');
+  const option = night.pendingEvent.def.options[optionIndex];
+  if (!option) throw new Error(`bad option: ${optionIndex}`);
+  applyEffects(state, night, option.effects);
   night.journal.push({ t: night.t, titre: night.pendingEvent.def.titre, outcome: option.outcome });
   night.pendingEvent = null;
   night.phase = 'playing';
   return option;
+}
+
+/**
+ * Saisit le flash-prompt courant : applique son effet `seize`, le nettoie et
+ * reprogramme le prochain. Retourne le def saisi (ou null si aucun prompt).
+ */
+export function seizeFloorPrompt(state: GameState, night: NightState): FloorPromptDef | null {
+  if (!night.floorPrompt) return null;
+  const def = night.floorPrompt.def;
+  applyEffects(state, night, def.seize);
+  night.floorPrompt = null;
+  night.nextPromptAt = night.t + PROMPT_SPACING + night.rng() * 6;
+  return def;
 }
 
 export const BRIEF_LOCK = 18;

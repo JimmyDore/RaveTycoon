@@ -1,5 +1,5 @@
 import { DJS, GEAR, GEAR_CATEGORIES, GENRES, SPOTS, getDj, getGenre, getSpot } from '../core/data';
-import { djLevel, lockedDjs, recruitableDjs } from '../core/crew';
+import { djLevel, fatigueMalus, lockedDjs, recruitableDjs } from '../core/crew';
 import { rushCost } from '../core/idle';
 import { isSpotUnlocked } from '../core/payout';
 import { computeSetQuality } from '../core/night';
@@ -51,6 +51,13 @@ function fatigueBar(fatigue: number): HTMLElement {
   fill.classList.toggle('tired', f > 0.6);
   bar.append(fill);
   return bar;
+}
+
+/** The current quality penalty, shown next to the bar so the cost is legible. */
+function fatigueMalusLabel(fatigue: number): HTMLElement | null {
+  const malus = fatigueMalus(fatigue);
+  if (malus < 0.03) return null;
+  return el('span', `fatigue-malus${fatigue > 0.6 ? ' tired' : ''}`, STR.qualityMalus(Math.round(malus * 100)));
 }
 
 // --- prepare screen ----------------------------------------------------------
@@ -155,6 +162,8 @@ export function renderPrepare(
     info.append(riskLine);
     const fat = el('div', 'dj-fatigue');
     fat.append(el('span', 'dj-stat-label', STR.fatigue), fatigueBar(member.fatigue));
+    const malus = fatigueMalusLabel(member.fatigue);
+    if (malus) fat.append(malus);
     info.append(fat);
     row.append(info);
     card.append(row);
@@ -285,6 +294,7 @@ export interface NightScreen {
 export interface NightLiveCallbacks {
   onBrief(brief: Brief): void;
   onDrop(): void;
+  onPrompt(): void;
 }
 
 export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightScreen {
@@ -346,6 +356,18 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
   const toasts = el('div', 'toasts');
   sceneWrap.append(toasts);
 
+  // flash-prompt non bloquant : bannière tappable, sans assombrir l'écran
+  const prompt = el('button', 'floor-prompt hidden') as HTMLButtonElement;
+  const promptIcon = el('span', 'floor-prompt-icon', '');
+  const promptLabel = el('span', 'floor-prompt-label', '');
+  const promptTimer = el('div', 'floor-prompt-timer');
+  const promptTimerFill = el('div', 'floor-prompt-timer-fill');
+  promptTimer.append(promptTimerFill);
+  prompt.append(promptIcon, promptLabel, promptTimer);
+  prompt.addEventListener('click', () => live.onPrompt());
+  sceneWrap.append(prompt);
+  let promptId = '';
+
   const modal = el('div', 'night-modal hidden');
   sceneWrap.append(modal);
   root.append(sceneWrap);
@@ -376,6 +398,23 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
       monteeFill.style.width = `${(night.montee * 100).toFixed(1)}%`;
       monteeFill.classList.toggle('full', night.montee >= 0.85);
       dropBtn.disabled = !playing || night.montee < 0.1;
+
+      // flash-prompt : on lit night.floorPrompt, aucune pause de la sim
+      const fp = playing ? night.floorPrompt : null;
+      if (fp) {
+        const def = fp.def;
+        if (def.id !== promptId) {
+          promptId = def.id;
+          promptIcon.textContent = def.icon;
+          promptLabel.textContent = def.label;
+        }
+        const remain = Math.min(1, Math.max(0, (fp.expiresAt - night.t) / def.window));
+        promptTimerFill.style.width = `${(remain * 100).toFixed(1)}%`;
+        prompt.classList.remove('hidden');
+      } else if (promptId) {
+        promptId = '';
+        prompt.classList.add('hidden');
+      }
     },
     toast(msg) {
       const now = performance.now();
@@ -425,6 +464,8 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
         info.append(el('div', 'card-desc', `${stars} · ${STR.risk[def.risk]} · ${STR.cut(def.cut)}`));
         const fat = el('div', 'dj-fatigue');
         fat.append(fatigueBar(member.fatigue));
+        const malus = fatigueMalusLabel(member.fatigue);
+        if (malus) fat.append(malus);
         info.append(fat);
         row.append(info);
         card.append(row);

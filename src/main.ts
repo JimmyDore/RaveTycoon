@@ -3,7 +3,7 @@ import { AudioEngine } from './audio/engine';
 import { recruitDj } from './core/crew';
 import { getDj, getSpot } from './core/data';
 import { applyIdleTime, rushRepair, startRepair } from './core/idle';
-import { changeBrief, createNight, dropMontee, resolveEvent, startSet, tickNight } from './core/night';
+import { changeBrief, createNight, dropMontee, resolveEvent, seizeFloorPrompt, startSet, tickNight } from './core/night';
 import { applyBust, buyGearUpgrade, settleNight } from './core/payout';
 import { exportCode, importCode, loadGame, newGame, saveGame } from './core/save';
 import type { Brief, GameState, NightResult, NightState } from './core/types';
@@ -74,6 +74,11 @@ async function startNight(): Promise<void> {
       if (active && dropMontee(active.night)) {
         active.screen.toast(STR.dropToast);
       }
+    },
+    onPrompt: () => {
+      if (!active) return;
+      const def = seizeFloorPrompt(state, active.night);
+      if (def) active.screen.toast(STR.promptToast(def.icon, def.label));
     },
   });
   const scene = new SceneRenderer(screen.canvas, b);
