@@ -101,9 +101,10 @@ export function tickRave(
     rave.brownoutCooldown = BROWNOUT_DURATION + BROWNOUT_COOLDOWN;
     events.push({ type: 'brownout' });
   }
-  // riding the generator near its redline wears it out → more sputter
-  if (p > 0.85) {
-    rave.genStress = clamp(rave.genStress + (p - 0.85) * dt * 0.5, 0, 1);
+  // running the generator close to its actual load limit wears it out → sputter
+  const utilization = supply > 0 ? demand / supply : 2;
+  if (utilization > 0.9) {
+    rave.genStress = clamp(rave.genStress + Math.min(utilization - 0.9, 0.5) * dt * 0.35, 0, 1);
     if (rave.genStress >= 1 && rave.brownoutT <= 0 && rave.brownoutCooldown <= 0 && rave.rng() < 0.04 * dt * 10) {
       rave.brownoutT = BROWNOUT_DURATION;
       rave.brownoutCooldown = BROWNOUT_DURATION + BROWNOUT_COOLDOWN;
