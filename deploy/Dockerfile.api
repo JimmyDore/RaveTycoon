@@ -1,0 +1,10 @@
+# Leaderboard API: plain node, node:sqlite, zero npm dependencies
+FROM node:22-alpine
+WORKDIR /app
+COPY server/package.json ./
+COPY server/db.mjs server/index.mjs ./
+ENV PORT=8787 \
+    DB_PATH=/data/scores.db
+VOLUME /data
+EXPOSE 8787
+CMD ["node", "index.mjs"]
