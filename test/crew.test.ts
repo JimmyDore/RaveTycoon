@@ -3,7 +3,10 @@ import {
   recruitableDjs,
   lockedDjs,
   recruitDj,
-  recoverFatigue,
+  applyNightRest,
+  REST_RECOVERY,
+  fatigueMalus,
+  fatigueQualityMult,
   djLevel,
   effectiveTechnique,
   applySetToll,
@@ -55,17 +58,35 @@ describe('experience', () => {
 });
 
 describe('fatigue', () => {
-  it('accumulates from sets (more when pushing) and recovers over 12h', () => {
+  it('accumulates from sets, more when pushing, capped at 1 (no hidden debt)', () => {
     const state = newGame();
     const dj = state.crew[0];
     applySetToll(dj, 'normal', 90);
     const afterNormal = dj.fatigue;
     applySetToll(dj, 'pousser', 90);
-    expect(dj.fatigue - afterNormal).toBeGreaterThan(afterNormal - 0);
-    const before = dj.fatigue;
-    recoverFatigue(state, 6);
-    expect(dj.fatigue).toBeCloseTo(before - 0.5, 5);
-    recoverFatigue(state, 100);
-    expect(dj.fatigue).toBe(0);
+    expect(dj.fatigue - afterNormal).toBeGreaterThan(afterNormal);
+    for (let i = 0; i < 20; i++) applySetToll(dj, 'pousser', 90);
+    expect(dj.fatigue).toBe(1);
+  });
+
+  it('rests crew who did not play tonight; players keep their toll; floors at 0', () => {
+    const state = newGame();
+    state.rep = 6;
+    recruitDj(state, 'gamine');
+    const [tonton, gamine] = state.crew;
+    tonton.fatigue = 0.8; // played a set
+    gamine.fatigue = 0.9; // benched
+    applyNightRest(state, new Set(['tonton']));
+    expect(tonton.fatigue).toBe(0.8);
+    expect(gamine.fatigue).toBeCloseTo(0.9 - REST_RECOVERY, 5);
+    applyNightRest(state, new Set(['tonton'])); // gamine benched again
+    expect(gamine.fatigue).toBe(0);
+  });
+
+  it('quality malus scales with fatigue and caps at full exhaustion', () => {
+    expect(fatigueMalus(0)).toBe(0);
+    expect(fatigueMalus(1)).toBeCloseTo(0.35, 5);
+    expect(fatigueMalus(1.5)).toBeCloseTo(0.35, 5);
+    expect(fatigueQualityMult({ id: 'x', xp: 0, fatigue: 1, setsPlayed: 0 })).toBeCloseTo(0.65, 5);
   });
 });

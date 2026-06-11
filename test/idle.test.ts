@@ -64,13 +64,11 @@ describe('repairs', () => {
 });
 
 describe('crew recovery', () => {
-  it('recovers DJ fatigue with idle time', () => {
+  it('does not recover fatigue with real time — rest is per night, not idle', () => {
     const state = newGame(0);
     state.crew[0].fatigue = 1;
-    applyIdleTime(state, 6 * HOUR);
-    expect(state.crew[0].fatigue).toBeCloseTo(0.5, 5);
-    applyIdleTime(state, 48 * HOUR);
-    expect(state.crew[0].fatigue).toBe(0);
+    applyIdleTime(state, 1000 * HOUR);
+    expect(state.crew[0].fatigue).toBe(1);
   });
 });
 

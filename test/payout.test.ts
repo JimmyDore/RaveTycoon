@@ -76,6 +76,18 @@ describe('settleNight', () => {
     const result = settleNight(state, night);
     expect(result.repGained).toBeGreaterThanOrEqual(12);
   });
+
+  it('rests crew who sat out the night; players who played keep their toll', () => {
+    const state = newGame();
+    state.rep = 6;
+    recruitDj(state, 'gamine');
+    const [tonton, gamine] = state.crew;
+    tonton.fatigue = 0.8; // plays in finishedNight default lineup
+    gamine.fatigue = 0.9; // benched
+    settleNight(state, finishedNight(state));
+    expect(tonton.fatigue).toBe(0.8);
+    expect(gamine.fatigue).toBeCloseTo(0.4, 5);
+  });
 });
 
 describe('applyBust escalation', () => {
@@ -121,6 +133,16 @@ describe('applyBust escalation', () => {
     state.cash = 50;
     applyBust(state, finishedNight(state, { sunrise: false, busted: true, bank: 0 }));
     expect(state.cash).toBe(0);
+  });
+
+  it('still rests the benched crew even when the night is busted', () => {
+    const state = newGame();
+    state.rep = 6;
+    recruitDj(state, 'gamine');
+    const gamine = state.crew[1];
+    gamine.fatigue = 0.9; // benched (default lineup is tonton only)
+    applyBust(state, finishedNight(state, { sunrise: false, busted: true }));
+    expect(gamine.fatigue).toBeCloseTo(0.4, 5);
   });
 });
 

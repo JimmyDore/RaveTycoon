@@ -1,5 +1,4 @@
 import { GEAR, GEAR_CATEGORIES } from './data';
-import { recoverFatigue } from './crew';
 import type { GameState, GearCategory } from './types';
 
 export const BUZZ_HALF_LIFE_HOURS = 24;
@@ -8,8 +7,8 @@ export const REPAIR_MINUTES_PER_TIER = 30;
 export const RUSH_COST_PER_TIER = 80;
 
 /**
- * Apply real-world elapsed time: buzz decays, repairs finish, the crew
- * recovers. No passive income, ever.
+ * Apply real-world elapsed time: buzz decays and repairs finish. No passive
+ * income, ever. Crew fatigue recovers per rested night, not in real time.
  */
 export function applyIdleTime(state: GameState, nowMs: number): void {
   const hours = Math.max(0, nowMs - state.lastSeen) / 3_600_000;
@@ -22,7 +21,6 @@ export function applyIdleTime(state: GameState, nowMs: number): void {
     }
     return true;
   });
-  recoverFatigue(state, hours);
   state.lastSeen = nowMs;
 }
 
