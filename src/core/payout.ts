@@ -64,6 +64,7 @@ export function settleNight(state: GameState, night: NightState): NightResult {
     avgVibe: vibe,
     duration: night.t,
     lineup: night.playedSets,
+    journal: night.journal,
   };
   trackRecords(state, result);
   return result;
@@ -132,6 +133,7 @@ export function applyBust(state: GameState, night: NightState): NightResult {
     avgVibe: avgVibe(night),
     duration: night.t,
     lineup: night.playedSets,
+    journal: night.journal,
   };
   trackRecords(state, result);
   return result;

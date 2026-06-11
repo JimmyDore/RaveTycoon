@@ -20,6 +20,11 @@ export const NIGHT_EVENTS: NightEventDef[] = [
         outcome: 'Le kick reprend de plus belle. La voiture s’arrête un peu plus longtemps cette fois…',
         effects: { heat: 0.1, vibe: 0.04 },
       },
+      {
+        label: 'Graisser la patte (80 €)',
+        outcome: 'Une poignée de billets de la buvette change de main. La voiture ne repassera pas cette nuit.',
+        effects: { cash: -80, heat: -0.25 },
+      },
     ],
     weight: (ctx) => 1 + ctx.heat * 2 + ctx.spotTier * 0.2,
   },
@@ -55,6 +60,11 @@ export const NIGHT_EVENTS: NightEventDef[] = [
         label: 'Elle tiendra',
         outcome: 'Le caisson hurle sa vie. Chaque kick est un pari.',
         effects: { damageRisk: { category: 'mur', chance: 0.35 }, vibe: 0.04 },
+      },
+      {
+        label: 'Sacrifier un câble de rechange (40 €)',
+        outcome: 'Rewiring de fortune à l’arrache. Le caisson respire, le son tient.',
+        effects: { cash: -40, qualityMult: 0.95 },
       },
     ],
     weight: (ctx) => (ctx.brief === 'pousser' ? 1.5 : 0.5) + (ctx.gear.mur === 0 ? 0.5 : 0),
