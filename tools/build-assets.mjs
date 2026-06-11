@@ -16,8 +16,10 @@ const PREMADE_16 = `${MI}/2_Characters/Character_Generator/0_Premade_Characters/
 const PREMADE_48 = `${MI}/2_Characters/Character_Generator/0_Premade_Characters/48x48`;
 
 // 16x16 premade sheet geometry (verified by pixel probe 2026-06-11:
-// sheet 896x656, frame rows on a 32px grid from y=0, first ink at y=10;
-// row 0 holds 4 static frames, the 24-frame idle/walk animations are rows 1-2)
+// sheet 896x656, frame rows on a fixed 32px grid from y=0 for ALL sheets —
+// feet always sit on the row's bottom gridline; only hair/hat height varies
+// per character, so no per-sheet offset must ever be applied.
+// Row 0 holds 4 static frames, the 24-frame idle/walk animations are rows 1-2)
 const FRAME_W = 16;
 const FRAME_H = 32;
 const ROW_IDLE = 32;
@@ -37,31 +39,14 @@ async function exists(p) {
   }
 }
 
-/**
- * Premade sheets share one layout but differ in top padding. Anchor on the
- * first opaque pixel row: Premade_01 (the reference for the row constants)
- * has its first ink at y=10.
- */
-const REF_FIRST_INK = 10;
-async function sheetOffset(file) {
-  const { data, info } = await sharp(file).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  for (let y = 0; y < info.height; y++) {
-    for (let x = 0; x < info.width; x++) {
-      if (data[(y * info.width + x) * 4 + 3] > 0) return y - REF_FIRST_INK;
-    }
-  }
-  return 0;
-}
-
 async function buildRavers() {
   const cols = IDLE_FRAMES + WALK_FRAMES + LIFT_FRAMES;
   const composites = [];
   for (let i = 0; i < CHAR_COUNT; i++) {
     const file = `${PREMADE_16}/Premade_Character_${String(i + 1).padStart(2, '0')}.png`;
-    const dy = await sheetOffset(file);
-    const idle = await sharp(file).extract({ left: 0, top: ROW_IDLE + dy, width: IDLE_FRAMES * FRAME_W, height: FRAME_H }).png().toBuffer();
-    const walk = await sharp(file).extract({ left: 0, top: ROW_WALK + dy, width: WALK_FRAMES * FRAME_W, height: FRAME_H }).png().toBuffer();
-    const lift = await sharp(file).extract({ left: 0, top: ROW_LIFT + dy, width: LIFT_FRAMES * FRAME_W, height: FRAME_H }).png().toBuffer();
+    const idle = await sharp(file).extract({ left: 0, top: ROW_IDLE, width: IDLE_FRAMES * FRAME_W, height: FRAME_H }).png().toBuffer();
+    const walk = await sharp(file).extract({ left: 0, top: ROW_WALK, width: WALK_FRAMES * FRAME_W, height: FRAME_H }).png().toBuffer();
+    const lift = await sharp(file).extract({ left: 0, top: ROW_LIFT, width: LIFT_FRAMES * FRAME_W, height: FRAME_H }).png().toBuffer();
     composites.push({ input: idle, left: 0, top: i * FRAME_H });
     composites.push({ input: walk, left: IDLE_FRAMES * FRAME_W, top: i * FRAME_H });
     composites.push({ input: lift, left: (IDLE_FRAMES + WALK_FRAMES) * FRAME_W, top: i * FRAME_H });
@@ -103,9 +88,8 @@ async function buildPortraits() {
   // front-facing idle frame from the verified 16x16 sheet, upscaled ×9
   for (const [id, idx] of Object.entries(DJ_SPRITES)) {
     const file = `${PREMADE_16}/Premade_Character_${String(idx).padStart(2, '0')}.png`;
-    const dy = await sheetOffset(file);
     const x = 18 * FRAME_W; // first front-facing idle frame
-    const frame = await sharp(file).extract({ left: x, top: ROW_IDLE + dy, width: FRAME_W, height: FRAME_H }).png().toBuffer();
+    const frame = await sharp(file).extract({ left: x, top: ROW_IDLE, width: FRAME_W, height: FRAME_H }).png().toBuffer();
     // trim the transparent margins so the face fills the portrait
     const trimmed = await sharp(frame).trim().png().toBuffer();
     const m = await sharp(trimmed).metadata();
