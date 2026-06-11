@@ -24,6 +24,15 @@ const BRIEF_POWER: Record<Brief, number> = { safe: 0, normal: 0.08, pousser: 0.2
 const RISK_HEAT = { discret: 0.8, normal: 1, chaud: 1.35 } as const;
 /** overall damping so heat curves match night lengths */
 const HEAT_BASE = 0.55;
+/** la montée : charge/s à pleine vibe */
+const MONTEE_RATE = 0.05;
+const MONTEE_GENRE: Record<GenreId, number> = { hardtek: 1.1, acid: 1.2, dub: 0.8 };
+/** décroissance /s quand la vibe est trop basse */
+const MONTEE_DECAY = 0.03;
+/** ×= sur la jauge lors d'une coupure son (drop avorté) */
+const MONTEE_BROWNOUT_DRAIN = 0.4;
+/** seuil minimal pour pouvoir lâcher */
+export const MONTEE_MIN_DROP = 0.1;
 
 function clamp(x: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, x));
@@ -73,7 +82,8 @@ export function createNight(
     arrivalCutT: 0,
     repBonus: 0,
     briefLockT: 0,
-    hypeT: 0,
+    montee: 0,
+    bestDropThisSet: 0,
     playedSets: [],
     journal: [],
     busted: false,
@@ -106,6 +116,7 @@ export function startSet(state: GameState, night: NightState, djId: string, brie
   night.qualityMultRestOfSet = 1;
   night.setElapsed = 0;
   night.briefLockT = 0;
+  night.bestDropThisSet = 0;
   night.phase = 'playing';
   night.playedSets.push({ djId, brief });
 }
@@ -141,7 +152,6 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   if (!soundOn) night.soundCutT -= dt;
   night.brownoutCooldown = Math.max(0, night.brownoutCooldown - dt);
   night.briefLockT = Math.max(0, night.briefLockT - dt);
-  night.hypeT = Math.max(0, night.hypeT - dt);
   if (night.arrivalCutT > 0) night.arrivalCutT -= dt;
 
   const quality = night.setQuality * night.qualityMultRestOfSet * (night.murBlown ? 0.6 : 1);
@@ -151,9 +161,13 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   const supply = groupeItem.value * (state.damaged.groupe ? 0.6 : 1) * spot.powerMult + 0.15;
   const demand = 0.35 + 0.5 * (night.cap > 0 ? night.crowd / night.cap : 0) + BRIEF_POWER[night.brief];
   if (demand > supply && soundOn && night.brownoutCooldown <= 0) {
+    const prevMontee = night.montee;
     night.soundCutT = BROWNOUT_DURATION;
     night.brownoutCooldown = BROWNOUT_DURATION + BROWNOUT_COOLDOWN;
     night.vibe = Math.max(0, night.vibe - 0.12);
+    // drop avorté : la jauge se vide et la foule décroche ∝ tension perdue
+    night.montee *= MONTEE_BROWNOUT_DRAIN;
+    night.crowd *= 1 - 0.08 * prevMontee;
     events.push({ type: 'brownout' });
   }
 
@@ -162,7 +176,11 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
     const resilience = 1 + state.gear.mur * 0.5;
     night.murStress += (dt / 60) * (0.5 / resilience) * (state.damaged.mur ? 2 : 1);
     if (night.murStress >= 1 || (night.murStress > 0.6 && night.rng() < 0.01 * dt)) {
+      const prevMontee = night.montee;
       night.murBlown = true;
+      // le mur explose : la tension retombe à zéro et la foule décroche
+      night.montee = 0;
+      night.crowd *= 1 - 0.08 * prevMontee;
       events.push({ type: 'mur-blown' });
     }
   }
@@ -190,6 +208,12 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   night.vibe = clamp(night.vibe + (vibeTarget - night.vibe) * rate * dt, 0, 1);
   night.vibeSum += night.vibe * dt;
   night.vibeSamples += dt;
+
+  // --- la montée : se charge en faisant vibrer le floor ----------------------------
+  const monteeGain =
+    dt * MONTEE_RATE * night.vibe * (night.brief === 'pousser' ? 1.4 : 1) * MONTEE_GENRE[night.genreId];
+  night.montee = clamp(night.montee + monteeGain, 0, 1);
+  if (night.vibe < 0.3) night.montee = Math.max(0, night.montee - dt * MONTEE_DECAY);
 
   // --- heat -----------------------------------------------------------------------
   const logistique = GEAR.logistique[state.gear.logistique].value;
@@ -282,7 +306,6 @@ export function resolveEvent(state: GameState, night: NightState, optionIndex: n
 }
 
 export const BRIEF_LOCK = 18;
-export const HYPE_COOLDOWN = 50;
 
 /** Change the consigne mid-set. The desk locks for BRIEF_LOCK seconds after. */
 export function changeBrief(state: GameState, night: NightState, brief: Brief): boolean {
@@ -295,11 +318,17 @@ export function changeBrief(state: GameState, night: NightState, brief: Brief): 
   return true;
 }
 
-/** MC grabs the mic: vibe burst now, more heat, long cooldown. */
-export function dropHype(night: NightState): boolean {
-  if (night.phase !== 'playing' || night.hypeT > 0) return false;
-  night.vibe = clamp(night.vibe + 0.12, 0, 1);
-  night.heat = clamp(night.heat + 0.05, 0, 0.99);
-  night.hypeT = HYPE_COOLDOWN;
+/**
+ * Encaisse la montée : drop. Pleine jauge = climax énorme mais exposé,
+ * drop tôt = petit gain safe. Pas de cooldown — la recharge EST la barrière.
+ */
+export function dropMontee(night: NightState): boolean {
+  if (night.phase !== 'playing' || night.montee < MONTEE_MIN_DROP) return false;
+  const m = night.montee;
+  night.vibe = clamp(night.vibe + 0.1 + 0.25 * m, 0, 1);
+  night.crowd = clamp(night.crowd + night.cap * 0.05 * m, 0, night.cap);
+  night.heat = clamp(night.heat + 0.02 + 0.06 * m, 0, 0.99);
+  night.bestDropThisSet = Math.max(night.bestDropThisSet, m);
+  night.montee = 0;
   return true;
 }

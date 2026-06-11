@@ -216,8 +216,10 @@ export interface NightState {
   repBonus: number;
   /** seconds before the brief can be changed again mid-set */
   briefLockT: number;
-  /** seconds before the hype drop is available again */
-  hypeT: number;
+  /** tension gauge [0,1] — chargée en jouant, encaissée par un drop */
+  montee: number;
+  /** plus gros drop lâché sur le set courant (reset à chaque set) */
+  bestDropThisSet: number;
   playedSets: SetRecord[];
   journal: JournalEntry[];
   busted: boolean;

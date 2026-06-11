@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BRIEF_LOCK, HYPE_COOLDOWN, changeBrief, createNight, dropHype, resolveEvent, startSet, tickNight } from './night';
+import { BRIEF_LOCK, MONTEE_MIN_DROP, changeBrief, createNight, dropMontee, resolveEvent, startSet, tickNight } from './night';
 import { newGame } from './save';
 
 /** Tick the sim n seconds, auto-resolving any random event so the clock keeps moving. */
@@ -41,16 +41,41 @@ describe('live brief changes', () => {
   });
 });
 
-describe('hype drop', () => {
-  it('boosts vibe, costs heat, then cools down', () => {
+describe('la montée', () => {
+  it('se charge dans le temps en jouant', () => {
     const { state, night } = playingNight();
+    expect(night.montee).toBe(0);
+    tickFor(state, night, 20); // auto-resolves events; reste dans le set de 90s
+    expect(night.montee).toBeGreaterThan(0);
+  });
+
+  it('dropMontee boost la vibe et la foule, augmente la heat, et remet montee à 0', () => {
+    const { state, night } = playingNight();
+    tickFor(state, night, 20); // charge la jauge
+    night.crowd = night.cap * 0.5; // de la marge pour booster la foule
     const vibe = night.vibe;
     const heat = night.heat;
-    expect(dropHype(night)).toBe(true);
+    const crowd = night.crowd;
+    expect(dropMontee(night)).toBe(true);
     expect(night.vibe).toBeGreaterThan(vibe);
+    expect(night.crowd).toBeGreaterThan(crowd);
     expect(night.heat).toBeGreaterThan(heat);
-    expect(dropHype(night)).toBe(false); // cooling down
-    tickFor(state, night, HYPE_COOLDOWN + 1); // auto-resolves events; 51s stays within the 90s set
-    expect(dropHype(night)).toBe(true);
+    expect(night.montee).toBe(0);
+  });
+
+  it('refuse sous MONTEE_MIN_DROP', () => {
+    const { night } = playingNight();
+    night.montee = MONTEE_MIN_DROP - 0.01;
+    expect(dropMontee(night)).toBe(false);
+  });
+
+  it('un brownout draine la jauge', () => {
+    const { state, night } = playingNight();
+    night.montee = 1;
+    night.crowd = night.cap; // surcharge la demande pour forcer le brownout
+    night.brief = 'pousser';
+    const before = night.montee;
+    tickFor(state, night, 1);
+    expect(night.montee).toBeLessThan(before);
   });
 });

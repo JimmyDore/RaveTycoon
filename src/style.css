@@ -647,13 +647,42 @@ button {
   transition: width 0.3s linear;
 }
 .live-controls { display: flex; gap: 6px; align-items: center; pointer-events: auto; }
-.live-brief, .live-hype {
+.live-brief, .live-drop {
   font: inherit; padding: 6px 10px; border-radius: 8px; cursor: pointer;
   background: #1b1430; color: #cfc3ee; border: 1px solid #3a2d63;
 }
 .live-brief.selected { border-color: #ff4f9a; color: #fff; }
-.live-brief:disabled, .live-hype:disabled { opacity: 0.45; cursor: default; }
-.live-hype { background: #2a1430; border-color: #7a2d63; }
+.live-brief:disabled, .live-drop:disabled { opacity: 0.45; cursor: default; }
+.live-drop {
+  background: #2a1430; border-color: #7a2d63; font-weight: bold;
+}
+.live-drop:not(:disabled) {
+  border-color: #ff4f9a; color: #fff;
+  box-shadow: 0 0 12px rgba(255, 79, 154, 0.45);
+}
+/* la montée : jauge de tension chargeable */
+.montee-bar {
+  width: 54px;
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(11, 8, 19, 0.7);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.montee-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #6c4dff, #ff4f9a);
+  transition: width 0.15s linear;
+}
+.montee-fill.full {
+  box-shadow: 0 0 10px rgba(255, 79, 154, 0.9);
+  animation: montee-pulse 0.6s ease-in-out infinite alternate;
+}
+@keyframes montee-pulse {
+  from { opacity: 0.7; }
+  to { opacity: 1; }
+}
 
 /* ---------- v2: night modal (set transitions & events) ---------- */
 .night-modal {

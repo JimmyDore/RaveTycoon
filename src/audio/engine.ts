@@ -22,6 +22,8 @@ export interface EngineParams {
   crowd: number;
   /** blown speakers crackle */
   murBlown: boolean;
+  /** la montée [0,1] — riser : ouvre légèrement le lead à pleine jauge (no-op à 0) */
+  montee: number;
 }
 
 interface StemNodes {
@@ -203,11 +205,13 @@ export class AudioEngine {
     const q = Math.min(1.2, Math.max(0.3, p.quality));
     const layer = (threshold: number, width: number) =>
       Math.min(1, Math.max(0, (e * q - threshold) / width));
+    // la montée ouvre légèrement le lead — borné, no-op exact à montee=0
+    const riser = 1 + 0.2 * Math.min(1, Math.max(0, p.montee));
     const gains: Record<string, number> = {
       kick: 0.85,
       sub: (0.5 + 0.8 * layer(0.1, 0.25)) * (p.murBlown ? 0.3 : 1),
       hats: 0.7 * layer(0.3, 0.25),
-      lead: 0.85 * layer(0.45, 0.3),
+      lead: 0.85 * layer(0.45, 0.3) * riser,
     };
     for (const [name, gain] of Object.entries(gains)) {
       const stem = this.stems.get(name as 'kick' | 'sub' | 'lead' | 'hats');

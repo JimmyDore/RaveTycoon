@@ -284,7 +284,7 @@ export interface NightScreen {
 
 export interface NightLiveCallbacks {
   onBrief(brief: Brief): void;
-  onHype(): void;
+  onDrop(): void;
 }
 
 export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightScreen {
@@ -333,9 +333,13 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
     briefBtns.set(brief, b);
     liveWrap.append(b);
   }
-  const hypeBtn = el('button', 'live-hype', STR.hypeAction) as HTMLButtonElement;
-  hypeBtn.addEventListener('click', () => live.onHype());
-  liveWrap.append(hypeBtn);
+  const monteeBar = el('div', 'montee-bar');
+  const monteeFill = el('div', 'montee-fill');
+  monteeBar.append(monteeFill);
+  liveWrap.append(monteeBar);
+  const dropBtn = el('button', 'live-drop', STR.dropAction) as HTMLButtonElement;
+  dropBtn.addEventListener('click', () => live.onDrop());
+  liveWrap.append(dropBtn);
   bottomBar.append(liveWrap);
   sceneWrap.append(bottomBar);
 
@@ -369,8 +373,9 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
         btn.classList.toggle('selected', night.brief === brief);
         btn.disabled = !playing || night.briefLockT > 0 || night.brief === brief;
       }
-      hypeBtn.disabled = !playing || night.hypeT > 0;
-      hypeBtn.textContent = night.hypeT > 0 ? `${STR.hypeAction} (${Math.ceil(night.hypeT)})` : STR.hypeAction;
+      monteeFill.style.width = `${(night.montee * 100).toFixed(1)}%`;
+      monteeFill.classList.toggle('full', night.montee >= 0.85);
+      dropBtn.disabled = !playing || night.montee < 0.1;
     },
     toast(msg) {
       const now = performance.now();

@@ -3,7 +3,7 @@ import { AudioEngine } from './audio/engine';
 import { recruitDj } from './core/crew';
 import { getDj, getSpot } from './core/data';
 import { applyIdleTime, rushRepair, startRepair } from './core/idle';
-import { changeBrief, createNight, dropHype, resolveEvent, startSet, tickNight } from './core/night';
+import { changeBrief, createNight, dropMontee, resolveEvent, startSet, tickNight } from './core/night';
 import { applyBust, buyGearUpgrade, settleNight } from './core/payout';
 import { exportCode, importCode, loadGame, newGame, saveGame } from './core/save';
 import type { Brief, GameState, NightResult, NightState } from './core/types';
@@ -70,9 +70,9 @@ async function startNight(): Promise<void> {
         active.screen.toast(STR.briefToast(brief));
       }
     },
-    onHype: () => {
-      if (active && dropHype(active.night)) {
-        active.screen.toast(STR.hypeToast);
+    onDrop: () => {
+      if (active && dropMontee(active.night)) {
+        active.screen.toast(STR.dropToast);
       }
     },
   });
@@ -154,6 +154,7 @@ function frame(now: number): void {
     soundCut: !playing || night.soundCutT > 0,
     crowd: night.cap > 0 ? night.crowd / night.cap : 0,
     murBlown: night.murBlown,
+    montee: playing ? night.montee : 0,
   });
 
   ravers.update(night.crowd, dtMs / 1000, night.busted);
