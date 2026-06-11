@@ -1,6 +1,7 @@
 import { applySetToll, effectiveTechnique, fatigueQualityMult, getCrewMember } from './crew';
 import { GEAR, getDj, getGenre, getSpot } from './data';
 import { drawEvent } from './events';
+import { drawGoal } from './goals';
 import { drawPrompt } from './prompts';
 import { mulberry32 } from './rng';
 import type {
@@ -13,6 +14,7 @@ import type {
   GenreId,
   NightState,
   NightTickEvent,
+  SetStats,
   SpotId,
 } from './types';
 
@@ -89,6 +91,12 @@ export function createNight(
     briefLockT: 0,
     montee: 0,
     bestDropThisSet: 0,
+    setGoal: null,
+    setVibeSum: 0,
+    setVibeSamples: 0,
+    setBrownouts: 0,
+    setCrowdStart: 0,
+    goalsMet: [],
     floorPrompt: null,
     nextPromptAt: 12 + mulberry32(seed)() * 6,
     firedPrompts: [],
@@ -97,6 +105,8 @@ export function createNight(
     busted: false,
     sunrise: false,
     rng: mulberry32(seed),
+    // flux dédié, décalé du seed pour ne pas perturber le flux des events
+    goalRng: mulberry32((seed ^ 0x9e3779b9) >>> 0),
   };
 }
 
@@ -125,6 +135,12 @@ export function startSet(state: GameState, night: NightState, djId: string, brie
   night.setElapsed = 0;
   night.briefLockT = 0;
   night.bestDropThisSet = 0;
+  // objectif du set + reset des accumulateurs (flux RNG dédié)
+  night.setGoal = drawGoal(eventContext(state, night), night.goalRng);
+  night.setVibeSum = 0;
+  night.setVibeSamples = 0;
+  night.setBrownouts = 0;
+  night.setCrowdStart = night.crowd;
   night.phase = 'playing';
   night.playedSets.push({ djId, brief });
 }
@@ -176,6 +192,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
     // drop avorté : la jauge se vide et la foule décroche ∝ tension perdue
     night.montee *= MONTEE_BROWNOUT_DRAIN;
     night.crowd *= 1 - 0.08 * prevMontee;
+    night.setBrownouts += 1;
     events.push({ type: 'brownout' });
   }
 
@@ -216,6 +233,9 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   night.vibe = clamp(night.vibe + (vibeTarget - night.vibe) * rate * dt, 0, 1);
   night.vibeSum += night.vibe * dt;
   night.vibeSamples += dt;
+  // accumulateurs du set (pour l'objectif évalué en fin de set)
+  night.setVibeSum += night.vibe * dt;
+  night.setVibeSamples += dt;
 
   // --- la montée : se charge en faisant vibrer le floor ----------------------------
   const monteeGain =
@@ -299,6 +319,23 @@ function endCurrentSet(state: GameState, night: NightState): void {
   if (!night.currentDj) return;
   const member = getCrewMember(state, night.currentDj);
   applySetToll(member, night.brief, night.setElapsed);
+  // évalue l'objectif du set — bonus only, aucune punition si raté
+  if (night.setGoal) {
+    const stats: SetStats = {
+      avgVibe: night.setVibeSamples > 0 ? night.setVibeSum / night.setVibeSamples : 0,
+      crowdGained: night.crowd - night.setCrowdStart,
+      crowdEnd: night.crowd,
+      cap: night.cap,
+      brownouts: night.setBrownouts,
+      bestDrop: night.bestDropThisSet,
+      heat: night.heat,
+    };
+    if (night.setGoal.met(stats)) {
+      night.repBonus += night.setGoal.reward.rep ?? 0;
+      night.bank += night.setGoal.reward.cash ?? 0;
+      night.goalsMet.push(night.setGoal.label);
+    }
+  }
 }
 
 /**

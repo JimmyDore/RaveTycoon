@@ -91,6 +91,7 @@ export const STR = {
   bankLabel: 'buvette',
   sunriseIn: 'lever du soleil',
   vibeLabel: 'ambiance',
+  setGoalLabel: 'objectif',
   events: {
     brownout: '⚡ Le groupe décroche ! Le son se coupe.',
     'mur-blown': '💥 Une enceinte vient de lâcher !',
@@ -118,6 +119,7 @@ export const STR = {
   bustCut: 'Recette perdue dans la panique',
   repGained: (n: number) => `+${n} réputation`,
   nightJournal: 'Les histoires de la nuit',
+  goalsRecapTitle: 'Objectifs tenus',
   total: 'Pour la caisse',
   continue: 'Retour au camion',
   share: 'Partager la carte',

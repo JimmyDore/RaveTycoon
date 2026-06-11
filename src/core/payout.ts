@@ -1,6 +1,12 @@
 import { GEAR, GEAR_CATEGORIES, getDj, getSpot } from './data';
+import { applyNightRest } from './crew';
 import { buzzAfterNight } from './idle';
 import type { GameState, GearCategory, NightResult, NightState } from './types';
+
+/** Unique DJs who played at least one set tonight. */
+function playedDjs(night: NightState): Set<string> {
+  return new Set(night.playedSets.map((s) => s.djId));
+}
 
 function avgVibe(night: NightState): number {
   return night.vibeSamples > 0 ? night.vibeSum / night.vibeSamples : 0;
@@ -17,7 +23,7 @@ function trackRecords(state: GameState, result: NightResult): void {
 
 /** Sum of cuts for the unique DJs who played tonight. */
 export function cutsTotal(night: NightState): number {
-  const played = new Set(night.playedSets.map((s) => s.djId));
+  const played = playedDjs(night);
   let total = 0;
   for (const id of played) total += getDj(id).cut;
   return Math.min(0.6, total);
@@ -44,6 +50,7 @@ export function settleNight(state: GameState, night: NightState): NightResult {
   state.nights += 1;
   if (won) state.wonTeknival = true;
   carryDamage(state, night);
+  applyNightRest(state, playedDjs(night));
   const quality = Math.min(1, 0.6 * vibe + 0.5 * (night.peakCrowd / night.cap));
   buzzAfterNight(state, quality);
 
@@ -65,6 +72,7 @@ export function settleNight(state: GameState, night: NightState): NightResult {
     duration: night.t,
     lineup: night.playedSets,
     journal: night.journal,
+    goalsMet: night.goalsMet,
   };
   trackRecords(state, result);
   return result;
@@ -115,6 +123,7 @@ export function applyBust(state: GameState, night: NightState): NightResult {
   state.rep += repGained;
   state.nights += 1;
   carryDamage(state, night);
+  applyNightRest(state, playedDjs(night));
 
   const result: NightResult = {
     spotId: night.spotId,
@@ -134,6 +143,7 @@ export function applyBust(state: GameState, night: NightState): NightResult {
     duration: night.t,
     lineup: night.playedSets,
     journal: night.journal,
+    goalsMet: night.goalsMet,
   };
   trackRecords(state, result);
   return result;

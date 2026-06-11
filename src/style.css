@@ -513,6 +513,18 @@ button {
   color: var(--text-dim);
 }
 
+/* objectifs de set tenus, rappelés au recap */
+.recap-goals {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 1.1rem;
+}
+.recap-goal {
+  font-size: 0.82rem;
+  color: #3ddc97;
+}
+
 .score-row {
   display: flex;
   gap: 0.5rem;
@@ -620,12 +632,55 @@ button {
   background: linear-gradient(180deg, rgba(11, 8, 19, 0), rgba(11, 8, 19, 0.85));
   pointer-events: none;
 }
-.now-playing {
+.now-col {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.now-playing {
   font-size: 0.8rem;
   font-weight: bold;
   text-shadow: 0 1px 3px #000;
   min-height: 1.2em;
+}
+/* chip d'objectif de set : libellé + état (en cours / atteint) */
+.set-goal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  background: rgba(27, 20, 48, 0.85);
+  border: 1px solid #3a2d63;
+  pointer-events: none;
+  text-shadow: 0 1px 2px #000;
+}
+.set-goal-chip.hidden {
+  display: none;
+}
+.set-goal-chip-tag {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+}
+.set-goal-chip-label {
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.set-goal-chip.met {
+  border-color: #3ddc97;
+  background: rgba(20, 48, 36, 0.85);
+}
+.set-goal-chip.met .set-goal-chip-tag {
+  color: #3ddc97;
 }
 .night-bottom .heat-wrap,
 .night-bottom .vibe-wrap {

@@ -322,7 +322,14 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
   sceneWrap.append(hudTop);
 
   const bottomBar = el('div', 'night-bottom');
+  const nowCol = el('div', 'now-col');
   const nowPlaying = el('div', 'now-playing');
+  // chip d'objectif de set : libellé + ✓ une fois atteint
+  const goalChip = el('div', 'set-goal-chip hidden');
+  const goalChipTag = el('span', 'set-goal-chip-tag', STR.setGoalLabel);
+  const goalChipLabel = el('span', 'set-goal-chip-label', '');
+  goalChip.append(goalChipTag, goalChipLabel);
+  nowCol.append(goalChip, nowPlaying);
   const heatWrap = el('div', 'heat-wrap');
   const heatBar = el('div', 'heat-bar');
   const heatFill = el('div', 'heat-fill');
@@ -333,7 +340,7 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
   const vibeFill = el('div', 'vibe-fill');
   vibeBar.append(vibeFill);
   vibeWrap.append(el('div', 'heat-label', `🔥 ${STR.vibeLabel}`), vibeBar);
-  bottomBar.append(nowPlaying, heatWrap, vibeWrap);
+  bottomBar.append(nowCol, heatWrap, vibeWrap);
 
   const liveWrap = el('div', 'live-controls');
   const briefBtns = new Map<Brief, HTMLButtonElement>();
@@ -398,6 +405,27 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
       monteeFill.style.width = `${(night.montee * 100).toFixed(1)}%`;
       monteeFill.classList.toggle('full', night.montee >= 0.85);
       dropBtn.disabled = !playing || night.montee < 0.1;
+
+      // chip d'objectif : libellé + état (en cours / atteint)
+      const goal = playing ? night.setGoal : null;
+      if (goal) {
+        goalChipLabel.textContent = goal.label;
+        // progression live : on évalue la condition sur l'état courant du set
+        const onTrack = goal.met({
+          avgVibe: night.setVibeSamples > 0 ? night.setVibeSum / night.setVibeSamples : 0,
+          crowdGained: night.crowd - night.setCrowdStart,
+          crowdEnd: night.crowd,
+          cap: night.cap,
+          brownouts: night.setBrownouts,
+          bestDrop: night.bestDropThisSet,
+          heat: night.heat,
+        });
+        goalChipTag.textContent = onTrack ? '✓' : STR.setGoalLabel;
+        goalChip.classList.toggle('met', onTrack);
+        goalChip.classList.remove('hidden');
+      } else {
+        goalChip.classList.add('hidden');
+      }
 
       // flash-prompt : on lit night.floorPrompt, aucune pause de la sim
       const fp = playing ? night.floorPrompt : null;
@@ -596,6 +624,15 @@ export function renderRecap(
       list.append(row);
     }
     panel.append(list);
+  }
+
+  if (result.goalsMet.length > 0) {
+    panel.append(el('h3', 'recap-sub', STR.goalsRecapTitle));
+    const goals = el('div', 'recap-goals');
+    for (const label of result.goalsMet) {
+      goals.append(el('div', 'recap-goal', `✓ ${label}`));
+    }
+    panel.append(goals);
   }
 
   const scoreRow = el('div', 'score-row');

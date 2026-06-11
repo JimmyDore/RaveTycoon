@@ -79,7 +79,7 @@ export interface DjDef {
 export interface DjState {
   id: string;
   xp: number;
-  /** 0 = fresh, 1 = exhausted; recovers in real time */
+  /** 0 = fresh, 1 = exhausted; recovers per rested night (a night played no set) */
   fatigue: number;
   setsPlayed: number;
 }
@@ -178,6 +178,36 @@ export interface FloorPromptDef {
   weight: (ctx: EventContext) => number;
 }
 
+/** Snapshot des accumulateurs d'un set, évalué à sa fin pour l'objectif. */
+export interface SetStats {
+  /** vibe moyenne sur le set */
+  avgVibe: number;
+  /** teufeurs gagnés (crowd fin − crowd début) */
+  crowdGained: number;
+  /** teufeurs présents en fin de set */
+  crowdEnd: number;
+  /** capacité du spot ce soir */
+  cap: number;
+  /** nombre de brownouts subis sur le set */
+  brownouts: number;
+  /** plus gros drop lâché sur le set */
+  bestDrop: number;
+  /** heat en fin de set */
+  heat: number;
+}
+
+/**
+ * Mini-objectif de set, tiré à chaque set. Bonus only — jamais de punition.
+ * `met` lit les accumulateurs du set ; `weight` pondère le tirage au contexte.
+ */
+export interface SetGoalDef {
+  id: string;
+  label: string;
+  reward: { rep?: number; cash?: number };
+  met: (s: SetStats) => boolean;
+  weight: (ctx: EventContext) => number;
+}
+
 export interface PendingEvent {
   def: NightEventDef;
 }
@@ -237,6 +267,15 @@ export interface NightState {
   montee: number;
   /** plus gros drop lâché sur le set courant (reset à chaque set) */
   bestDropThisSet: number;
+  /** objectif du set courant, tiré à chaque startSet (ou null en transition) */
+  setGoal: SetGoalDef | null;
+  /** accumulateurs du set courant (reset à chaque startSet) */
+  setVibeSum: number;
+  setVibeSamples: number;
+  setBrownouts: number;
+  setCrowdStart: number;
+  /** labels des objectifs atteints sur la nuit (rappelés au recap) */
+  goalsMet: string[];
   /** flash-prompt non bloquant du dancefloor, ou null */
   floorPrompt: { def: FloorPromptDef; expiresAt: number } | null;
   /** prochain instant (en s) où un flash-prompt peut surgir */
@@ -248,6 +287,8 @@ export interface NightState {
   busted: boolean;
   sunrise: boolean;
   rng: () => number;
+  /** flux RNG dédié au tirage des objectifs — isolé du flux des events */
+  goalRng: () => number;
 }
 
 export type NightTickEventType =
@@ -282,4 +323,6 @@ export interface NightResult {
   duration: number;
   lineup: SetRecord[];
   journal: JournalEntry[];
+  /** labels des objectifs de set atteints sur la nuit */
+  goalsMet: string[];
 }
