@@ -1,4 +1,5 @@
 import { GEAR_CATEGORIES, ownedGear } from './data';
+import { buildRegionRules } from './regions';
 import type { GameState, GearCategory } from './types';
 
 export const BUZZ_HALF_LIFE_HOURS = 24;
@@ -12,7 +13,8 @@ export const RUSH_COST_PER_TIER = 80;
  */
 export function applyIdleTime(state: GameState, nowMs: number): void {
   const hours = Math.max(0, nowMs - state.lastSeen) / 3_600_000;
-  state.buzz *= Math.pow(0.5, hours / BUZZ_HALF_LIFE_HOURS);
+  const rules = buildRegionRules(state.region);
+  state.buzz *= Math.pow(0.5, (hours * rules.buzzDecayMult) / BUZZ_HALF_LIFE_HOURS);
   if (state.buzz < 0.001) state.buzz = 0;
   state.repairs = state.repairs.filter((job) => {
     if (nowMs >= job.readyAt) {

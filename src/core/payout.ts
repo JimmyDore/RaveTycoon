@@ -2,6 +2,7 @@ import { BRANCH_TIER, GEAR, GEAR_CATEGORIES, getDj, getSpot, ownedGear, switchBr
 import { essenceCost, restockCost } from './economy';
 import { applyNightRest, effectiveCut, getCrewMember } from './crew';
 import { buzzAfterNight } from './idle';
+import { buildRegionRules } from './regions';
 import { hasPerk } from './tour';
 import type { GameState, GearBranch, GearCategory, GearItem, NightResult, NightState } from './types';
 
@@ -38,7 +39,10 @@ const SUNRISE_REP = 3;
 export function settleNight(state: GameState, night: NightState): NightResult {
   const vibe = avgVibe(night);
   const spot = getSpot(night.spotId);
-  const donationMult = (1 + 0.8 * vibe + 0.6 * (night.peakCrowd / night.cap)) * spot.donationMult;
+  const donationMult =
+    (1 + 0.8 * vibe + 0.6 * (night.peakCrowd / night.cap)) *
+    spot.donationMult *
+    night.rules.prixLibreMult;
   const grossRaw = Math.round(night.bank * donationMult);
   // frais de nuit : prélevés sur le brut, jamais sur la banque (no-softlock)
   const essence = Math.min(grossRaw, essenceCost(state, night));
@@ -174,6 +178,18 @@ export function applyBust(state: GameState, night: NightState): NightResult {
 
 export function isSpotUnlocked(state: GameState, spotId: NightState['spotId']): boolean {
   return state.rep >= getSpot(spotId).repReq;
+}
+
+/**
+ * Un spot est jouable si la rep suffit ET si la région ne l'interdit pas.
+ * Une région peut aussi surcharger le seuil de rep (Terre de béton ouvre la
+ * carrière à rep 0 — garde-fou no-softlock).
+ */
+export function isSpotAvailable(state: GameState, spotId: NightState['spotId']): boolean {
+  const rules = buildRegionRules(state.region);
+  if (rules.bannedSpotIds.includes(spotId)) return false;
+  const req = rules.repReqOverride[spotId] ?? getSpot(spotId).repReq;
+  return state.rep >= req;
 }
 
 export function buyGearUpgrade(state: GameState, cat: GearCategory, branch?: GearBranch): boolean {

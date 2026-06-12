@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { applyIdleTime } from './idle';
 import { applyEffects, createNight, startSet, tickNight } from './night';
+import { isSpotAvailable, settleNight } from './payout';
 import { newGame } from './save';
 import type { GameState } from './types';
 import {
@@ -255,5 +257,64 @@ describe('les règles de région dans la nuit', () => {
     }
     expect(repAfterForcedGoal([])).toBe(10);
     expect(repAfterForcedGoal(['fetes-votives'])).toBe(8);
+  });
+});
+
+describe('les règles de région au règlement et entre les teufs', () => {
+  function finishedNight(state: GameState) {
+    const night = createNight(state, 'champ', ['tonton'], 1);
+    Object.assign(night, {
+      t: 180,
+      phase: 'ended',
+      sunrise: true,
+      bank: 100,
+      peakCrowd: 30,
+      vibeSum: 0.8 * 180,
+      vibeSamples: 180,
+      playedSets: [{ djId: 'tonton', brief: 'normal' }],
+    });
+    return night;
+  }
+
+  it('Région riche : prix libre ×1.25 au règlement', () => {
+    const base = newGame();
+    const baseResult = settleNight(base, finishedNight(base));
+    const riche = newGame();
+    riche.region = { nom: 'La Combe rouge', traits: ['region-riche'] };
+    const richeResult = settleNight(riche, finishedNight(riche));
+    expect(richeResult.donationMult).toBeCloseTo(baseResult.donationMult * 1.25, 5);
+    expect(richeResult.gross).toBeGreaterThan(baseResult.gross);
+  });
+
+  it('Économie morose : prix libre ×0.75 au règlement', () => {
+    const base = newGame();
+    const baseResult = settleNight(base, finishedNight(base));
+    const morose = newGame();
+    morose.region = { nom: 'Le Causse gris', traits: ['economie-morose'] };
+    const moroseResult = settleNight(morose, finishedNight(morose));
+    expect(moroseResult.donationMult).toBeCloseTo(baseResult.donationMult * 0.75, 5);
+  });
+
+  it('Terre de béton : champ/forêt bannis, la carrière ouverte à rep 0', () => {
+    const state = newGame();
+    expect(isSpotAvailable(state, 'champ')).toBe(true);
+    expect(isSpotAvailable(state, 'carriere')).toBe(false); // rep 0 < 60
+    state.region = { nom: 'Le Plateau noir', traits: ['terre-de-beton'] };
+    expect(isSpotAvailable(state, 'champ')).toBe(false);
+    expect(isSpotAvailable(state, 'foret')).toBe(false);
+    expect(isSpotAvailable(state, 'carriere')).toBe(true); // garde-fou no-softlock
+    expect(isSpotAvailable(state, 'hangar')).toBe(false); // la rep gate les autres normalement
+  });
+
+  it('Zone blanche : le buzz décroît deux fois plus vite', () => {
+    const base = newGame(0);
+    base.buzz = 1;
+    applyIdleTime(base, 24 * 3_600_000); // une demi-vie
+    const blanche = newGame(0);
+    blanche.buzz = 1;
+    blanche.region = { nom: 'Le Marais perdu', traits: ['zone-blanche'] };
+    applyIdleTime(blanche, 24 * 3_600_000);
+    expect(base.buzz).toBeCloseTo(0.5, 5);
+    expect(blanche.buzz).toBeCloseTo(0.25, 5);
   });
 });
