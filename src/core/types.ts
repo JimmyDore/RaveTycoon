@@ -98,6 +98,8 @@ export interface GearItem {
   /** category-specific magnitude (see data.ts for semantics) */
   value: number;
   seizable: boolean;
+  /** tier mythique : achat en € gated par le perk `mythe-<categorie>` de l'Héritage */
+  mythic?: boolean;
   /** leviers de voie additionnels (voir GearEffects) */
   effects?: GearEffects;
 }

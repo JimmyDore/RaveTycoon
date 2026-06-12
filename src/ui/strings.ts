@@ -19,6 +19,7 @@ export const STR = {
   shop: 'Le matos',
   buy: 'Acheter',
   maxed: 'Au max',
+  mythicLocked: 'Mythe du son à débloquer dans l’Héritage',
   damaged: 'HS',
   repair: 'Réparer',
   repairing: 'En réparation…',

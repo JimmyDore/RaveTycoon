@@ -2,6 +2,7 @@ import { BRANCH_TIER, GEAR, GEAR_CATEGORIES, getDj, getSpot, ownedGear, switchBr
 import { essenceCost, restockCost } from './economy';
 import { applyNightRest, effectiveCut, getCrewMember } from './crew';
 import { buzzAfterNight } from './idle';
+import { hasPerk } from './tour';
 import type { GameState, GearBranch, GearCategory, GearItem, NightResult, NightState } from './types';
 
 /** Unique DJs who played at least one set tonight. */
@@ -185,9 +186,12 @@ export function buyGearUpgrade(state: GameState, cat: GearCategory, branch?: Gea
     next = GEAR[cat].find((g) => g.tier === nextTier && g.branch === branch);
   } else {
     const chosen = state.gearBranch[cat];
-    next = GEAR[cat].find((g) => g.tier === nextTier && g.branch === chosen);
+    // le tier mythique couronne les deux voies — il n'a pas de branche
+    next = GEAR[cat].find((g) => g.tier === nextTier && (g.mythic || g.branch === chosen));
   }
   if (!next || state.cash < next.price) return false;
+  // le tier mythique se paie en € mais s'ouvre à l'Héritage
+  if (next.mythic && !hasPerk(state, `mythe-${cat}`)) return false;
   state.cash -= next.price;
   state.gear[cat] = nextTier;
   if (nextTier === BRANCH_TIER) state.gearBranch[cat] = branch;

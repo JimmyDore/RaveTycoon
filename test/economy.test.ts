@@ -230,16 +230,19 @@ describe('branches du matos', () => {
     state.gearBranch.mur = 'B';
     expect(nextGearOptions(state, 'mur').map((g) => `${g.tier}${g.branch}`)).toEqual(['4B']);
     state.gear.mur = 5;
+    expect(nextGearOptions(state, 'mur').map((g) => g.mythic)).toEqual([true]);
+    state.gear.mur = 6; // le mythique possédé : plus rien au-dessus
     expect(nextGearOptions(state, 'mur')).toEqual([]);
   });
 
-  it('chaque catégorie a 9 items : t0–t2 sans voie, t3–t5 en double', () => {
+  it('chaque catégorie a 10 items : t0–t2 sans voie, t3–t5 en double, t6 mythique', () => {
     for (const cat of GEAR_CATEGORIES) {
-      expect(GEAR[cat]).toHaveLength(9);
-      expect(GEAR[cat].filter((g) => g.branch === undefined).map((g) => g.tier)).toEqual([0, 1, 2]);
+      expect(GEAR[cat]).toHaveLength(10);
+      expect(GEAR[cat].filter((g) => g.branch === undefined && !g.mythic).map((g) => g.tier)).toEqual([0, 1, 2]);
       for (const tier of [3, 4, 5]) {
         expect(GEAR[cat].filter((g) => g.tier === tier).map((g) => g.branch).sort()).toEqual(['A', 'B']);
       }
+      expect(GEAR[cat].filter((g) => g.mythic).map((g) => `${g.tier}${g.branch ?? ''}`)).toEqual(['6']);
       expect(GEAR[cat][0].price).toBe(0);
       expect(GEAR[cat][0].seizable).toBe(false);
     }

@@ -3,6 +3,7 @@ import { BAR_STOCK_COST, ESSENCE_RATE, cautionCost, potentialBar, type BarStock 
 import { STUDIO_COST, STUDIO_MAX, dayOffCost, djLevel, djRepThreshold, effectiveCut, fatigueMalus, giftCost, lockedDjs, recruitableDjs } from '../core/crew';
 import { rushCost } from '../core/idle';
 import { isSpotUnlocked } from '../core/payout';
+import { hasPerk } from '../core/tour';
 import { MONTEE_MIN_DROP, computeSetQuality } from '../core/night';
 import type { NightModifierDef } from '../core/modifiers';
 import type {
@@ -286,6 +287,10 @@ export function renderPrepare(
         actions.append(el('div', 'gear-maxed', STR.maxed));
       }
       for (const next of options) {
+        if (next.mythic && !hasPerk(state, `mythe-${cat}`)) {
+          actions.append(el('div', 'gear-maxed', `🔒 ${STR.mythicLocked}`));
+          continue;
+        }
         const voie = next.branch ? ` (${STR.gearBranchNames[cat][next.branch]})` : '';
         const buyBtn = el('button', 'btn small', `${STR.buy} ${next.nom}${voie} — ${fmtCash(next.price)}`);
         buyBtn.disabled = state.cash < next.price;

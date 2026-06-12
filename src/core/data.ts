@@ -303,6 +303,8 @@ export const GEAR: Record<GearCategory, GearItem[]> = {
     { category: 'platines', tier: 3, branch: 'B', nom: 'Cabine spectacle', price: 7000, value: 1.2, seizable: true, effects: { charismeBonus: 1 } },
     { category: 'platines', tier: 4, branch: 'B', nom: 'Scène à paillettes', price: 4000, value: 1.26, seizable: true, effects: { charismeBonus: 1 } },
     { category: 'platines', tier: 5, branch: 'B', nom: 'Cathédrale du show', price: 10000, value: 1.32, seizable: true, effects: { charismeBonus: 1 } },
+    // tier mythique — gated par le perk `mythe-platines`, hors voies, payé en €
+    { category: 'platines', tier: 6, nom: 'La Cabine du Mythe', price: 25000, value: 1.6, seizable: true, mythic: true },
   ],
   mur: [
     { category: 'mur', tier: 0, nom: 'Les vieilles enceintes du camion', price: 0, value: 0.6, seizable: false },
@@ -316,6 +318,8 @@ export const GEAR: Record<GearCategory, GearItem[]> = {
     { category: 'mur', tier: 3, branch: 'B', nom: 'Line array', price: 7500, value: 1.85, seizable: true, effects: { qualityMult: 1.06, heatMult: 0.92 } },
     { category: 'mur', tier: 4, branch: 'B', nom: 'Line array V2', price: 4000, value: 2.1, seizable: true, effects: { qualityMult: 1.09, heatMult: 0.88 } },
     { category: 'mur', tier: 5, branch: 'B', nom: 'Arc de son', price: 10000, value: 2.5, seizable: true, effects: { qualityMult: 1.12, heatMult: 0.84 } },
+    // mythique — signature : sur-cap de 10 % au-dessus du tier max (2.9 × 1.1)
+    { category: 'mur', tier: 6, nom: 'Le Mur des Légendes', price: 28000, value: 3.19, seizable: true, mythic: true },
   ],
   groupe: [
     { category: 'groupe', tier: 0, nom: 'Groupe poussif', price: 0, value: 0.62, seizable: false },
@@ -329,6 +333,8 @@ export const GEAR: Record<GearCategory, GearItem[]> = {
     { category: 'groupe', tier: 3, branch: 'B', nom: 'Semi monstre', price: 6250, value: 1.35, seizable: true },
     { category: 'groupe', tier: 4, branch: 'B', nom: 'Turbine de chantier', price: 4000, value: 1.55, seizable: true, effects: { pousserPowerFree: true } },
     { category: 'groupe', tier: 5, branch: 'B', nom: 'Réacteur du teknival', price: 10000, value: 1.85, seizable: true, effects: { pousserPowerFree: true } },
+    // mythique — signature : jamais de coupure, même à la carrière (2.0 × 0.6 + 0.15 > 1.07)
+    { category: 'groupe', tier: 6, nom: 'La Centrale éternelle', price: 26000, value: 2.0, seizable: true, mythic: true },
   ],
   lumieres: [
     { category: 'lumieres', tier: 0, nom: 'Trois ampoules', price: 0, value: 0, seizable: false },
@@ -343,6 +349,8 @@ export const GEAR: Record<GearCategory, GearItem[]> = {
     { category: 'lumieres', tier: 3, branch: 'B', nom: 'Mur de strobes', price: 5500, value: 0.2, seizable: true, effects: { dropMult: 1.25 } },
     { category: 'lumieres', tier: 4, branch: 'B', nom: 'Tempête blanche', price: 4000, value: 0.22, seizable: true, effects: { dropMult: 1.5 } },
     { category: 'lumieres', tier: 5, branch: 'B', nom: 'Éclipse stroboscopique', price: 10000, value: 0.25, seizable: true, effects: { dropMult: 1.8 } },
+    // mythique — signature : l'ambiance ne retombe plus (+0.38 de vibe flat)
+    { category: 'lumieres', tier: 6, nom: 'Le Soleil de minuit', price: 25000, value: 0.38, seizable: true, mythic: true },
   ],
   logistique: [
     { category: 'logistique', tier: 0, nom: 'Personne au portail', price: 0, value: 1.0, seizable: false },
@@ -358,6 +366,8 @@ export const GEAR: Record<GearCategory, GearItem[]> = {
     { category: 'logistique', tier: 3, branch: 'B', nom: 'Convoi mobile', price: 6000, value: 0.6, seizable: true, effects: { cautionMult: 0.5 } },
     { category: 'logistique', tier: 4, branch: 'B', nom: 'Caravane éclair', price: 4000, value: 0.55, seizable: true, effects: { cautionMult: 0.5 } },
     { category: 'logistique', tier: 5, branch: 'B', nom: 'Flotte insaisissable', price: 10000, value: 0.48, seizable: true, effects: { cautionMult: 0.35 } },
+    // mythique — signature : les bleus cherchent encore l'entrée (heat ×0.3)
+    { category: 'logistique', tier: 6, nom: 'La Toile invisible', price: 26000, value: 0.3, seizable: true, mythic: true },
   ],
 };
 
@@ -368,7 +378,7 @@ export const BRANCH_TIER = 3;
 
 export function gearItem(cat: GearCategory, tier: number, branch?: GearBranch): GearItem {
   const item = GEAR[cat].find(
-    (g) => g.tier === tier && (tier < BRANCH_TIER || g.branch === branch),
+    (g) => g.tier === tier && (tier < BRANCH_TIER || g.mythic || g.branch === branch),
   );
   if (!item) throw new Error(`unknown gear: ${cat} t${tier} ${branch ?? ''}`);
   return item;
@@ -387,7 +397,8 @@ export function nextGearOptions(state: GameState, cat: GearCategory): GearItem[]
     return ['A', 'B'].map((b) => gearItem(cat, BRANCH_TIER, b as GearBranch));
   }
   const branch = state.gearBranch[cat];
-  return GEAR[cat].filter((g) => g.tier === nextTier && g.branch === branch);
+  // le tier mythique couronne les deux voies — il n'a pas de branche
+  return GEAR[cat].filter((g) => g.tier === nextTier && (g.mythic || g.branch === branch));
 }
 
 /** L'item miroir de la voie non choisie au tier courant, ou null avant le tier 3. */
@@ -395,6 +406,7 @@ export function switchBranchItem(state: GameState, cat: GearCategory): GearItem 
   const tier = state.gear[cat];
   const branch = state.gearBranch[cat];
   if (tier < BRANCH_TIER || !branch) return null;
+  if (gearItem(cat, tier, branch).mythic) return null; // le mythe est hors voies
   return gearItem(cat, tier, branch === 'A' ? 'B' : 'A');
 }
 
@@ -663,14 +675,14 @@ export const PERKS: PerkDef[] = [
   {
     id: 'mythe-groupe',
     nom: 'Mythes du son : le groupe',
-    description: 'Débloque la centrale mythique — jamais de coupure, même à la carrière.',
+    description: 'Débloque la centrale éternelle — jamais de coupure, même à la carrière.',
     cost: 6,
     max: 1,
   },
   {
     id: 'mythe-lumieres',
     nom: 'Mythes du son : les lumières',
-    description: 'Débloque l’aurore artificielle — l’ambiance ne retombe plus.',
+    description: 'Débloque le soleil de minuit — l’ambiance ne retombe plus.',
     cost: 6,
     max: 1,
   },

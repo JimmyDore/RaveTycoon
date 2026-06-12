@@ -44,12 +44,14 @@ describe('genres', () => {
 });
 
 describe('gear', () => {
-  it('has five categories, each with an unseizable free tier 0', () => {
+  it('has five categories: free unseizable tier 0, mythic top tier, ascending baseline prices', () => {
     expect(GEAR_CATEGORIES).toEqual(['platines', 'mur', 'groupe', 'lumieres', 'logistique']);
     for (const cat of GEAR_CATEGORIES) {
-      expect(GEAR[cat]).toHaveLength(9); // t0–t2 + t3/t4/t5 × deux voies
+      expect(GEAR[cat]).toHaveLength(10); // t0–t2 + t3/t4/t5 × deux voies + mythique
       expect(GEAR[cat][0].seizable).toBe(false);
       expect(GEAR[cat][0].price).toBe(0);
+      expect(GEAR[cat][GEAR[cat].length - 1].mythic).toBe(true);
+      expect(GEAR[cat].filter((g) => g.mythic)).toHaveLength(1);
       // les tiers 1–3 grimpent ; le t4 (4 000 €) redescend sous le t3 par design (spec §2)
       const baseline = GEAR[cat].filter((g) => g.branch === undefined).map((g) => g.price);
       expect([...baseline].sort((a, b) => a - b)).toEqual(baseline);

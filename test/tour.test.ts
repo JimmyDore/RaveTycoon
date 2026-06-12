@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { applySetToll, lockedDjs, recruitDj, recruitableDjs } from '../src/core/crew';
-import { GEAR, GEAR_CATEGORIES, PERKS, getDj } from '../src/core/data';
+import { GEAR, GEAR_CATEGORIES, PERKS, getDj, getSpot } from '../src/core/data';
 import { createNight, startSet, tickNight } from '../src/core/night';
-import { settleNight } from '../src/core/payout';
+import { buyGearUpgrade, settleNight } from '../src/core/payout';
 import { deserialize, newGame, serialize } from '../src/core/save';
 import {
   applyPerks,
@@ -288,5 +288,39 @@ describe('departOnTour : les perks de départ (applyPerks, le point unique)', ()
       expect(GEAR[cat][next.gear[cat]].seizable).toBe(false);
       expect(GEAR[cat][next.gear[cat]].price).toBe(0);
     }
+  });
+});
+
+describe('mythes du son : le tier mythique', () => {
+  it('chaque catégorie a un item mythique au sommet, le plus cher, achetable en €', () => {
+    for (const cat of GEAR_CATEGORIES) {
+      const top = GEAR[cat][GEAR[cat].length - 1];
+      expect(top.mythic).toBe(true);
+      expect(top.price).toBeGreaterThan(GEAR[cat][GEAR[cat].length - 2].price);
+      expect(top.seizable).toBe(true);
+    }
+  });
+
+  it('refuse l’achat mythique sans le perk de la catégorie, l’accorde avec', () => {
+    const state = newGame();
+    state.cash = 999999;
+    state.gear.mur = 5; // au max non mythique (tier 5 de la voie choisie)
+    state.gearBranch.mur = 'A';
+    expect(buyGearUpgrade(state, 'mur')).toBe(false);
+    state.tour.perks = ['mythe-mur'];
+    expect(buyGearUpgrade(state, 'mur')).toBe(true);
+    expect(state.gear.mur).toBe(6);
+  });
+
+  it('signature du mur mythique : la foule en sur-cap de 10 % au-dessus du tier max', () => {
+    const mythic = GEAR.mur[GEAR.mur.length - 1];
+    const top = Math.max(...GEAR.mur.filter((g) => !g.mythic).map((g) => g.value));
+    expect(mythic.value).toBeCloseTo(top * 1.1, 5);
+  });
+
+  it('signature de la centrale mythique : tient la demande max même à la carrière', () => {
+    const mythic = GEAR.groupe[GEAR.groupe.length - 1];
+    const supply = mythic.value * getSpot('carriere').powerMult + 0.15;
+    expect(supply).toBeGreaterThan(0.35 + 0.5 + 0.22); // demande max (foule pleine + pousser)
   });
 });
