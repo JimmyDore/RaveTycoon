@@ -5,6 +5,8 @@
  * que les modificateurs de nuit).
  */
 
+import { mulberry32 } from './rng';
+
 /** État persisté d'une région (`GameState.region`) — absente en tournée 1. */
 export interface RegionState {
   nom: string;
@@ -283,4 +285,98 @@ export function buildRegionRules(region: RegionState | undefined): RegionRules {
   const rules = defaultRegionRules();
   for (const trait of regionTraits(region)) trait.apply(rules);
   return rules;
+}
+
+// --- le tirage ----------------------------------------------------------------
+
+/** Une carte-région présentée au départ en tournée. */
+export interface RegionChoice {
+  nom: string;
+  traits: [RegionTraitDef, RegionTraitDef];
+  /** multiplicateur de ⭐, pré-calculé pour l'affichage */
+  mult: number;
+}
+
+const REGION_LIEUX = [
+  { nom: 'La Creuse', f: true },
+  { nom: 'Le Triangle', f: false },
+  { nom: 'La Vallée', f: true },
+  { nom: 'Le Plateau', f: false },
+  { nom: 'La Plaine', f: true },
+  { nom: 'Le Causse', f: false },
+  { nom: 'La Lande', f: true },
+  { nom: 'Le Marais', f: false },
+  { nom: 'La Combe', f: true },
+  { nom: 'Le Bocage', f: false },
+] as const;
+
+const REGION_EPITHETES = [
+  { f: 'profonde', m: 'profond' },
+  { f: 'grise', m: 'gris' },
+  { f: 'sauvage', m: 'sauvage' },
+  { f: 'perdue', m: 'perdu' },
+  { f: 'rouge', m: 'rouge' },
+  { f: 'noire', m: 'noir' },
+  { f: 'oubliée', m: 'oublié' },
+  { f: 'électrique', m: 'électrique' },
+  { f: 'brûlée', m: 'brûlé' },
+  { f: 'des Landes', m: 'des Landes' },
+] as const;
+
+function weightedPick(pool: RegionTraitDef[], rng: () => number): RegionTraitDef {
+  const total = pool.reduce((acc, t) => acc + t.weight, 0);
+  let roll = rng() * total;
+  for (const trait of pool) {
+    roll -= trait.weight;
+    if (roll <= 0) return trait;
+  }
+  return pool[pool.length - 1];
+}
+
+/** 2 traits distincts — jamais deux traits de confort ensemble. */
+function drawTraitPair(rng: () => number): [RegionTraitDef, RegionTraitDef] {
+  const first = weightedPick(REGION_TRAITS, rng);
+  const pool = REGION_TRAITS.filter(
+    (t) => t.id !== first.id && !(first.difficulty === -1 && t.difficulty === -1),
+  );
+  return [first, weightedPick(pool, rng)];
+}
+
+function drawName(rng: () => number, used: Set<string>): string {
+  for (let guard = 0; guard < 100; guard++) {
+    const lieu = REGION_LIEUX[Math.floor(rng() * REGION_LIEUX.length)];
+    const ep = REGION_EPITHETES[Math.floor(rng() * REGION_EPITHETES.length)];
+    const nom = `${lieu.nom} ${lieu.f ? ep.f : ep.m}`;
+    if (!used.has(nom)) return nom;
+  }
+  return `${REGION_LIEUX[0].nom} ${REGION_EPITHETES[0].f}`;
+}
+
+/**
+ * Tire 3 cartes-régions distinctes (paires de traits et noms uniques) via un
+ * flux RNG dédié — déterministe pour une graine donnée.
+ */
+export function drawRegions(seed: number): RegionChoice[] {
+  const rng = mulberry32((seed ^ 0x51ed270b) >>> 0);
+  const choices: RegionChoice[] = [];
+  const usedPairs = new Set<string>();
+  const usedNames = new Set<string>();
+  for (let guard = 0; guard < 1000 && choices.length < 3; guard++) {
+    const traits = drawTraitPair(rng);
+    const key = traits
+      .map((t) => t.id)
+      .sort()
+      .join('+');
+    if (usedPairs.has(key)) continue;
+    const nom = drawName(rng, usedNames);
+    usedPairs.add(key);
+    usedNames.add(nom);
+    choices.push({ nom, traits, mult: legendeMultiplier(traits) });
+  }
+  return choices;
+}
+
+/** Réduit une carte choisie à l'état persistable (`GameState.region`). */
+export function toRegionState(choice: RegionChoice): RegionState {
+  return { nom: choice.nom, traits: choice.traits.map((t) => t.id) };
 }

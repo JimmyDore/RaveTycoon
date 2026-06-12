@@ -5,9 +5,11 @@ import {
   applyRegionLegende,
   buildRegionRules,
   defaultRegionRules,
+  drawRegions,
   getRegionTrait,
   legendeMultiplier,
   regionTraits,
+  toRegionState,
 } from './regions';
 
 function traits(...ids: string[]) {
@@ -100,5 +102,52 @@ describe('regionTraits', () => {
     expect(regionTraits(undefined)).toEqual([]);
     expect(regionTraits({ nom: 'x', traits: ['terre-de-dub'] })[0].nom).toBe('Terre de dub');
     expect(() => regionTraits({ nom: 'x', traits: ['nimporte-quoi'] })).toThrow();
+  });
+});
+
+describe('drawRegions', () => {
+  it('est déterministe : même graine → mêmes 3 régions', () => {
+    const a = drawRegions(7);
+    const b = drawRegions(7);
+    expect(a.map((c) => c.nom)).toEqual(b.map((c) => c.nom));
+    expect(a.map((c) => c.traits.map((t) => t.id))).toEqual(b.map((c) => c.traits.map((t) => t.id)));
+  });
+
+  it('deux graines différentes donnent des tirages différents quelque part', () => {
+    const all = new Set<string>();
+    for (let seed = 0; seed < 20; seed++) {
+      all.add(drawRegions(seed).map((c) => c.traits.map((t) => t.id).join(',')).join('|'));
+    }
+    expect(all.size).toBeGreaterThan(1);
+  });
+
+  it('3 cartes distinctes, 2 traits distincts chacune, jamais deux conforts, mult conforme', () => {
+    for (let seed = 0; seed < 300; seed++) {
+      const choices = drawRegions(seed);
+      expect(choices).toHaveLength(3);
+      for (const c of choices) {
+        expect(c.traits).toHaveLength(2);
+        expect(c.traits[0].id).not.toBe(c.traits[1].id);
+        const conforts = c.traits.filter((t) => t.difficulty === -1).length;
+        expect(conforts).toBeLessThanOrEqual(1);
+        expect(c.mult).toBeCloseTo(legendeMultiplier(c.traits), 5);
+        expect(c.mult).toBeGreaterThanOrEqual(1);
+        expect(c.mult).toBeLessThanOrEqual(2);
+        expect(c.nom.length).toBeGreaterThan(3);
+      }
+      const pairs = choices.map((c) => c.traits.map((t) => t.id).sort().join('+'));
+      expect(new Set(pairs).size).toBe(3);
+      expect(new Set(choices.map((c) => c.nom)).size).toBe(3);
+    }
+  });
+});
+
+describe('toRegionState', () => {
+  it('ne persiste que le nom et les ids de traits', () => {
+    const choice = drawRegions(7)[0];
+    expect(toRegionState(choice)).toEqual({
+      nom: choice.nom,
+      traits: choice.traits.map((t) => t.id),
+    });
   });
 });
