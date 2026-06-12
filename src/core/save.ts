@@ -1,4 +1,4 @@
-import type { GameState, GearBranch, GearCategory } from './types';
+import type { GameState, GearBranch, GearCategory, TourState } from './types';
 
 export const SAVE_VERSION = 3;
 export const STORAGE_KEY = 'rave-tycoon-save';
@@ -7,6 +7,10 @@ export const STORAGE_KEY = 'rave-tycoon-save';
 export interface KVStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
+}
+
+export function defaultTour(): TourState {
+  return { number: 1, legende: 0, perks: [], veteranIds: [], teknivalWins: 0 };
 }
 
 export function newGame(now = 0): GameState {
@@ -28,6 +32,7 @@ export function newGame(now = 0): GameState {
     bestCrowd: 0,
     bestPayout: 0,
     wonTeknival: false,
+    tour: defaultTour(),
   };
 }
 
@@ -73,12 +78,18 @@ function migrateV2(o: Record<string, unknown>): void {
   o.gearBranch = gearBranch;
 }
 
+/** Vieille save d'avant la tournée : bloc `tour` absent = tournée 1, 0 ⭐. */
+function migrate(state: GameState): GameState {
+  if (!state.tour) state.tour = defaultTour();
+  return state;
+}
+
 /** v1 saves (different game) fall back to a fresh start. */
 export function deserialize(json: string): GameState | null {
   try {
     const parsed = JSON.parse(json) as Record<string, unknown>;
     if (parsed && typeof parsed === 'object') migrateV2(parsed);
-    return isValidState(parsed) ? parsed : null;
+    return isValidState(parsed) ? migrate(parsed) : null;
   } catch {
     return null;
   }

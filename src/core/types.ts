@@ -145,6 +145,20 @@ export interface RepairJob {
   readyAt: number;
 }
 
+/** Méta-progression : la tournée courante et l'Héritage. Survit au départ en tournée. */
+export interface TourState {
+  /** numéro de la tournée en cours (1 = première partie) */
+  number: number;
+  /** ⭐ Légende en banque — la monnaie permanente de l'Héritage */
+  legende: number;
+  /** ids des perks achetés ; un id stackable apparaît plusieurs fois */
+  perks: string[];
+  /** ids des vétérans emmenés au départ de cette tournée (hors fondateur) */
+  veteranIds: string[];
+  /** victoires au Teknival sur cette tournée — remis à zéro à chaque départ */
+  teknivalWins: number;
+}
+
 export interface GameState {
   version: number;
   cash: number;
@@ -164,6 +178,7 @@ export interface GameState {
   bestCrowd: number;
   bestPayout: number;
   wonTeknival: boolean;
+  tour: TourState;
 }
 
 // --- the night ----------------------------------------------------------------
