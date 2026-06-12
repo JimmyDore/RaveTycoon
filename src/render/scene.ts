@@ -233,7 +233,9 @@ export class SceneRenderer {
     this.drawTerrain(c, p);
     this.drawProps(c, p);
     this.drawStage(c, p, timeMs);
-    ravers.draw(c, this.bank, p.beatPhase, p.soundCut ? 0 : p.vibe, ravers.overflow(p.crowd), timeMs);
+    // dropPulse 1→0 sur la fenêtre du drop : la foule lève les bras en vague
+    const dropPulse = p.soundCut ? 0 : Math.max(0, Math.min(1, (this.dropUntil - timeMs) / 800));
+    ravers.draw(c, this.bank, p.beatPhase, p.soundCut ? 0 : p.vibe, ravers.overflow(p.crowd), timeMs, dropPulse);
     this.drawRigFront(c);
     this.drawDarkness(c, p, timeMs);
     if (!p.soundCut) this.drawLights(c, p, timeMs);

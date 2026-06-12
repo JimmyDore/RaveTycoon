@@ -17,6 +17,10 @@ export interface Raver {
   phaseOffset: number;
   /** hands-up enthusiasm threshold, varies per raver */
   hype: number;
+  /** danse dans le pit, collé au rail de barrières */
+  pit: boolean;
+  /** les plus chauds : lift animé en continu quand la vibe monte */
+  hyper: boolean;
   state: 'arriving' | 'dancing' | 'leaving' | 'scattering';
   speed: number;
   facing: Direction;
@@ -39,6 +43,8 @@ export function deviceSpriteCap(): number {
 export class RaverSim {
   ravers: Raver[] = [];
   private rng: () => number;
+  /** nombre de personnages dans le sheet — appris du bank au premier draw */
+  private charCount = 20;
 
   constructor(
     private floor: DanceFloor,
@@ -59,13 +65,18 @@ export class RaverSim {
     return { x: this.floor.x + this.rng() * this.floor.w, y: this.floor.y + this.floor.h + 10 };
   }
 
-  private danceSpot(): { x: number; y: number } {
-    // cluster toward the stage (top center of the floor)
+  private danceSpot(): { x: number; y: number; pit: boolean } {
     const cx = this.floor.x + this.floor.w / 2;
-    const r = (this.rng() + this.rng()) / 2;
+    // une moitié file au pit : bande étroite collée au rail de barrières
+    if (this.rng() < 0.5) {
+      const r = (this.rng() + this.rng() + this.rng()) / 3;
+      return { x: cx + (r - 0.5) * 170, y: this.floor.y + Math.pow(this.rng(), 2) * 22, pit: true };
+    }
+    // le reste du floor, distribution piquée vers le haut-centre
+    const r = (this.rng() + this.rng() + this.rng()) / 3;
     const x = cx + (r - 0.5) * this.floor.w;
-    const y = this.floor.y + Math.pow(this.rng(), 1.5) * this.floor.h;
-    return { x, y };
+    const y = this.floor.y + Math.pow(this.rng(), 1.9) * this.floor.h;
+    return { x, y, pit: false };
   }
 
   update(crowd: number, dt: number, scatter: boolean): void {
@@ -91,9 +102,12 @@ export class RaverSim {
           y: from.y,
           tx: to.x,
           ty: to.y,
-          character: Math.floor(this.rng() * 20),
+          character: Math.floor(this.rng() * this.charCount),
           phaseOffset: this.rng(),
-          hype: 0.35 + this.rng() * 0.5,
+          // le pit attire les plus chauds : seuil bras-en-l'air plus bas
+          hype: to.pit ? 0.25 + this.rng() * 0.3 : 0.35 + this.rng() * 0.5,
+          pit: to.pit,
+          hyper: this.rng() < 0.3,
           state: 'arriving',
           speed: 20 + this.rng() * 14,
           facing: 'up',
@@ -118,6 +132,7 @@ export class RaverSim {
           const p = this.danceSpot();
           r.tx = p.x;
           r.ty = p.y;
+          r.pit = p.pit;
           r.state = 'arriving';
         }
         continue;
@@ -149,20 +164,31 @@ export class RaverSim {
     vibe: number,
     overflowCrowd: number,
     timeMs: number,
+    dropPulse = 0,
   ): void {
-    // density dots beyond the sprite cap, packed near the stage
+    // les recrues suivantes piochent parmi toutes les teintes du sheet
+    this.charCount = bank.meta.characters;
+
+    // points de densité au-delà du cap : packés vers la scène, pulsés au beat,
+    // teinte froide → chaude avec la vibe
     if (overflowCrowd > 0) {
-      ctx.fillStyle = 'rgba(200, 180, 230, 0.45)';
+      const cx = this.floor.x + this.floor.w / 2;
+      const kick = beatPhase < 0.18 ? 0.14 : 0;
+      const cr = Math.round(150 + vibe * 105);
+      const cg = Math.round(125 + vibe * 45);
+      const cb = Math.round(235 - vibe * 130);
+      ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${0.4 + kick})`;
       const dots = Math.min(overflowCrowd, 800);
       for (let i = 0; i < dots; i++) {
         const fx = ((i * 73) % 197) / 197;
         const fy = ((i * 151) % 89) / 89;
-        ctx.fillRect(
-          Math.round(this.floor.x + fx * this.floor.w),
-          Math.round(this.floor.y - 4 + fy * (this.floor.h * 0.35)),
-          1,
-          1,
-        );
+        const fp = ((i * 37) % 61) / 61;
+        // rangées resserrées vers le haut-centre : y quadratique, x qui s'évase
+        const y = this.floor.y - 4 + fy * fy * this.floor.h * 0.5;
+        const x = cx + (fx - 0.5) * this.floor.w * (0.45 + 0.55 * fy);
+        // hop d'1px déphasé par point — la nappe respire sur le beat
+        const hop = (beatPhase + fp) % 1 < 0.5 ? 1 : 0;
+        ctx.fillRect(Math.round(x), Math.round(y) - hop, 1, 1);
       }
     }
 
@@ -174,13 +200,20 @@ export class RaverSim {
       const x = Math.round(r.x - halfW);
       let y = Math.round(r.y - fullH);
       if (r.state === 'dancing') {
-        // beat-synced pixel hop, harder when the vibe is high
-        const hop = phase < 0.5 ? Math.round(1 + vibe * 1.6) : 0;
+        // beat-synced pixel hop, harder when the vibe is high — figé sur coupure
+        const hop = vibe < 0.05 ? 0 : phase < 0.5 ? Math.round(1 + vibe * 1.6) : 0;
         y -= hop;
-        if (vibe > r.hype) {
+        // la vague du drop : les bras se lèvent du pit vers le fond sur ~0.8s
+        const depth = (r.y - this.floor.y) / this.floor.h;
+        const dropLift = dropPulse > 0 && (1 - dropPulse) * 1.4 >= depth;
+        if (r.pit && r.hyper && vibe > 0.55) {
+          // les plus chauds du pit : lift animé en continu, bras jamais baissés
+          const frame = Math.floor(timeMs / 110 + r.phaseOffset * 14) % 14;
+          drawRaverFrame(ctx, bank, r.character, 'lift', r.facing, frame, x, y);
+        } else if (dropLift || vibe > r.hype) {
           // hands in the air — hold an arms-up frame from the lift animation
           const frame = 8 + (phase < 0.5 ? 1 : 0);
-          drawRaverFrame(ctx, bank, r.character, 'lift', r.facing, frame, x, y);
+          drawRaverFrame(ctx, bank, r.character, 'lift', r.facing, frame, x, y - (dropLift ? 1 : 0));
         } else {
           const frame = Math.floor(((timeMs / 240) + r.phaseOffset * 6) % 6);
           drawRaverFrame(ctx, bank, r.character, 'idle', r.facing, frame, x, y);
