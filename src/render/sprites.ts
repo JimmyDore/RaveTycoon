@@ -27,11 +27,28 @@ export type PropName = (typeof PROP_NAMES)[number];
 const TERRAIN_NAMES = ['grass_1', 'grass_2', 'grass_3', 'asphalt_1', 'asphalt_2', 'asphalt_3'] as const;
 export type TerrainName = (typeof TERRAIN_NAMES)[number];
 
+/** Sheets animés (frames côte à côte) — clés du manifest produit par `npm run assets`. */
+const ANIMATED_NAMES = [
+  'fog_loop', 'fog_on', 'fog_off', 'fog_only_loop', 'fog_only_on', 'fog_only_off',
+  'laser_machine', 'laser_machine_2', 'laser_white', 'laser_white_2',
+  'spotlight', 'spotlight_light_only',
+  'concert_dj', 'singer_1', 'singer_2', 'singer_3', 'flame_3',
+] as const;
+export type AnimatedName = (typeof ANIMATED_NAMES)[number];
+
+export interface AnimatedMeta {
+  frameW: number;
+  frameH: number;
+  frames: number;
+  fps: number;
+}
+
 export interface SpriteBank {
   ravers: HTMLImageElement;
   meta: RaverSheetMeta;
   props: Partial<Record<PropName, HTMLImageElement>>;
   terrain: Partial<Record<TerrainName, HTMLImageElement>>;
+  animated: Partial<Record<AnimatedName, { img: HTMLImageElement; meta: AnimatedMeta }>>;
   ready: boolean;
 }
 
@@ -45,12 +62,16 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
 }
 
 export async function loadSprites(): Promise<SpriteBank> {
-  const [ravers, metaRes] = await Promise.all([
+  const [ravers, metaRes, animManifest] = await Promise.all([
     loadImage('/assets/ravers.png'),
     fetch('/assets/ravers.json').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('/assets/animated/manifest.json')
+      .then((r) => (r.ok ? (r.json() as Promise<Record<string, AnimatedMeta>>) : null))
+      .catch(() => null),
   ]);
   const props: SpriteBank['props'] = {};
   const terrain: SpriteBank['terrain'] = {};
+  const animated: SpriteBank['animated'] = {};
   await Promise.all([
     ...PROP_NAMES.map(async (name) => {
       const img = await loadImage(`/assets/props/${name}.png`);
@@ -59,6 +80,12 @@ export async function loadSprites(): Promise<SpriteBank> {
     ...TERRAIN_NAMES.map(async (name) => {
       const img = await loadImage(`/assets/terrain/${name}.png`);
       if (img) terrain[name] = img;
+    }),
+    ...ANIMATED_NAMES.map(async (name) => {
+      const meta = animManifest?.[name];
+      if (!meta) return;
+      const img = await loadImage(`/assets/animated/${name}.png`);
+      if (img) animated[name] = { img, meta };
     }),
   ]);
   const fallbackMeta: RaverSheetMeta = {
@@ -74,8 +101,37 @@ export async function loadSprites(): Promise<SpriteBank> {
     meta: (metaRes as RaverSheetMeta) ?? fallbackMeta,
     props,
     terrain,
+    animated,
     ready: ravers !== null,
   };
+}
+
+/** Dessine une frame d'un sheet animé, indexée sur le temps de jeu.
+ * opts.frame court-circuite l'horloge (FSM on/loop/off pilotés par l'appelant). */
+export function drawAnimatedFrame(
+  ctx: CanvasRenderingContext2D,
+  bank: SpriteBank,
+  name: AnimatedName,
+  x: number,
+  y: number,
+  timeMs: number,
+  opts?: { fpsScale?: number; frame?: number },
+): void {
+  const sheet = bank.animated[name];
+  if (!sheet) return;
+  const m = sheet.meta;
+  const idx = opts?.frame ?? Math.floor((timeMs / 1000) * m.fps * (opts?.fpsScale ?? 1));
+  ctx.drawImage(
+    sheet.img,
+    (idx % m.frames) * m.frameW,
+    0,
+    m.frameW,
+    m.frameH,
+    x,
+    y,
+    m.frameW,
+    m.frameH,
+  );
 }
 
 /** Draw one raver frame. anim: which range; dir: facing; frame: index within direction. */

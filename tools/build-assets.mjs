@@ -4,7 +4,7 @@
  * public/assets/ (also gitignored — rebuild with `npm run assets`).
  */
 import sharp from 'sharp';
-import { mkdir, copyFile, writeFile, access } from 'node:fs/promises';
+import { mkdir, copyFile, readFile, writeFile, access } from 'node:fs/promises';
 import path from 'node:path';
 
 const MI = 'assets-src/moderninteriors';
@@ -146,14 +146,115 @@ const PROPS = {
   bunker: `${THEMES}/23_MIlitary_Base_Singles_16x16/23_MIlitary_Base_16x16_Bunker.png`,
   police_spot: `${THEMES}/15_Police_Station_Singles_16x16/ME_Singles_Police_Station_16x16_Spotlight_1.png`,
   barrier: `${THEMES}/15_Police_Station_Singles_16x16/ME_Singles_Police_Station_16x16_Barrier_1.png`,
+  // scène modulaire (assemblable selon la taille du spot)
+  stage_left: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Stage_Structure_Left.png`,
+  stage_mid_1: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Stage_Structure_Middle_Modular_1.png`,
+  stage_mid_2: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Stage_Structure_Middle_Modular_2.png`,
+  stage_right: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Stage_Structure_Right.png`,
+  side_stage_left: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Left_Side_Stage_1.png`,
+  side_stage_right: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Right_Side_Stage_1.png`,
+  stage_stairs: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Stage_Stairs_Down.png`,
+  spot_mod_left_1: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Stage_Structure_Spotlight_Modular_Left_1.png`,
+  spot_mod_left_2: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Stage_Structure_Spotlight_Modular_Left_2.png`,
+  spot_mod_right_1: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Stage_Structure_Spotlight_Modular_Right_1.png`,
+  spot_mod_right_2: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Stage_Structure_Spotlight_Modular_Right_2.png`,
+  // barrièrage de front de scène (le pit pousse contre)
+  stage_barrier_1: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Stage_Barrier_1.png`,
+  stage_barrier_2: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Stage_Barrier_2.png`,
+  stage_barrier_3: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Stage_Barrier_3.png`,
+  stage_barrier_lat_1: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Stage_Lateral_Barrier_1.png`,
+  stage_barrier_lat_2: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Stage_Lateral_Barrier_2.png`,
+  // enceintes câblées (mur « vrai rig »)
+  speaker_cable_1: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Big_Loudspeaker_1_Cable_Sand.png`,
+  speaker_cable_2: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Big_Loudspeaker_2_Cable_Sand.png`,
+  // décor festival
+  generator: `${THEMES}/24_Additional_Houses_Singles_16x16/24_Additional_Houses_Post_Apocalyptic_House_Generator_1_16x16.png`,
+  street_lamp_1: `${THEMES}/3_City_Props_Singles_16x16/ME_Singles_City_Props_16x16_Street_Lamp_4.png`,
+  street_lamp_2: `${THEMES}/3_City_Props_Singles_16x16/ME_Singles_City_Props_16x16_Street_Lamp_5.png`,
+  lantern_1: `${THEMES}/11_Camping_Singles_16x16/ME_Singles_Camping_16x16_Lantern_1.png`,
+  lantern_2: `${THEMES}/11_Camping_Singles_16x16/ME_Singles_Camping_16x16_Lantern_3.png`,
+  food_cart: `${THEMES}/10_Vehicles_Singles_16x16/ME_Singles_Vehicles_16x16_Street_Food_Cart_1.png`,
+  portaloo_1: `${THEMES}/8_Worksite_Singles_16x16/ME_Singles_Worksite_16x16_Portable_Toilet_1.png`,
+  portaloo_2: `${THEMES}/8_Worksite_Singles_16x16/ME_Singles_Worksite_16x16_Portable_Toilet_3.png`,
+  stand_1: `${THEMES}/13_School_Singles_16x16/ME_Singles_School_16x16_Stands_1.png`,
+  stand_2: `${THEMES}/13_School_Singles_16x16/ME_Singles_School_16x16_Stands_2.png`,
+  flag_red: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Sand_Castle_Red_Flag_Vers_1.png`,
+  flag_blue: `${THEMES}/21_Beach_Singles_16x16/21_Beach_16x16_Sand_Castle_Blue_Flag_Vers_1.png`,
 };
 
 const ANIMATED = {
   laser_machine: `${ME16}/Animated_16x16/Animated_sheets_16x16/Beach_Stage_Laser_Machine_16x16.png`,
   laser_machine_2: `${ME16}/Animated_16x16/Animated_sheets_16x16/Beach_Stage_Laser_Machine_2_16x16.png`,
+  laser_white: `${ME16}/Animated_16x16/Animated_sheets_16x16/Beach_Concert_Laser_Machine_White_Light_16x16.png`,
+  laser_white_2: `${ME16}/Animated_16x16/Animated_sheets_16x16/Beach_Concert_Laser_Machine_White_Light_2_16x16.png`,
   fog_loop: `${ME16}/Animated_16x16/Animated_sheets_16x16/Beach_Stage_Fog_Machine_Loop_16x16.png`,
+  fog_on: `${ME16}/Animated_16x16/Animated_sheets_16x16/Beach_Stage_Fog_Machine_Turn_On_16x16.png`,
+  fog_off: `${ME16}/Animated_16x16/Animated_sheets_16x16/Beach_Stage_Fog_Machine_Turn_Off_16x16.png`,
+  fog_only_loop: `${ME16}/Animated_16x16/Animated_sheets_16x16/Beach_Stage_Fog_Machine_Fog_Only_Loop_16x16.png`,
+  fog_only_on: `${ME16}/Animated_16x16/Animated_sheets_16x16/Beach_Stage_Fog_Machine_Fog_Only_Turn_On_16x16.png`,
+  fog_only_off: `${ME16}/Animated_16x16/Animated_sheets_16x16/Beach_Stage_Fog_Machine_Fog_Only_Turn_Off_16x16.png`,
   spotlight: `${ME16}/Animated_16x16/Animated_sheets_16x16/Spotlight_1_16x16.png`,
+  spotlight_light_only: `${ME16}/Animated_16x16/Animated_sheets_16x16/Spotlight_1_Light_Only_16x16.png`,
+  concert_dj: `${ME16}/Animated_16x16/Animated_sheets_16x16/Beach_Concert_DJ_16x16.png`,
+  singer_1: `${ME16}/Animated_16x16/Animated_sheets_16x16/Beach_Concert_Singer_16x16.png`,
+  singer_2: `${ME16}/Animated_16x16/Animated_sheets_16x16/Beach_Concert_Singer_2_16x16.png`,
+  singer_3: `${ME16}/Animated_16x16/Animated_sheets_16x16/Beach_Concert_Singer_3_16x16.png`,
+  flame_3: `${ME16}/Animated_16x16/Animated_sheets_16x16/Flame_3_16x16.png`,
 };
+
+// Géométrie des sheets animés (sondée par projection alpha 2026-06-12 — la
+// taille du fichier seule ne donne pas le découpage). frames côte à côte sur
+// une seule rangée; fps choisi par famille (fumée 8, lasers 10, chant 6…).
+const ANIMATED_META = {
+  fog_loop: { frameW: 96, frameH: 96, frames: 6, fps: 8 },
+  fog_on: { frameW: 96, frameH: 96, frames: 4, fps: 8 },
+  fog_off: { frameW: 96, frameH: 96, frames: 6, fps: 8 },
+  fog_only_loop: { frameW: 96, frameH: 80, frames: 6, fps: 8 },
+  fog_only_on: { frameW: 96, frameH: 80, frames: 4, fps: 8 },
+  fog_only_off: { frameW: 96, frameH: 80, frames: 6, fps: 8 },
+  laser_machine: { frameW: 128, frameH: 144, frames: 20, fps: 10 },
+  laser_machine_2: { frameW: 128, frameH: 144, frames: 20, fps: 10 },
+  laser_white: { frameW: 128, frameH: 144, frames: 20, fps: 10 },
+  laser_white_2: { frameW: 128, frameH: 144, frames: 20, fps: 10 },
+  spotlight: { frameW: 32, frameH: 48, frames: 12, fps: 8 },
+  spotlight_light_only: { frameW: 96, frameH: 144, frames: 12, fps: 8 },
+  concert_dj: { frameW: 48, frameH: 48, frames: 12, fps: 8 },
+  singer_1: { frameW: 16, frameH: 32, frames: 6, fps: 6 },
+  singer_2: { frameW: 16, frameH: 32, frames: 6, fps: 6 },
+  singer_3: { frameW: 16, frameH: 32, frames: 6, fps: 6 },
+  flame_3: { frameW: 32, frameH: 16, frames: 5, fps: 10 },
+};
+
+async function buildAnimatedMeta() {
+  await mkdir(`${OUT}/animated`, { recursive: true });
+  await writeFile(`${OUT}/animated/manifest.json`, JSON.stringify(ANIMATED_META, null, 2));
+  console.log(`animated/manifest.json: ${Object.keys(ANIMATED_META).length} sheets`);
+}
+
+// Rotations de teinte modestes — gardent les peaux plausibles à 16px
+const TINT_HUES = [40, -40];
+
+/** Variantes de teinte de la foule : ravers.png passe de 20 à 60 rangées.
+ * Les rangées 0-19 restent les originales (DJ_SPRITES et portraits y pointent). */
+async function buildTintedCharacters() {
+  const base = await sharp(`${OUT}/ravers.png`).png().toBuffer();
+  const { width, height } = await sharp(base).metadata();
+  const composites = [{ input: base, left: 0, top: 0 }];
+  for (let i = 0; i < TINT_HUES.length; i++) {
+    const tinted = await sharp(base).modulate({ hue: TINT_HUES[i] }).png().toBuffer();
+    composites.push({ input: tinted, left: 0, top: (i + 1) * height });
+  }
+  await sharp({
+    create: { width, height: height * (1 + TINT_HUES.length), channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  })
+    .composite(composites)
+    .png()
+    .toFile(`${OUT}/ravers.png`);
+  const meta = JSON.parse(await readFile(`${OUT}/ravers.json`, 'utf8'));
+  meta.characters = CHAR_COUNT * (1 + TINT_HUES.length);
+  await writeFile(`${OUT}/ravers.json`, JSON.stringify(meta, null, 2));
+  console.log(`ravers.png: +${TINT_HUES.length * CHAR_COUNT} variantes teintées (hue ${TINT_HUES.join('/')})`);
+}
 
 async function copyNamed(map, dir) {
   await mkdir(`${OUT}/${dir}`, { recursive: true });
@@ -194,8 +295,10 @@ async function buildTerrain() {
 
 await mkdir(OUT, { recursive: true });
 await buildRavers();
+await buildTintedCharacters();
 await buildPortraits();
 await copyNamed(PROPS, 'props');
 await copyNamed(ANIMATED, 'animated');
+await buildAnimatedMeta();
 await buildTerrain();
 console.log('assets built →', path.resolve(OUT));

@@ -1,4 +1,4 @@
-import type { GearCategory, SpotId } from '../core/types';
+import type { GearBranch, GearCategory, SpotId } from '../core/types';
 import type { RaverSim, DanceFloor } from './ravers';
 import { drawRaverFrame, type PropName, type SpriteBank, type TerrainName } from './sprites';
 
@@ -13,6 +13,12 @@ export interface SceneParams {
   /** night progress 0 → 1 (sunrise) */
   progress: number;
   gear: Record<GearCategory, number>;
+  /** voie choisie par catégorie (visuels A/B branche-spécifiques) */
+  gearBranch: Partial<Record<GearCategory, GearBranch>>;
+  /** jauge de montée [0,1] — 0 hors set (réactivité au drop) */
+  montee: number;
+  /** mur de son grillé (stack penché, étincelles) */
+  murBlown: boolean;
   heat: number;
   /** sound currently cut (brownout / repairs) */
   soundCut: boolean;
