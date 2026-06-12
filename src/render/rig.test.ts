@@ -94,13 +94,25 @@ describe('buildRig — groupe, platines, mur, logistique', () => {
   });
 });
 
+describe('buildRig — largeur de scène', () => {
+  it('scène élargie : le mur de son est poussé au-delà des ailes du deck', () => {
+    const narrow = buildRig(gear({ mur: 2 }), {}, false, CX, SB, 96);
+    const wide = buildRig(gear({ mur: 2 }), {}, false, CX, SB, 160);
+    const maxX = (rig: ReturnType<typeof buildRig>) => Math.max(...rig.wall.map((w) => w.x));
+    const minX = (rig: ReturnType<typeof buildRig>) => Math.min(...rig.wall.map((w) => w.x));
+    expect(maxX(wide)).toBeGreaterThan(maxX(narrow));
+    expect(minX(wide)).toBeLessThan(minX(narrow));
+  });
+});
+
 describe('rigKey', () => {
-  it('change avec le tier, la voie et le mur grillé', () => {
+  it('change avec le tier, la voie, le mur grillé et la largeur de scène', () => {
     const base = rigKey(gear(), {}, false);
     expect(rigKey(gear({ lumieres: 1 }), {}, false)).not.toBe(base);
     expect(rigKey(gear({ lumieres: 3 }), { lumieres: 'A' }, false)).not.toBe(
       rigKey(gear({ lumieres: 3 }), { lumieres: 'B' }, false),
     );
     expect(rigKey(gear(), {}, true)).not.toBe(base);
+    expect(rigKey(gear(), {}, false, 160)).not.toBe(base);
   });
 });

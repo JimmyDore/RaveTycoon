@@ -1,3 +1,4 @@
+import { SPOTS } from '../core/data';
 import type { GearBranch, GearCategory, SpotId } from '../core/types';
 import type { RaverSim, DanceFloor } from './ravers';
 import { buildRig, rigKey, type StageRig } from './rig';
@@ -39,15 +40,27 @@ interface PropPlacement {
   prop: PropName;
   x: number;
   y: number;
+  /** 'front' = dessiné après la foule (cadre le bas d'écran), défaut 'back' */
+  layer?: 'back' | 'front';
 }
 
 interface SpotRecipe {
   terrain: TerrainName[];
   /** props behind/around the floor */
   props: PropPlacement[];
-  /** warm light sources punched through the darkness (campfires…) */
-  fires: Array<{ x: number; y: number; r: number }>;
+  /** light sources punched through the darkness — cold = halo bleuté (lampadaires) */
+  fires: Array<{ x: number; y: number; r: number; cold?: boolean }>;
+  /** guirlandes lumineuses tendues entre deux ancres (points canvas, éteintes à l'aube) */
+  garlands?: Array<{ x1: number; y1: number; x2: number; y2: number }>;
 }
+
+/** Demi-largeur du deck par spot : les grosses jauges (cap ≥ 400) montent la scène modulaire élargie. */
+const STAGE_HALF_W: Partial<Record<SpotId, number>> = Object.fromEntries(
+  SPOTS.map((s) => [s.id, s.cap >= 400 ? 160 : 96]),
+);
+
+/** Teintes des ampoules de guirlande, alternées le long du fil. */
+const GARLAND_HUES = ['#ffd87a', '#ff9d6b', '#9be8ff', '#ffb3e6'] as const;
 
 const RECIPES: Record<SpotId, SpotRecipe> = {
   champ: {
@@ -57,10 +70,20 @@ const RECIPES: Record<SpotId, SpotRecipe> = {
       { prop: 'tree_med_1', x: 430, y: 90 },
       { prop: 'tree_med_2', x: 4, y: 96 },
       { prop: 'tent_1', x: 410, y: 200 },
+      { prop: 'tent_4', x: 444, y: 150 },
       { prop: 'campfire_1', x: 396, y: 224 },
       { prop: 'bush_1', x: 60, y: 240 },
+      { prop: 'lantern_1', x: 392, y: 198 },
+      { prop: 'lantern_2', x: 58, y: 222 },
+      { prop: 'bush_2', x: 210, y: 250, layer: 'front' },
+      { prop: 'bush_1', x: 330, y: 254, layer: 'front' },
     ],
-    fires: [{ x: 404, y: 232, r: 30 }],
+    fires: [
+      { x: 404, y: 232, r: 30 },
+      { x: 400, y: 206, r: 15 },
+      { x: 66, y: 230, r: 15 },
+    ],
+    garlands: [{ x1: 20, y1: 106, x2: 438, y2: 98 }],
   },
   foret: {
     terrain: ['grass_2', 'grass_1'],
@@ -73,10 +96,20 @@ const RECIPES: Record<SpotId, SpotRecipe> = {
       { prop: 'tree_med_3', x: 8, y: 190 },
       { prop: 'tree_med_1', x: 446, y: 120 },
       { prop: 'camper_right', x: 16, y: 222 },
+      { prop: 'tent_2', x: 430, y: 214 },
       { prop: 'bush_1', x: 100, y: 244 },
       { prop: 'bush_2', x: 360, y: 250 },
+      { prop: 'campfire_1', x: 70, y: 230 },
+      { prop: 'lantern_1', x: 130, y: 238 },
+      { prop: 'lantern_2', x: 350, y: 244 },
+      { prop: 'tree_med_3', x: 210, y: 238, layer: 'front' },
     ],
-    fires: [],
+    fires: [
+      { x: 78, y: 238, r: 28 },
+      { x: 138, y: 246, r: 14 },
+      { x: 358, y: 252, r: 14 },
+    ],
+    garlands: [{ x1: 66, y1: 112, x2: 430, y2: 100 }],
   },
   carriere: {
     terrain: ['asphalt_1', 'asphalt_2', 'asphalt_3'],
@@ -87,8 +120,16 @@ const RECIPES: Record<SpotId, SpotRecipe> = {
       { prop: 'scrap_pile', x: 444, y: 150 },
       { prop: 'barrel_2', x: 20, y: 200 },
       { prop: 'camper_left', x: 380, y: 218 },
+      { prop: 'street_lamp_2', x: 4, y: 118 },
+      { prop: 'street_lamp_2', x: 460, y: 188 },
+      { prop: 'barrel_1', x: 444, y: 220 },
+      { prop: 'barrel_2', x: 180, y: 252, layer: 'front' },
     ],
-    fires: [{ x: 40, y: 214, r: 26 }],
+    fires: [
+      { x: 40, y: 214, r: 26 },
+      { x: 12, y: 128, r: 18, cold: true },
+      { x: 468, y: 198, r: 18, cold: true },
+    ],
   },
   plage: {
     terrain: ['grass_3', 'grass_1'],
@@ -97,9 +138,19 @@ const RECIPES: Record<SpotId, SpotRecipe> = {
       { prop: 'bush_2', x: 60, y: 96 },
       { prop: 'bush_1', x: 420, y: 100 },
       { prop: 'tent_2', x: 430, y: 190 },
+      { prop: 'tent_4', x: 2, y: 150 },
       { prop: 'campfire_1', x: 400, y: 220 },
+      { prop: 'flag_red', x: 442, y: 130 },
+      { prop: 'lantern_1', x: 434, y: 172 },
+      { prop: 'lantern_2', x: 56, y: 234 },
+      { prop: 'bush_1', x: 300, y: 252, layer: 'front' },
     ],
-    fires: [{ x: 408, y: 228, r: 32 }],
+    fires: [
+      { x: 408, y: 228, r: 32 },
+      { x: 442, y: 180, r: 14 },
+      { x: 64, y: 242, r: 14 },
+    ],
+    garlands: [{ x1: 70, y1: 104, x2: 430, y2: 108 }],
   },
   hangar: {
     terrain: ['asphalt_2', 'asphalt_1', 'asphalt_3'],
@@ -111,8 +162,16 @@ const RECIPES: Record<SpotId, SpotRecipe> = {
       { prop: 'barrel_2', x: 26, y: 168 },
       { prop: 'barrier', x: 8, y: 236 },
       { prop: 'barrier', x: 440, y: 236 },
+      { prop: 'street_lamp_1', x: 0, y: 108 },
+      { prop: 'street_lamp_1', x: 448, y: 108 },
+      { prop: 'portaloo_1', x: 446, y: 160 },
+      { prop: 'barrier', x: 196, y: 252, layer: 'front' },
+      { prop: 'barrier', x: 256, y: 252, layer: 'front' },
     ],
-    fires: [],
+    fires: [
+      { x: 16, y: 118, r: 20, cold: true },
+      { x: 464, y: 118, r: 20, cold: true },
+    ],
   },
   tunnel: {
     terrain: ['asphalt_1', 'asphalt_3'],
@@ -124,8 +183,17 @@ const RECIPES: Record<SpotId, SpotRecipe> = {
       { prop: 'barrel_2', x: 420, y: 160 },
       { prop: 'barrier', x: 8, y: 236 },
       { prop: 'barrier', x: 440, y: 236 },
+      { prop: 'street_lamp_2', x: 4, y: 148 },
+      { prop: 'street_lamp_2', x: 460, y: 148 },
+      { prop: 'scrap_pile', x: 432, y: 232 },
+      { prop: 'barrel_1', x: 170, y: 252, layer: 'front' },
+      { prop: 'scrap_pile', x: 280, y: 248, layer: 'front' },
     ],
-    fires: [{ x: 90, y: 116, r: 22 }],
+    fires: [
+      { x: 90, y: 116, r: 22 },
+      { x: 12, y: 158, r: 18, cold: true },
+      { x: 468, y: 158, r: 18, cold: true },
+    ],
   },
   chateau: {
     terrain: ['grass_2', 'grass_3'],
@@ -137,8 +205,20 @@ const RECIPES: Record<SpotId, SpotRecipe> = {
       { prop: 'tent_3', x: 430, y: 196 },
       { prop: 'campfire_1', x: 60, y: 226 },
       { prop: 'camper_left', x: 380, y: 230 },
+      { prop: 'stand_1', x: 104, y: 234 },
+      { prop: 'food_cart', x: 188, y: 232 },
+      { prop: 'lantern_1', x: 6, y: 152 },
+      { prop: 'lantern_2', x: 456, y: 168 },
+      { prop: 'flag_blue', x: 444, y: 128 },
+      { prop: 'flag_blue', x: 262, y: 250, layer: 'front' },
     ],
-    fires: [{ x: 68, y: 234, r: 28 }],
+    fires: [
+      { x: 68, y: 234, r: 28 },
+      // le bunker éclairé de l'intérieur — le squat vit
+      { x: 40, y: 118, r: 26 },
+      { x: 14, y: 160, r: 14 },
+      { x: 464, y: 176, r: 14 },
+    ],
   },
   friche: {
     terrain: ['asphalt_3', 'asphalt_1', 'asphalt_2'],
@@ -150,14 +230,31 @@ const RECIPES: Record<SpotId, SpotRecipe> = {
       { prop: 'scrap_pile', x: 10, y: 226 },
       { prop: 'fence_work_2', x: 444, y: 210 },
       { prop: 'camper_left', x: 360, y: 236 },
+      { prop: 'street_lamp_1', x: 0, y: 138 },
+      { prop: 'street_lamp_2', x: 460, y: 100 },
+      { prop: 'portaloo_2', x: 446, y: 154 },
+      { prop: 'barrel_2', x: 96, y: 244 },
+      { prop: 'scrap_pile', x: 220, y: 250, layer: 'front' },
+      { prop: 'barrel_1', x: 320, y: 254, layer: 'front' },
     ],
-    fires: [{ x: 80, y: 120, r: 24 }],
+    fires: [
+      { x: 80, y: 120, r: 24 },
+      { x: 16, y: 148, r: 20, cold: true },
+      { x: 468, y: 110, r: 18, cold: true },
+    ],
   },
   teknival: {
     terrain: ['grass_1', 'grass_2'],
     props: [
+      // murs de son à perte de vue : colonnes d'enceintes sur les deux bords
       { prop: 'speaker_medium', x: 6, y: 92 },
+      { prop: 'speaker_medium', x: -8, y: 124 },
+      { prop: 'speaker_medium', x: -8, y: 158 },
+      { prop: 'speaker_medium', x: -8, y: 192 },
       { prop: 'speaker_medium', x: 446, y: 92 },
+      { prop: 'speaker_medium', x: 456, y: 124 },
+      { prop: 'speaker_medium', x: 456, y: 158 },
+      { prop: 'speaker_medium', x: 456, y: 192 },
       { prop: 'tent_1', x: 6, y: 196 },
       { prop: 'tent_2', x: 44, y: 216 },
       { prop: 'tent_3', x: 420, y: 192 },
@@ -166,10 +263,24 @@ const RECIPES: Record<SpotId, SpotRecipe> = {
       { prop: 'campfire_1', x: 430, y: 250 },
       { prop: 'camper_right', x: 90, y: 238 },
       { prop: 'camper_left', x: 330, y: 240 },
+      // le campement dense du milieu : tentes, bouffe, feu central, sanitaires
+      { prop: 'tent_2', x: 148, y: 236 },
+      { prop: 'food_cart', x: 196, y: 230 },
+      { prop: 'campfire_1', x: 240, y: 246 },
+      { prop: 'tent_3', x: 262, y: 238 },
+      { prop: 'portaloo_1', x: 458, y: 226 },
+      { prop: 'portaloo_2', x: 0, y: 222 },
+      { prop: 'flag_red', x: 120, y: 248, layer: 'front' },
+      { prop: 'flag_blue', x: 340, y: 250, layer: 'front' },
     ],
     fires: [
       { x: 44, y: 254, r: 28 },
       { x: 438, y: 256, r: 28 },
+      { x: 248, y: 254, r: 26 },
+    ],
+    garlands: [
+      { x1: 10, y1: 104, x2: 470, y2: 104 },
+      { x1: 112, y1: 232, x2: 352, y2: 236 },
     ],
   },
 };
@@ -200,6 +311,8 @@ export class SceneRenderer {
   /** rig de scène memoïsé (recalculé seulement quand le matos change) */
   private rig: StageRig | null = null;
   private rigId = '';
+  /** demi-largeur du deck courant (96 = simple, 160 = scène modulaire élargie) */
+  private halfW = 96;
   /** FSM machine à fumée : allumage → boucle → extinction */
   private fogPhase: 'off' | 'on' | 'loop' | 'stopping' = 'off';
   private fogSince = 0;
@@ -222,10 +335,12 @@ export class SceneRenderer {
   render(p: SceneParams, ravers: RaverSim, timeMs: number): void {
     const c = this.bctx;
     c.imageSmoothingEnabled = false;
-    const key = rigKey(p.gear, p.gearBranch, p.murBlown);
+    const halfW = STAGE_HALF_W[p.spotId] ?? 96;
+    const key = rigKey(p.gear, p.gearBranch, p.murBlown, halfW);
     if (key !== this.rigId || !this.rig) {
-      this.rig = buildRig(p.gear, p.gearBranch, p.murBlown, SCENE_W / 2, STAGE_BOTTOM);
+      this.rig = buildRig(p.gear, p.gearBranch, p.murBlown, SCENE_W / 2, STAGE_BOTTOM, halfW);
       this.rigId = key;
+      this.halfW = halfW;
     }
     // le drop : la montée s'encaisse → ~0.8s de flash laser + bouffée de fumée
     if (this.prevMontee - p.montee > 0.2 && this.prevMontee > 0.35) this.dropUntil = timeMs + 800;
@@ -236,8 +351,10 @@ export class SceneRenderer {
     // dropPulse 1→0 sur la fenêtre du drop : la foule lève les bras en vague
     const dropPulse = p.soundCut ? 0 : Math.max(0, Math.min(1, (this.dropUntil - timeMs) / 800));
     ravers.draw(c, this.bank, p.beatPhase, p.soundCut ? 0 : p.vibe, ravers.overflow(p.crowd), timeMs, dropPulse);
+    this.drawPropsFront(c, p);
     this.drawRigFront(c);
     this.drawDarkness(c, p, timeMs);
+    if (!p.soundCut) this.drawGarlands(c, p, timeMs);
     if (!p.soundCut) this.drawLights(c, p, timeMs);
     if (p.busted || p.heat > 0.85) this.drawGyro(c, p, timeMs);
     this.blit();
@@ -279,8 +396,15 @@ export class SceneRenderer {
   }
 
   private drawProps(c: CanvasRenderingContext2D, p: SceneParams): void {
-    for (const { prop, x, y } of RECIPES[p.spotId].props) {
-      this.prop(c, prop, x, y);
+    for (const { prop, x, y, layer } of RECIPES[p.spotId].props) {
+      if (layer !== 'front') this.prop(c, prop, x, y);
+    }
+  }
+
+  /** Couche premier plan : props dessinés après la foule, cadrent le bas d'écran. */
+  private drawPropsFront(c: CanvasRenderingContext2D, p: SceneParams): void {
+    for (const { prop, x, y, layer } of RECIPES[p.spotId].props) {
+      if (layer === 'front') this.prop(c, prop, x, y);
     }
   }
 
@@ -291,8 +415,10 @@ export class SceneRenderer {
 
     // wooden stage deck (fallback: the old flat platform)
     const deck = this.bank.props.stage_deck;
+    const wide = this.halfW > 96;
     if (deck) {
       c.drawImage(deck, cx - 96, STAGE_BOTTOM - 90);
+      if (wide) this.drawWideStage(c, cx);
     } else {
       c.fillStyle = '#171221';
       c.fillRect(cx - 120, 14, 240, STAGE_BOTTOM - 26);
@@ -404,6 +530,28 @@ export class SceneRenderer {
     this.drawLasers(c, p, timeMs);
   }
 
+  /** Scène modulaire élargie (cap ≥ 400) : ailes de deck, tours de structure,
+   * travées de truss prolongées et escalier d'accès — 320px au lieu de 192. */
+  private drawWideStage(c: CanvasRenderingContext2D, cx: number): void {
+    const top = STAGE_BOTTOM - 90;
+    // ailes de scène (64×96, même hauteur que le deck central)
+    this.prop(c, 'side_stage_left', cx - 160, top);
+    this.prop(c, 'side_stage_right', cx + 96, top);
+    // tours de structure aux extrémités — sources 144px de haut, on ne garde
+    // que le pied (96px) calé sur le bas du deck pour tenir dans le band
+    const towerL = this.bank.props.stage_left;
+    const towerR = this.bank.props.stage_right;
+    if (towerL) c.drawImage(towerL, 0, 48, 32, 96, cx - 176, top, 32, 96);
+    if (towerR) c.drawImage(towerR, 0, 48, 16, 96, cx + 158, top, 16, 96);
+    // travées modulaires alignées sur la barre haute du truss (cx±88) jusqu'aux tours
+    for (let i = 0; i < 4; i++) {
+      this.prop(c, i % 2 === 0 ? 'stage_mid_1' : 'stage_mid_2', cx - 152 + i * 16, 10);
+      this.prop(c, i % 2 === 0 ? 'stage_mid_2' : 'stage_mid_1', cx + 88 + i * 16, 10);
+    }
+    // escalier d'accès au bord avant de l'aile droite
+    this.prop(c, 'stage_stairs', cx + 124, STAGE_BOTTOM);
+  }
+
   /** Machine à fumée au pied de scène — FSM on/loop/off pilotée par vibe et drop. */
   private drawFog(c: CanvasRenderingContext2D, p: SceneParams, timeMs: number): void {
     const fog = this.rig?.fog;
@@ -484,18 +632,47 @@ export class SceneRenderer {
     d.globalCompositeOperation = 'source-over';
     c.drawImage(this.dark, 0, 0);
 
-    // warm tint over the fire pools
+    // warm tint over the fire pools — froid bleuté pour les lampadaires industriels
     c.save();
     c.globalCompositeOperation = 'overlay';
     for (const f of RECIPES[p.spotId].fires) {
-      const warm = c.createRadialGradient(f.x, f.y, 2, f.x, f.y, f.r);
-      warm.addColorStop(0, 'rgba(255, 150, 60, 0.5)');
-      warm.addColorStop(1, 'rgba(255, 150, 60, 0)');
-      c.fillStyle = warm;
+      const tint = c.createRadialGradient(f.x, f.y, 2, f.x, f.y, f.r);
+      const rgb = f.cold ? '110, 160, 255' : '255, 150, 60';
+      tint.addColorStop(0, `rgba(${rgb}, ${f.cold ? 0.45 : 0.5})`);
+      tint.addColorStop(1, `rgba(${rgb}, 0)`);
+      c.fillStyle = tint;
       c.fillRect(f.x - f.r, f.y - f.r, f.r * 2, f.r * 2);
     }
     c.restore();
     this.drawDawnTint(c, dawn);
+  }
+
+  /** Guirlandes : ampoules scintillantes le long d'une caténaire entre deux ancres.
+   * Alpha ∝ obscurité — elles s'éteignent quand l'aube se lève. */
+  private drawGarlands(c: CanvasRenderingContext2D, p: SceneParams, timeMs: number): void {
+    const garlands = RECIPES[p.spotId].garlands;
+    if (!garlands) return;
+    const dark = 1 - Math.pow(Math.max(0, (p.progress - 0.55) / 0.45), 1.5);
+    if (dark <= 0.05) return;
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    for (const g of garlands) {
+      const dx = g.x2 - g.x1;
+      const dy = g.y2 - g.y1;
+      const sag = Math.hypot(dx, dy) / 10;
+      const n = Math.max(6, Math.floor(Math.abs(dx) / 14));
+      for (let i = 0; i <= n; i++) {
+        const t = i / n;
+        // caténaire approchée par une parabole, scintillement déphasé par ampoule
+        const x = Math.round(g.x1 + dx * t);
+        const y = Math.round(g.y1 + dy * t + sag * 4 * t * (1 - t));
+        const twinkle = 0.55 + 0.45 * Math.sin(timeMs / 320 + i * 1.9);
+        c.globalAlpha = dark * twinkle * 0.9;
+        c.fillStyle = GARLAND_HUES[i % GARLAND_HUES.length];
+        c.fillRect(x, y, 2, 2);
+      }
+    }
+    c.restore();
   }
 
   private drawDawnTint(c: CanvasRenderingContext2D, dawn: number): void {

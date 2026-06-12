@@ -35,13 +35,14 @@ export interface StageRig {
   evacCamper: { x: number; y: number } | null;
 }
 
-/** Clé de memoïsation : le rig ne dépend que du matos, des voies et du mur grillé. */
+/** Clé de memoïsation : le rig ne dépend que du matos, des voies, du mur grillé et de la largeur de scène. */
 export function rigKey(
   gear: Record<GearCategory, number>,
   branch: RigBranches,
   murBlown: boolean,
+  stageHalfW = 96,
 ): string {
-  return GEAR_CATEGORIES.map((c) => `${gear[c]}${branch[c] ?? ''}`).join(',') + (murBlown ? '!' : '');
+  return GEAR_CATEGORIES.map((c) => `${gear[c]}${branch[c] ?? ''}`).join(',') + (murBlown ? '!' : '') + stageHalfW;
 }
 
 export function buildRig(
@@ -50,6 +51,8 @@ export function buildRig(
   murBlown: boolean,
   cx: number,
   stageBottom: number,
+  /** demi-largeur du deck (96 = stage_deck seul, 160 = scène modulaire élargie) */
+  stageHalfW = 96,
 ): StageRig {
   const lum = gear.lumieres;
 
@@ -99,7 +102,7 @@ export function buildRig(
       ]
     : [];
 
-  const wall = buildWall(gear.mur, branch.mur, murBlown, cx, stageBottom);
+  const wall = buildWall(gear.mur, branch.mur, murBlown, cx, stageBottom, stageHalfW);
 
   // guetteurs : postes fixes occupés un à un quand la logistique monte
   const lt = gear.logistique;
@@ -138,6 +141,7 @@ function buildWall(
   murBlown: boolean,
   cx: number,
   stageBottom: number,
+  stageHalfW: number,
 ): StageRig['wall'] {
   const wall: StageRig['wall'] = [];
   if (branch === 'B' && tier >= 3) {
@@ -154,7 +158,8 @@ function buildWall(
     return wall;
   }
   for (const side of [-1, 1] as const) {
-    const baseX = cx + side * (96 + tier * 6) - 24;
+    // les stacks suivent le bord du deck : scène large → mur poussé vers l'extérieur
+    const baseX = cx + side * (stageHalfW + tier * 6) - 24;
     const columns = tier >= 2 ? 2 : 1;
     const rows = 1 + Math.ceil(tier / 2);
     for (let col = 0; col < columns; col++) {
