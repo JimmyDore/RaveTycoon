@@ -1,7 +1,10 @@
 import { DatabaseSync } from 'node:sqlite';
 
 const SPOTS = ['champ', 'foret', 'carriere', 'plage', 'hangar', 'tunnel', 'chateau', 'friche', 'teknival'];
-const GENRES = ['hardtek', 'acid', 'dub'];
+const GENRES = [
+  'hardtek', 'acid', 'dub', 'frenchcore', 'mentale', 'techno', 'raggatek', 'darkpsy',
+  'tribe', 'hardcore', 'downtempo', 'electro',
+];
 
 export function openDb(path = ':memory:') {
   const db = new DatabaseSync(path);
@@ -33,7 +36,9 @@ export function validateScore(body) {
   if (!Number.isFinite(payout) || payout < 0 || payout > 100000000) return 'payout invalide';
   if (typeof busted !== 'boolean') return 'busted invalide';
   if (!SPOTS.includes(spot)) return 'spot invalide';
-  if (!GENRES.includes(genre)) return 'genre invalide';
+  // le client remonte les genres joués du line-up, joints par des virgules
+  if (typeof genre !== 'string' || genre.length === 0 || genre.length > 200) return 'genre invalide';
+  if (!genre.split(',').every((g) => GENRES.includes(g))) return 'genre invalide';
   return null;
 }
 

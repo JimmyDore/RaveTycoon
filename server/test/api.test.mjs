@@ -34,6 +34,13 @@ test('validation rejects junk', () => {
   assert.equal(validateScore(validScore), null);
 });
 
+test('validation accepte les line-ups multi-genres', () => {
+  assert.equal(validateScore({ ...validScore, genre: 'tribe,hardcore' }), null);
+  assert.equal(validateScore({ ...validScore, genre: 'electro' }), null);
+  assert.equal(validateScore({ ...validScore, genre: 'acid,schlager' }), 'genre invalide');
+  assert.equal(validateScore({ ...validScore, genre: '' }), 'genre invalide');
+});
+
 test('POST /api/scores stores a night, GET ranks it', async () => {
   const res = await fetch(`${base}/api/scores`, {
     method: 'POST',
