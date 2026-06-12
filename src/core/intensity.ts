@@ -15,7 +15,7 @@ export const INTENSITY_LEVEL: Record<Intensity, number> = { chill: 0.25, groove:
 export const INTENSITY_QUALITY: Record<Intensity, number> = { chill: 0.92, groove: 1.0, peak: 1.08, rinse: 1.15 };
 /** Facteur de montée de chaleur. */
 export const INTENSITY_HEAT: Record<Intensity, number> = { chill: 0.5, groove: 1.0, peak: 1.6, rinse: 2.4 };
-/** Demande électrique additionnelle (remplace BRIEF_POWER). */
+/** Demande électrique additionnelle (remplace l'ancienne table du brief). */
 export const INTENSITY_POWER: Record<Intensity, number> = { chill: 0, groove: 0.06, peak: 0.16, rinse: 0.3 };
 
 export function isHighIntensity(i: Intensity): boolean {

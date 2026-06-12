@@ -108,7 +108,28 @@ pauses): a situation, 2–3 options, immediate consequences. Examples of the v1 
 Events are drawn from a deck weighted by spot, heat level, gear tier and DJ risk
 profiles. The deck is data-driven — new events are the cheapest post-launch content lever.
 
-### 4.3 Heat & busts *(unchanged from v1)*
+### 4.3 Special nights & consequence arcs
+
+Variety comes from **outside the simulation** (night-loop overhaul, stories D/E):
+
+- **Special night offers** — from rep ≥ 12, ~1 night in 3 the prepare screen shows a
+  one-night offer (accept or leave): *soundclash* (beat a simulated rival's wave score
+  on 2 of 4 night phases → rep ×1.5 and their headliner **Volt** joins the recruitment
+  pool at −30 % cut), *teuf privée* (cash up front = 3× the spot's capacity, crowd
+  capped at 60 %, zero rep, contract: imposed genre, never RINSE, no police raid —
+  breach refunds 60 %), *anniversaire de la scène* (rep ×2, demanding crowd) and
+  *nuit à thème* (single drawn genre, narrow tolerance, drops +40 %, bar ×1.3).
+  Accepted constraints lock the prepare screen; a contract badge lives in the night HUD.
+- **Consequence arcs** — event/prompt choices can plant a multi-night arc
+  (`pendingArcs`, due in 1–3 nights, injected as a priority modal event): the corrupt
+  cop (planted by a successful raid negotiation — pay again, then a 800 € « forfait »
+  that clears the casier, or denounce him), the journalist (planted by the « un type
+  filme » floor prompt — buzz ×1.6 but hotter starts for 3 nights), and the farmer
+  (planted by buying the neighbor a beer — ends in a permanent −20 % heat on Champ
+  paumé and Forêt **and unlocks the Château squatté**, which requires the finished arc
+  on top of its 350 rep). Finished arcs are worth +1 ⭐ Légende each at tour departure.
+
+### 4.4 Heat & busts *(unchanged from v1)*
 
 - A **heat meter** fills as a function of the intensity dial, DJ risk profiles and
   spot sensitivity; it ebbs when the crew plays safe.
@@ -119,13 +140,13 @@ profiles. The deck is data-driven — new events are the cheapest post-launch co
   camion") and the founding DJ can never be lost. Rock bottom = grinding small field
   raves again, never a dead save.
 
-### 4.4 Gear damage
+### 4.5 Gear damage
 
 - Pushed gear (RINSE, ignored events) can **blow a speaker or stall the generator**:
   degraded sound and vibe for the rest of the night, audible in the mix.
 - Damaged gear must be repaired between raves (time or money — see §8).
 
-### 4.5 Payout
+### 4.6 Payout
 
 - **Bar drip**: each raver generates a small income per minute present.
 - **Prix libre** at sunrise: a multiplier on the night based on peak crowd and overall vibe.
@@ -302,3 +323,6 @@ Light idle, **no passive income**:
 | 17 | Genres as mechanics (data-driven profiles + stem sets) |
 | 18 | French-only UI at launch; recap card share image |
 | 19 | VPS-hosted, dockerized: static frontend + pseudonym leaderboard API (SQLite) — built |
+| 20 | **Night-loop overhaul (chantier 1)**: the brief is replaced by 4 tappable intensity crans played against a visible crowd attente (tolerance/charisme/burnout/waveScore); nights run a scripted 4-phase arc (rep ×2 at dawn); heat ≥ 0.85 opens a playable descente (evacuate/negotiate/hold the wall) with persistent casier & garde à vue |
+| 21 | Variety lives outside the sim: special night offers at prepare (soundclash → Volt, teuf privée, anniversaire, nuit à thème) and consequence arcs planted by choices (corrupt cop, journalist, farmer → château squatté) |
+| 22 | Gameplay-gated unlocks are canon: Volt joins only crews that beat him in a soundclash; the château requires the finished farmer arc on top of reputation |

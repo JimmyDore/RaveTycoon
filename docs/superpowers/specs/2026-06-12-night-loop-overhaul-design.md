@@ -336,7 +336,8 @@ Plantage par option ; décompte par settle ; injection prioritaire ; chaînage d
 | E — Arcs | C (négo plante un arc) | La variété côté conséquences |
 
 Après chaque story : `npm run test && npm run build` vert, harness déterministe vert.
-Le PRD sera amendé (le brief y est décrit §4.1) une fois la Story A shippée.
+Le PRD a été amendé : §4.1 réécrit avec la Story A (partie 1), §4.3 + décisions 20–22
+ajoutés avec les Stories D/E (partie 2). ✅
 
 ## Hors-scope (chantiers suivants)
 
