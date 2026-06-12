@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { GEAR, GEAR_CATEGORIES, PERKS } from '../src/core/data';
-import { createNight } from '../src/core/night';
+import { applySetToll, lockedDjs, recruitDj, recruitableDjs } from '../src/core/crew';
+import { GEAR, GEAR_CATEGORIES, PERKS, getDj } from '../src/core/data';
+import { createNight, startSet, tickNight } from '../src/core/night';
 import { settleNight } from '../src/core/payout';
 import { deserialize, newGame, serialize } from '../src/core/save';
 import {
@@ -204,6 +205,62 @@ describe('departOnTour : le crew', () => {
     state2.tour.perks = ['famille'];
     const next2 = departOnTour(state2, ['gamine', 'kilowatt']);
     expect(next2.crew.map((d) => d.id)).toEqual(['tonton', 'gamine', 'kilowatt']);
+  });
+});
+
+describe('les Têtes d’affiche', () => {
+  it('reste invisibles et irrecrutables sans le perk, même à rep max', () => {
+    const state = newGame();
+    state.rep = 9999;
+    const visible = [...recruitableDjs(state), ...lockedDjs(state)].map((d) => d.id);
+    expect(visible).not.toContain('sansnom');
+    expect(visible).not.toContain('comete');
+    expect(recruitDj(state, 'sansnom')).toBe(false);
+  });
+
+  it('rejoint le pool avec son perk, gated par la rep comme les autres', () => {
+    const state = newGame();
+    state.tour.perks = ['tete-sansnom'];
+    state.rep = getDj('sansnom').repReq;
+    expect(recruitableDjs(state).map((d) => d.id)).toContain('sansnom');
+    expect(recruitDj(state, 'sansnom')).toBe(true);
+    expect(getDj('sansnom').technique).toBe(5);
+    expect(getDj('sansnom').charisme).toBe(5);
+    expect(getDj('sansnom').cut).toBe(0.35);
+  });
+
+  it('increvable : La Comète ne prend pas de fatigue, mais gagne l’XP', () => {
+    const dj = { id: 'comete', xp: 0, fatigue: 0, setsPlayed: 0, gifted: false, studioBonus: 0 };
+    applySetToll(dj, 'pousser', 90);
+    expect(dj.fatigue).toBe(0);
+    expect(dj.xp).toBeGreaterThan(0);
+    expect(dj.setsPlayed).toBe(1);
+  });
+
+  it('insaisissable : DJ Sans Nom chauffe à 40 % d’un risque normal du même genre', () => {
+    const heatAfter = (djId: string): number => {
+      const state = newGame();
+      state.crew.push({ id: djId, xp: 0, fatigue: 0, setsPlayed: 0, gifted: false, studioBonus: 0 });
+      const night = createNight(state, 'champ', [djId], 7);
+      startSet(state, night, djId, 'normal');
+      for (let i = 0; i < 80; i++) tickNight(state, night, 0.1); // 8 s — avant tout event/prompt
+      return night.heat;
+    };
+    // memeacide joue aussi mentale, risk normal (×1.0) ; sansnom : discret ×0.8 × gimmick ×0.5
+    expect(heatAfter('sansnom')).toBeCloseTo(heatAfter('memeacide') * 0.4, 5);
+  });
+});
+
+describe('carnet d’adresses', () => {
+  it('débloque les DJs à 70 % de leur seuil de rep', () => {
+    const state = newGame();
+    state.tour.perks = ['carnet-adresses'];
+    state.rep = Math.ceil(getDj('fantome').repReq * 0.7); // 455 au lieu de 650
+    expect(recruitableDjs(state).map((d) => d.id)).toContain('fantome');
+    expect(recruitDj(state, 'fantome')).toBe(true);
+    const state2 = newGame();
+    state2.rep = 455; // sans le perk, fantome reste verrouillé
+    expect(recruitDj(state2, 'fantome')).toBe(false);
   });
 });
 

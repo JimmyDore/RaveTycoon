@@ -330,7 +330,9 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
 
   // --- heat -----------------------------------------------------------------------
   const logistique = ownedGear(state, 'logistique').value;
-  const riskMult = dj ? RISK_HEAT[dj.risk] : 1;
+  // RÉVISION CHANTIER 1: l'insaisissable deviendra immunisé à la garde à vue ;
+  // en attendant, son gimmick = moitié moins de heat (levier existant)
+  const riskMult = dj ? RISK_HEAT[dj.risk] * (dj.gimmick === 'insaisissable' ? 0.5 : 1) : 1;
   night.heat += spot.heatBuild * genre.heatMult * BRIEF_HEAT[night.brief] * riskMult * logistique * heatMod * branchHeatMult(state) * HEAT_BASE * dt;
   if (night.brief === 'safe') night.heat -= 0.01 * dt;
   night.heat = clamp(night.heat, 0, 1);

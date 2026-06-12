@@ -104,6 +104,14 @@ export interface GearItem {
 
 export type DjRisk = 'discret' | 'normal' | 'chaud';
 
+/**
+ * Gimmick unique des DJs légendaires — branché sur des leviers existants :
+ * - insaisissable : moitié moins de heat (RÉVISION CHANTIER 1: deviendra
+ *   l'immunité à la garde à vue quand elle existera)
+ * - increvable : ne prend jamais de fatigue
+ */
+export type DjGimmick = 'insaisissable' | 'increvable';
+
 /** Static definition of a DJ available in the scene. */
 export interface DjDef {
   id: string;
@@ -122,6 +130,10 @@ export interface DjDef {
   repReq: number;
   /** index into the character sprite roster (visuals + portrait) */
   sprite: number;
+  /** perk de l'Héritage requis pour apparaître dans le pool (Têtes d'affiche) */
+  perk?: string;
+  /** gimmick unique des DJs légendaires */
+  gimmick?: DjGimmick;
 }
 
 /** Mutable per-save state of a crew member. */

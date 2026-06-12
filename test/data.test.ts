@@ -67,8 +67,10 @@ describe('gear', () => {
 });
 
 describe('djs', () => {
-  it('has 12 DJs led by the founding tonton, sorted by rep requirement', () => {
-    expect(DJS).toHaveLength(12);
+  const base = DJS.filter((d) => !d.perk);
+
+  it('has 12 base DJs led by the founding tonton, all sorted by rep requirement', () => {
+    expect(base).toHaveLength(12);
     expect(DJS[0].id).toBe('tonton');
     expect(DJS[0].repReq).toBe(0);
     const reqs = DJS.map((d) => d.repReq);
@@ -83,17 +85,28 @@ describe('djs', () => {
       expect(dj.charisme).toBeGreaterThanOrEqual(1);
       expect(dj.charisme).toBeLessThanOrEqual(5);
       expect(dj.cut).toBeGreaterThan(0);
-      expect(dj.cut).toBeLessThanOrEqual(0.3);
+      expect(dj.cut).toBeLessThanOrEqual(dj.perk ? 0.35 : 0.3);
       expect(genreIds.has(dj.genre)).toBe(true);
     }
   });
 
-  it('maps each genre to exactly one DJ', () => {
-    expect(new Set(DJS.map((d) => d.genre)).size).toBe(DJS.length);
+  it('maps each genre to exactly one base DJ', () => {
+    expect(new Set(base.map((d) => d.genre)).size).toBe(base.length);
   });
 
   it('prices better DJs with bigger cuts', () => {
     expect(getDj('fantome').cut).toBeGreaterThan(getDj('tonton').cut);
+  });
+
+  it('les têtes d’affiche : 5/5, cut 35 %, gated par perk, un gimmick chacune', () => {
+    const legends = DJS.filter((d) => d.perk);
+    expect(legends.map((d) => d.id).sort()).toEqual(['comete', 'sansnom']);
+    for (const dj of legends) {
+      expect(dj.technique).toBe(5);
+      expect(dj.charisme).toBe(5);
+      expect(dj.cut).toBe(0.35);
+      expect(dj.gimmick).toBeDefined();
+    }
   });
 });
 

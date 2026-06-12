@@ -85,6 +85,8 @@ const DJ_SPRITES = {
   doyenne: 14,
   morse: 6,
   volt: 2,
+  sansnom: 11,
+  comete: 15,
 };
 
 async function buildPortraits() {

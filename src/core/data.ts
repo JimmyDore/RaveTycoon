@@ -485,6 +485,21 @@ export const DJS: DjDef[] = [
     sprite: 15,
   },
   {
+    id: 'sansnom',
+    nom: 'DJ Sans Nom',
+    description:
+      'Personne n’a vu son visage, personne n’a son numéro. Les bleus cherchent encore qui convoquer.',
+    technique: 5,
+    charisme: 5,
+    genre: 'mentale',
+    risk: 'discret',
+    cut: 0.35,
+    repReq: 250,
+    sprite: 10,
+    perk: 'tete-sansnom',
+    gimmick: 'insaisissable',
+  },
+  {
     id: 'morse',
     nom: 'Morse',
     description: '220 BPM, zéro compromis. Il tape le kick comme un SOS — les bleus répondent toujours.',
@@ -507,6 +522,21 @@ export const DJS: DjDef[] = [
     cut: 0.22,
     repReq: 340,
     sprite: 6,
+  },
+  {
+    id: 'comete',
+    nom: 'La Comète',
+    description:
+      'Trois teknivals d’affilée sans baisser le bras. On dit qu’elle dort en mixant.',
+    technique: 5,
+    charisme: 5,
+    genre: 'frenchcore',
+    risk: 'chaud',
+    cut: 0.35,
+    repReq: 400,
+    sprite: 14,
+    perk: 'tete-comete',
+    gimmick: 'increvable',
   },
   {
     id: 'volt',

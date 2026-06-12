@@ -1,4 +1,5 @@
 import { DJS, getDj } from './data';
+import { hasPerk } from './tour';
 import type { DjDef, DjState, GameState } from './types';
 
 /** Fatigue a rested DJ (one who played no set) recovers each night. */
@@ -43,19 +44,37 @@ export function isInCrew(state: GameState, djId: string): boolean {
   return state.crew.some((d) => d.id === djId);
 }
 
+/** Seuil de rep effectif : le carnet d'adresses ouvre la porte à 70 %. */
+export const CARNET_THRESHOLD = 0.7;
+
+export function djRepThreshold(state: GameState, def: DjDef): number {
+  return hasPerk(state, 'carnet-adresses') ? Math.ceil(def.repReq * CARNET_THRESHOLD) : def.repReq;
+}
+
+/** Les Têtes d'affiche n'existent pas tant que leur perk n'est pas acheté. */
+export function djAvailable(state: GameState, def: DjDef): boolean {
+  return def.perk === undefined || hasPerk(state, def.perk);
+}
+
 /** DJs who would join the crew now (rep reached, not already in). */
 export function recruitableDjs(state: GameState): DjDef[] {
-  return DJS.filter((d) => !isInCrew(state, d.id) && state.rep >= d.repReq);
+  return DJS.filter(
+    (d) => !isInCrew(state, d.id) && djAvailable(state, d) && state.rep >= djRepThreshold(state, d),
+  );
 }
 
 /** DJs visible on the recruitment screen but still out of reach. */
 export function lockedDjs(state: GameState): DjDef[] {
-  return DJS.filter((d) => !isInCrew(state, d.id) && state.rep < d.repReq);
+  return DJS.filter(
+    (d) => !isInCrew(state, d.id) && djAvailable(state, d) && state.rep < djRepThreshold(state, d),
+  );
 }
 
 export function recruitDj(state: GameState, djId: string): boolean {
   const def = getDj(djId);
-  if (isInCrew(state, djId) || state.rep < def.repReq) return false;
+  if (isInCrew(state, djId) || !djAvailable(state, def) || state.rep < djRepThreshold(state, def)) {
+    return false;
+  }
   state.crew.push({ id: djId, xp: 0, fatigue: 0, setsPlayed: 0, gifted: false, studioBonus: 0 });
   return true;
 }
@@ -124,9 +143,11 @@ export function buyStudioSession(state: GameState, djId: string): boolean {
   return true;
 }
 
-/** Apply the toll of a played set. */
+/** Apply the toll of a played set. L'increvable ne prend jamais de fatigue. */
 export function applySetToll(dj: DjState, brief: string, setSeconds: number): void {
-  dj.fatigue = Math.min(1, dj.fatigue + FATIGUE_PER_SET + (brief === 'pousser' ? FATIGUE_PUSH_BONUS : 0));
+  if (getDj(dj.id).gimmick !== 'increvable') {
+    dj.fatigue = Math.min(1, dj.fatigue + FATIGUE_PER_SET + (brief === 'pousser' ? FATIGUE_PUSH_BONUS : 0));
+  }
   dj.xp += setSeconds * XP_RATE * (brief === 'pousser' ? 1.3 : 1);
   dj.setsPlayed += 1;
 }

@@ -1,6 +1,6 @@
 import { DJS, GEAR_CATEGORIES, SPOTS, getDj, getGenre, getSpot, nextGearOptions, ownedGear, switchBranchItem } from '../core/data';
 import { BAR_STOCK_COST, ESSENCE_RATE, cautionCost, potentialBar, type BarStock } from '../core/economy';
-import { STUDIO_COST, STUDIO_MAX, dayOffCost, djLevel, effectiveCut, fatigueMalus, giftCost, lockedDjs, recruitableDjs } from '../core/crew';
+import { STUDIO_COST, STUDIO_MAX, dayOffCost, djLevel, djRepThreshold, effectiveCut, fatigueMalus, giftCost, lockedDjs, recruitableDjs } from '../core/crew';
 import { rushCost } from '../core/idle';
 import { isSpotUnlocked } from '../core/payout';
 import { MONTEE_MIN_DROP, computeSetQuality } from '../core/night';
@@ -245,7 +245,7 @@ export function renderPrepare(
   for (const def of lockedDjs(state)) {
     const card = el('div', 'card dj-card locked');
     card.append(el('div', 'card-title', `🔒 ${def.nom}`));
-    card.append(el('div', 'card-desc', `${STR.repNeeded(def.repReq)}`));
+    card.append(el('div', 'card-desc', `${STR.repNeeded(djRepThreshold(state, def))}`));
     crewSec.append(card);
   }
   main.append(crewSec);
@@ -872,5 +872,9 @@ export function renderLeaderboard(
 
 /** Used by main.ts to celebrate fresh recruits on the prepare screen. */
 export function newlyRecruitable(state: GameState, prevRep: number): DjDef[] {
-  return DJS.filter((d) => d.repReq > prevRep && d.repReq <= state.rep);
+  return DJS.filter((d) => {
+    if (d.perk !== undefined && !state.tour.perks.includes(d.perk)) return false;
+    const req = djRepThreshold(state, d);
+    return req > prevRep && req <= state.rep;
+  });
 }
