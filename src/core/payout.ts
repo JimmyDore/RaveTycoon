@@ -1,8 +1,8 @@
-import { GEAR, GEAR_CATEGORIES, getDj, getSpot } from './data';
+import { BRANCH_TIER, GEAR, GEAR_CATEGORIES, getDj, getSpot, ownedGear, switchBranchItem } from './data';
 import { essenceCost, restockCost } from './economy';
 import { applyNightRest } from './crew';
 import { buzzAfterNight } from './idle';
-import type { GameState, GearCategory, NightResult, NightState } from './types';
+import type { GameState, GearBranch, GearCategory, GearItem, NightResult, NightState } from './types';
 
 /** Unique DJs who played at least one set tonight. */
 function playedDjs(night: NightState): Set<string> {
@@ -93,7 +93,7 @@ function bestSeizable(state: GameState): GearCategory | null {
   let best: GearCategory | null = null;
   let bestValue = -1;
   for (const cat of GEAR_CATEGORIES) {
-    const item = GEAR[cat][state.gear[cat]];
+    const item = ownedGear(state, cat);
     if (item.seizable && item.price > bestValue) {
       best = cat;
       bestValue = item.price;
@@ -172,10 +172,30 @@ export function isSpotUnlocked(state: GameState, spotId: NightState['spotId']): 
   return state.rep >= getSpot(spotId).repReq;
 }
 
-export function buyGearUpgrade(state: GameState, cat: GearCategory): boolean {
-  const next = GEAR[cat][state.gear[cat] + 1];
+export function buyGearUpgrade(state: GameState, cat: GearCategory, branch?: GearBranch): boolean {
+  const nextTier = state.gear[cat] + 1;
+  let next: GearItem | undefined;
+  if (nextTier < BRANCH_TIER) {
+    next = GEAR[cat].find((g) => g.tier === nextTier);
+  } else if (nextTier === BRANCH_TIER) {
+    if (!branch) return false; // le tier 3 exige un choix de voie
+    next = GEAR[cat].find((g) => g.tier === nextTier && g.branch === branch);
+  } else {
+    const chosen = state.gearBranch[cat];
+    next = GEAR[cat].find((g) => g.tier === nextTier && g.branch === chosen);
+  }
   if (!next || state.cash < next.price) return false;
   state.cash -= next.price;
-  state.gear[cat] = next.tier;
+  state.gear[cat] = nextTier;
+  if (nextTier === BRANCH_TIER) state.gearBranch[cat] = branch;
+  return true;
+}
+
+/** Changer de voie : racheter l'item miroir du tier courant au prix plein. */
+export function switchGearBranch(state: GameState, cat: GearCategory): boolean {
+  const target = switchBranchItem(state, cat);
+  if (!target || state.cash < target.price) return false;
+  state.cash -= target.price;
+  state.gearBranch[cat] = target.branch;
   return true;
 }

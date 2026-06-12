@@ -9,9 +9,9 @@ import {
   essenceCost,
   potentialBar,
 } from '../src/core/economy';
-import { getSpot } from '../src/core/data';
+import { BRANCH_TIER, GEAR, GEAR_CATEGORIES, gearItem, getSpot, nextGearOptions, ownedGear, switchBranchItem } from '../src/core/data';
 import { createNight, startSet, tickNight } from '../src/core/night';
-import { applyBust, settleNight } from '../src/core/payout';
+import { applyBust, buyGearUpgrade, settleNight, switchGearBranch } from '../src/core/payout';
 import { newGame } from '../src/core/save';
 import type { GameState, NightState } from '../src/core/types';
 
@@ -171,5 +171,60 @@ describe('caution du spot (tiers ≥ 3)', () => {
     expect(night.cautionPaid).toBe(0);
     expect(state.cash).toBe(100);
     expect(night.heat).toBeCloseTo(0.1, 5);
+  });
+});
+
+describe('branches du matos', () => {
+  it('refuse le tier 3 sans choix de voie, puis verrouille la voie choisie', () => {
+    const state = newGame();
+    state.cash = 100000;
+    expect(buyGearUpgrade(state, 'platines')).toBe(true); // t1 — 500 €
+    expect(buyGearUpgrade(state, 'platines')).toBe(true); // t2 — 2 500 €
+    expect(buyGearUpgrade(state, 'platines')).toBe(false); // t3 exige une voie
+    expect(buyGearUpgrade(state, 'platines', 'A')).toBe(true); // t3A — 7 000 €
+    expect(state.gearBranch.platines).toBe('A');
+    expect(state.cash).toBe(100000 - 500 - 2500 - 7000);
+    // les tiers 4–5 prolongent la voie sans re-choisir
+    expect(buyGearUpgrade(state, 'platines')).toBe(true); // t4A — 4 000 €
+    expect(ownedGear(state, 'platines').branch).toBe('A');
+    expect(ownedGear(state, 'platines').tier).toBe(4);
+  });
+
+  it('changer de voie = racheter le tier courant au prix plein', () => {
+    const state = newGame();
+    state.cash = 100000;
+    state.gear.platines = 4;
+    state.gearBranch.platines = 'A';
+    const other = switchBranchItem(state, 'platines')!;
+    expect(other.branch).toBe('B');
+    expect(other.price).toBe(4000);
+    expect(switchGearBranch(state, 'platines')).toBe(true);
+    expect(state.cash).toBe(100000 - 4000);
+    expect(state.gearBranch.platines).toBe('B');
+    expect(ownedGear(state, 'platines').nom).toBe(gearItem('platines', 4, 'B').nom);
+  });
+
+  it('propose deux options au tier 3, une seule ensuite', () => {
+    const state = newGame();
+    state.gear.mur = 2;
+    expect(nextGearOptions(state, 'mur').map((g) => g.branch)).toEqual(['A', 'B']);
+    state.gear.mur = 3;
+    state.gearBranch.mur = 'B';
+    expect(nextGearOptions(state, 'mur').map((g) => `${g.tier}${g.branch}`)).toEqual(['4B']);
+    state.gear.mur = 5;
+    expect(nextGearOptions(state, 'mur')).toEqual([]);
+  });
+
+  it('chaque catégorie a 9 items : t0–t2 sans voie, t3–t5 en double', () => {
+    for (const cat of GEAR_CATEGORIES) {
+      expect(GEAR[cat]).toHaveLength(9);
+      expect(GEAR[cat].filter((g) => g.branch === undefined).map((g) => g.tier)).toEqual([0, 1, 2]);
+      for (const tier of [3, 4, 5]) {
+        expect(GEAR[cat].filter((g) => g.tier === tier).map((g) => g.branch).sort()).toEqual(['A', 'B']);
+      }
+      expect(GEAR[cat][0].price).toBe(0);
+      expect(GEAR[cat][0].seizable).toBe(false);
+    }
+    expect(BRANCH_TIER).toBe(3);
   });
 });

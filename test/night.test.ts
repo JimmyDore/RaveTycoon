@@ -100,6 +100,7 @@ describe('set quality', () => {
     expect(star).toBeGreaterThan(weak * 1.5);
 
     state.gear.platines = 3;
+    state.gearBranch.platines = 'A'; // le tier 3 branche : une voie est requise
     expect(computeSetQuality(state, night, 'tonton', 'normal')).toBeGreaterThan(weak);
   });
 
@@ -154,6 +155,7 @@ describe('gear in the sim', () => {
     const small = newGame();
     const big = newGame();
     big.gear.mur = 3;
+    big.gearBranch.mur = 'A'; // le tier 3 branche : une voie est requise
     expect(createNight(big, 'champ', ['tonton'], 9).cap).toBeGreaterThan(
       createNight(small, 'champ', ['tonton'], 9).cap,
     );

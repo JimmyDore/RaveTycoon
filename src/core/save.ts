@@ -1,6 +1,6 @@
-import type { GameState } from './types';
+import type { GameState, GearBranch, GearCategory } from './types';
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 export const STORAGE_KEY = 'rave-tycoon-save';
 
 /** Minimal storage interface so tests can inject a stub. */
@@ -18,6 +18,7 @@ export function newGame(now = 0): GameState {
     busts: 0,
     nights: 0,
     gear: { platines: 0, mur: 0, groupe: 0, lumieres: 0, logistique: 0 },
+    gearBranch: {},
     damaged: {},
     repairs: [],
     // the founding DJ — le pote du camion, là depuis le début
@@ -43,6 +44,8 @@ function isValidState(s: unknown): s is GameState {
     o.gear !== null &&
     typeof (o.gear as Record<string, unknown>).platines === 'number' &&
     typeof (o.gear as Record<string, unknown>).mur === 'number' &&
+    typeof o.gearBranch === 'object' &&
+    o.gearBranch !== null &&
     Array.isArray(o.crew) &&
     (o.crew as unknown[]).length >= 1 &&
     Array.isArray(o.repairs)
@@ -53,10 +56,23 @@ export function serialize(state: GameState): string {
   return JSON.stringify(state);
 }
 
+/** v2 → v3 : les branches du matos n'existaient pas — voie A par défaut au tier ≥ 3. */
+function migrateV2(o: Record<string, unknown>): void {
+  if (o.version !== 2) return;
+  o.version = 3;
+  const gear = (o.gear ?? {}) as Record<GearCategory, number>;
+  const gearBranch: Partial<Record<GearCategory, GearBranch>> = {};
+  for (const cat of Object.keys(gear) as GearCategory[]) {
+    if (gear[cat] >= 3) gearBranch[cat] = 'A';
+  }
+  o.gearBranch = gearBranch;
+}
+
 /** v1 saves (different game) fall back to a fresh start. */
 export function deserialize(json: string): GameState | null {
   try {
-    const parsed = JSON.parse(json);
+    const parsed = JSON.parse(json) as Record<string, unknown>;
+    if (parsed && typeof parsed === 'object') migrateV2(parsed);
     return isValidState(parsed) ? parsed : null;
   } catch {
     return null;

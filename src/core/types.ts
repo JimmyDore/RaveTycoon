@@ -54,14 +54,39 @@ export interface GenreDef {
   description: string;
 }
 
+export type GearBranch = 'A' | 'B';
+
+/** Branch perks mapped onto existing sim levers (see night.ts). */
+export interface GearEffects {
+  /** platines B — charisme effectif +1 pour tous les DJs */
+  charismeBonus?: number;
+  /** mur A / lumières A — la foule reste (multiplie le churn) */
+  churnMult?: number;
+  /** mur B / groupe A — le son porte moins loin (multiplie la heat) */
+  heatMult?: number;
+  /** mur B — line array : bonus de qualité de set */
+  qualityMult?: number;
+  /** groupe B — pousser le son ne surcharge plus le groupe.
+   *  RÉVISION CHANTIER 1 : devient « RINSE sans surcharge » avec les crans. */
+  pousserPowerFree?: boolean;
+  /** lumières B — payoff du drop multiplié */
+  dropMult?: number;
+  /** logistique B — cautions multipliées (< 1 = réduction) */
+  cautionMult?: number;
+}
+
 export interface GearItem {
   category: GearCategory;
   tier: number;
+  /** voie exclusive à partir du tier 3 ('A' | 'B'), absente avant */
+  branch?: GearBranch;
   nom: string;
   price: number;
   /** category-specific magnitude (see data.ts for semantics) */
   value: number;
   seizable: boolean;
+  /** leviers de voie additionnels (voir GearEffects) */
+  effects?: GearEffects;
 }
 
 export type DjRisk = 'discret' | 'normal' | 'chaud';
@@ -112,6 +137,8 @@ export interface GameState {
   nights: number;
   /** owned tier index per gear category */
   gear: Record<GearCategory, number>;
+  /** voie choisie par catégorie une fois le tier 3 acheté */
+  gearBranch: Partial<Record<GearCategory, GearBranch>>;
   damaged: Partial<Record<GearCategory, boolean>>;
   repairs: RepairJob[];
   crew: DjState[];

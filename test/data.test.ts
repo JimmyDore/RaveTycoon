@@ -41,17 +41,22 @@ describe('gear', () => {
   it('has five categories, each with an unseizable free tier 0', () => {
     expect(GEAR_CATEGORIES).toEqual(['platines', 'mur', 'groupe', 'lumieres', 'logistique']);
     for (const cat of GEAR_CATEGORIES) {
-      expect(GEAR[cat]).toHaveLength(4);
+      expect(GEAR[cat]).toHaveLength(9); // t0–t2 + t3/t4/t5 × deux voies
       expect(GEAR[cat][0].seizable).toBe(false);
       expect(GEAR[cat][0].price).toBe(0);
-      const prices = GEAR[cat].map((g) => g.price);
-      expect([...prices].sort((a, b) => a - b)).toEqual(prices);
+      // les tiers 1–3 grimpent ; le t4 (4 000 €) redescend sous le t3 par design (spec §2)
+      const baseline = GEAR[cat].filter((g) => g.branch === undefined).map((g) => g.price);
+      expect([...baseline].sort((a, b) => a - b)).toEqual(baseline);
     }
   });
 
-  it('makes logistique reduce heat with higher tiers', () => {
-    const values = GEAR.logistique.map((g) => g.value);
-    expect([...values].sort((a, b) => b - a)).toEqual(values);
+  it('makes logistique reduce heat with higher tiers along each voie', () => {
+    for (const branch of ['A', 'B'] as const) {
+      const path = GEAR.logistique
+        .filter((g) => g.branch === undefined || g.branch === branch)
+        .map((g) => g.value);
+      expect([...path].sort((a, b) => b - a)).toEqual(path);
+    }
   });
 });
 

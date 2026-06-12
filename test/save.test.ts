@@ -61,6 +61,19 @@ describe('serialize / load', () => {
   });
 });
 
+describe('migration v2 → v3', () => {
+  it('charge une vieille sauvegarde : gearBranch ajouté, voie A par défaut au tier 3', () => {
+    const v2 = { ...newGame(), version: 2 } as unknown as Record<string, unknown>;
+    delete v2.gearBranch;
+    v2.gear = { platines: 3, mur: 1, groupe: 0, lumieres: 0, logistique: 0 };
+    const loaded = deserialize(JSON.stringify(v2));
+    expect(loaded).not.toBeNull();
+    expect(loaded!.version).toBe(3);
+    expect(loaded!.gearBranch.platines).toBe('A');
+    expect(loaded!.gearBranch.mur).toBeUndefined();
+  });
+});
+
 describe('export / import codes', () => {
   it('roundtrips through a URL-safe code', () => {
     const state = newGame();

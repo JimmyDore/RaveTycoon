@@ -1,5 +1,5 @@
 import { applySetToll, effectiveTechnique, fatigueQualityMult, getCrewMember } from './crew';
-import { GEAR, getDj, getGenre, getSpot } from './data';
+import { getDj, getGenre, getSpot, ownedGear } from './data';
 import { BAR_DRIP, BAR_STOCK_CAP, cautionCost, potentialBar, type BarStock } from './economy';
 import { drawEvent } from './events';
 import { drawGoal } from './goals';
@@ -68,7 +68,7 @@ export function createNight(
   opts: NightOptions = {},
 ): NightState {
   const spot = getSpot(spotId);
-  const murItem = GEAR.mur[state.gear.mur];
+  const murItem = ownedGear(state, 'mur');
   const murMult = murItem.value * (state.damaged.mur ? 0.6 : 1);
   const cap = Math.round(spot.cap * murMult);
   const barStock: BarStock = opts.barStock ?? 'leger';
@@ -151,7 +151,7 @@ export function createNight(
 export function computeSetQuality(state: GameState, _night: NightState, djId: string, brief: Brief): number {
   const def = getDj(djId);
   const member = getCrewMember(state, djId);
-  const platines = GEAR.platines[state.gear.platines].value * (state.damaged.platines ? 0.7 : 1);
+  const platines = ownedGear(state, 'platines').value * (state.damaged.platines ? 0.7 : 1);
   const tech = effectiveTechnique(def, member);
   const base = 0.18 + 0.16 * tech;
   return clamp(
@@ -231,7 +231,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   const quality = night.setQuality * night.qualityMultRestOfSet * (night.murBlown ? 0.6 : 1);
 
   // --- power: demand grows with the crowd, supply is the generator ------------
-  const groupeItem = GEAR.groupe[state.gear.groupe];
+  const groupeItem = ownedGear(state, 'groupe');
   const supply = groupeItem.value * (state.damaged.groupe ? 0.6 : 1) * spot.powerMult + 0.15;
   const demand = 0.35 + 0.5 * (night.cap > 0 ? night.crowd / night.cap : 0) + BRIEF_POWER[night.brief];
   if (demand > supply && soundOn && night.brownoutCooldown <= 0) {
@@ -262,7 +262,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
 
   // --- crowd ---------------------------------------------------------------------
   const charisme = dj ? dj.charisme : 2;
-  const lumieres = GEAR.lumieres[state.gear.lumieres].value;
+  const lumieres = ownedGear(state, 'lumieres').value;
   const pull = soundOn ? 0.25 + 0.85 * quality + 0.06 * charisme : 0;
   const arrivalCut = night.arrivalCutT > 0 ? 0.5 : 1;
   const arrival =
@@ -295,7 +295,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   if (night.vibe < 0.3) night.montee = Math.max(0, night.montee - dt * MONTEE_DECAY);
 
   // --- heat -----------------------------------------------------------------------
-  const logistique = GEAR.logistique[state.gear.logistique].value;
+  const logistique = ownedGear(state, 'logistique').value;
   const riskMult = dj ? RISK_HEAT[dj.risk] : 1;
   night.heat += spot.heatBuild * genre.heatMult * BRIEF_HEAT[night.brief] * riskMult * logistique * heatMod * HEAT_BASE * dt;
   if (night.brief === 'safe') night.heat -= 0.01 * dt;

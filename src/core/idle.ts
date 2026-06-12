@@ -1,4 +1,4 @@
-import { GEAR, GEAR_CATEGORIES } from './data';
+import { GEAR_CATEGORIES, ownedGear } from './data';
 import type { GameState, GearCategory } from './types';
 
 export const BUZZ_HALF_LIFE_HOURS = 24;
@@ -60,5 +60,5 @@ export function damagedCategories(state: GameState): GearCategory[] {
 }
 
 export function gearName(state: GameState, cat: GearCategory): string {
-  return GEAR[cat][state.gear[cat]].nom;
+  return ownedGear(state, cat).nom;
 }

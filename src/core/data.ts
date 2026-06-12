@@ -1,5 +1,7 @@
 import type {
   DjDef,
+  GameState,
+  GearBranch,
   GearCategory,
   GearItem,
   GenreDef,
@@ -177,41 +179,117 @@ export const GENRES: GenreDef[] = [
  * - groupe:     power supply (vs demand from crowd+brief) — low tier = brownouts
  * - lumieres:   flat vibe bonus
  * - logistique: heat multiplier (lower = guetteurs warn earlier, cops bite less)
+ *
+ * Branch effects are typed in GearEffects (see types.ts) — extra levers mapped
+ * onto the existing sim, layered on top of the per-category `value`.
  */
 export const GEAR: Record<GearCategory, GearItem[]> = {
   platines: [
     { category: 'platines', tier: 0, nom: 'Platines de récup', price: 0, value: 0.85, seizable: false },
-    { category: 'platines', tier: 1, nom: 'Contrôleur d’occase', price: 200, value: 1.0, seizable: true },
-    { category: 'platines', tier: 2, nom: 'Setup pro', price: 1000, value: 1.12, seizable: true },
-    { category: 'platines', tier: 3, nom: 'Cabine de légende', price: 2800, value: 1.25, seizable: true },
+    { category: 'platines', tier: 1, nom: 'Contrôleur d’occase', price: 500, value: 1.0, seizable: true },
+    { category: 'platines', tier: 2, nom: 'Setup pro', price: 2500, value: 1.12, seizable: true },
+    // voie A — Précision : la qualité avant tout
+    { category: 'platines', tier: 3, branch: 'A', nom: 'Cabine de légende', price: 7000, value: 1.3, seizable: true },
+    { category: 'platines', tier: 4, branch: 'A', nom: 'Régie chirurgicale', price: 4000, value: 1.38, seizable: true },
+    { category: 'platines', tier: 5, branch: 'A', nom: 'Laboratoire du son', price: 10000, value: 1.5, seizable: true },
+    // voie B — Showmanship : le charisme effectif de tout le crew +1
+    { category: 'platines', tier: 3, branch: 'B', nom: 'Cabine spectacle', price: 7000, value: 1.2, seizable: true, effects: { charismeBonus: 1 } },
+    { category: 'platines', tier: 4, branch: 'B', nom: 'Scène à paillettes', price: 4000, value: 1.26, seizable: true, effects: { charismeBonus: 1 } },
+    { category: 'platines', tier: 5, branch: 'B', nom: 'Cathédrale du show', price: 10000, value: 1.32, seizable: true, effects: { charismeBonus: 1 } },
   ],
   mur: [
     { category: 'mur', tier: 0, nom: 'Les vieilles enceintes du camion', price: 0, value: 0.6, seizable: false },
-    { category: 'mur', tier: 1, nom: 'Stack honnête', price: 250, value: 1.0, seizable: true },
-    { category: 'mur', tier: 2, nom: 'Gros système', price: 1200, value: 1.45, seizable: true },
-    { category: 'mur', tier: 3, nom: 'Mur de son', price: 3000, value: 2.0, seizable: true },
+    { category: 'mur', tier: 1, nom: 'Stack honnête', price: 625, value: 1.0, seizable: true },
+    { category: 'mur', tier: 2, nom: 'Gros système', price: 3000, value: 1.45, seizable: true },
+    // voie A — Infrabasses : cap ++, la foule reste collée au mur
+    { category: 'mur', tier: 3, branch: 'A', nom: 'Mur de son', price: 7500, value: 2.0, seizable: true, effects: { churnMult: 0.88 } },
+    { category: 'mur', tier: 4, branch: 'A', nom: 'Mur d’infrabasses', price: 4000, value: 2.4, seizable: true, effects: { churnMult: 0.82 } },
+    { category: 'mur', tier: 5, branch: 'A', nom: 'Cité du caisson', price: 10000, value: 2.9, seizable: true, effects: { churnMult: 0.75 } },
+    // voie B — Line array : qualité +, le son porte moins → heat −
+    { category: 'mur', tier: 3, branch: 'B', nom: 'Line array', price: 7500, value: 1.85, seizable: true, effects: { qualityMult: 1.06, heatMult: 0.92 } },
+    { category: 'mur', tier: 4, branch: 'B', nom: 'Line array V2', price: 4000, value: 2.1, seizable: true, effects: { qualityMult: 1.09, heatMult: 0.88 } },
+    { category: 'mur', tier: 5, branch: 'B', nom: 'Arc de son', price: 10000, value: 2.5, seizable: true, effects: { qualityMult: 1.12, heatMult: 0.84 } },
   ],
   groupe: [
     { category: 'groupe', tier: 0, nom: 'Groupe poussif', price: 0, value: 0.62, seizable: false },
-    { category: 'groupe', tier: 1, nom: 'Groupe de chantier', price: 180, value: 0.8, seizable: true },
-    { category: 'groupe', tier: 2, nom: 'Groupe insonorisé', price: 900, value: 0.95, seizable: true },
-    { category: 'groupe', tier: 3, nom: 'Semi-remorque énergie', price: 2500, value: 1.2, seizable: true },
+    { category: 'groupe', tier: 1, nom: 'Groupe de chantier', price: 450, value: 0.8, seizable: true },
+    { category: 'groupe', tier: 2, nom: 'Groupe insonorisé', price: 2250, value: 0.95, seizable: true },
+    // voie A — Silencieux : heat −, power honnête
+    { category: 'groupe', tier: 3, branch: 'A', nom: 'Semi silencieux', price: 6250, value: 1.2, seizable: true, effects: { heatMult: 0.9 } },
+    { category: 'groupe', tier: 4, branch: 'A', nom: 'Caisson furtif', price: 4000, value: 1.32, seizable: true, effects: { heatMult: 0.85 } },
+    { category: 'groupe', tier: 5, branch: 'A', nom: 'Centrale fantôme', price: 10000, value: 1.45, seizable: true, effects: { heatMult: 0.8 } },
+    // voie B — Monstre : power ++, pousser sans surcharge (RÉVISION CHANTIER 1 : RINSE)
+    { category: 'groupe', tier: 3, branch: 'B', nom: 'Semi monstre', price: 6250, value: 1.35, seizable: true },
+    { category: 'groupe', tier: 4, branch: 'B', nom: 'Turbine de chantier', price: 4000, value: 1.55, seizable: true, effects: { pousserPowerFree: true } },
+    { category: 'groupe', tier: 5, branch: 'B', nom: 'Réacteur du teknival', price: 10000, value: 1.85, seizable: true, effects: { pousserPowerFree: true } },
   ],
   lumieres: [
     { category: 'lumieres', tier: 0, nom: 'Trois ampoules', price: 0, value: 0, seizable: false },
-    { category: 'lumieres', tier: 1, nom: 'Barre de LEDs', price: 120, value: 0.06, seizable: true },
-    { category: 'lumieres', tier: 2, nom: 'Lasers + stroboscope', price: 800, value: 0.12, seizable: true },
-    { category: 'lumieres', tier: 3, nom: 'Show lumière complet', price: 2200, value: 0.2, seizable: true },
+    { category: 'lumieres', tier: 1, nom: 'Barre de LEDs', price: 300, value: 0.06, seizable: true },
+    { category: 'lumieres', tier: 2, nom: 'Lasers + stroboscope', price: 2000, value: 0.12, seizable: true },
+    // voie A — Hypnose : vibe +, la foule décroche moins
+    // RÉVISION CHANTIER 1 : « burnout de foule ralenti » → fallback churnMult
+    { category: 'lumieres', tier: 3, branch: 'A', nom: 'Show hypnose', price: 5500, value: 0.24, seizable: true, effects: { churnMult: 0.9 } },
+    { category: 'lumieres', tier: 4, branch: 'A', nom: 'Spirale de lasers', price: 4000, value: 0.28, seizable: true, effects: { churnMult: 0.85 } },
+    { category: 'lumieres', tier: 5, branch: 'A', nom: 'Aurore artificielle', price: 10000, value: 0.32, seizable: true, effects: { churnMult: 0.8 } },
+    // voie B — Stroboscopique : le drop paie plus
+    { category: 'lumieres', tier: 3, branch: 'B', nom: 'Mur de strobes', price: 5500, value: 0.2, seizable: true, effects: { dropMult: 1.25 } },
+    { category: 'lumieres', tier: 4, branch: 'B', nom: 'Tempête blanche', price: 4000, value: 0.22, seizable: true, effects: { dropMult: 1.5 } },
+    { category: 'lumieres', tier: 5, branch: 'B', nom: 'Éclipse stroboscopique', price: 10000, value: 0.25, seizable: true, effects: { dropMult: 1.8 } },
   ],
   logistique: [
     { category: 'logistique', tier: 0, nom: 'Personne au portail', price: 0, value: 1.0, seizable: false },
-    { category: 'logistique', tier: 1, nom: 'Deux guetteurs', price: 180, value: 0.85, seizable: true },
-    { category: 'logistique', tier: 2, nom: 'Talkies + spots de repli', price: 900, value: 0.7, seizable: true },
-    { category: 'logistique', tier: 3, nom: 'Réseau de la scène', price: 2400, value: 0.55, seizable: true },
+    { category: 'logistique', tier: 1, nom: 'Deux guetteurs', price: 450, value: 0.85, seizable: true },
+    { category: 'logistique', tier: 2, nom: 'Talkies + spots de repli', price: 2250, value: 0.7, seizable: true },
+    // voie A — Réseau : la chaleur monte encore moins
+    // RÉVISION CHANTIER 1 : « descente retardée, négo + » → fallback value (heat) plus bas
+    { category: 'logistique', tier: 3, branch: 'A', nom: 'Réseau de la scène', price: 6000, value: 0.55, seizable: true },
+    { category: 'logistique', tier: 4, branch: 'A', nom: 'Toile d’indics', price: 4000, value: 0.48, seizable: true },
+    { category: 'logistique', tier: 5, branch: 'A', nom: 'La scène entière', price: 10000, value: 0.4, seizable: true },
+    // voie B — Mobilité : cautions −50 %
+    // RÉVISION CHANTIER 1 : « évacuation sans malus de rep » à brancher sur la descente
+    { category: 'logistique', tier: 3, branch: 'B', nom: 'Convoi mobile', price: 6000, value: 0.6, seizable: true, effects: { cautionMult: 0.5 } },
+    { category: 'logistique', tier: 4, branch: 'B', nom: 'Caravane éclair', price: 4000, value: 0.55, seizable: true, effects: { cautionMult: 0.5 } },
+    { category: 'logistique', tier: 5, branch: 'B', nom: 'Flotte insaisissable', price: 10000, value: 0.48, seizable: true, effects: { cautionMult: 0.35 } },
   ],
 };
 
 export const GEAR_CATEGORIES: GearCategory[] = ['platines', 'mur', 'groupe', 'lumieres', 'logistique'];
+
+/** Le matos branche à partir de ce tier — la voie se choisit à l'achat. */
+export const BRANCH_TIER = 3;
+
+export function gearItem(cat: GearCategory, tier: number, branch?: GearBranch): GearItem {
+  const item = GEAR[cat].find(
+    (g) => g.tier === tier && (tier < BRANCH_TIER || g.branch === branch),
+  );
+  if (!item) throw new Error(`unknown gear: ${cat} t${tier} ${branch ?? ''}`);
+  return item;
+}
+
+/** L'item possédé d'une catégorie (tier + voie choisie). */
+export function ownedGear(state: GameState, cat: GearCategory): GearItem {
+  return gearItem(cat, state.gear[cat], state.gearBranch[cat]);
+}
+
+/** Prochains achats : deux options au passage du tier 3, une seule ensuite. */
+export function nextGearOptions(state: GameState, cat: GearCategory): GearItem[] {
+  const nextTier = state.gear[cat] + 1;
+  if (nextTier < BRANCH_TIER) return GEAR[cat].filter((g) => g.tier === nextTier);
+  if (nextTier === BRANCH_TIER) {
+    return ['A', 'B'].map((b) => gearItem(cat, BRANCH_TIER, b as GearBranch));
+  }
+  const branch = state.gearBranch[cat];
+  return GEAR[cat].filter((g) => g.tier === nextTier && g.branch === branch);
+}
+
+/** L'item miroir de la voie non choisie au tier courant, ou null avant le tier 3. */
+export function switchBranchItem(state: GameState, cat: GearCategory): GearItem | null {
+  const tier = state.gear[cat];
+  const branch = state.gearBranch[cat];
+  if (tier < BRANCH_TIER || !branch) return null;
+  return gearItem(cat, tier, branch === 'A' ? 'B' : 'A');
+}
 
 /** The scene's DJs. The first one is the founding crew member, unlosable. */
 export const DJS: DjDef[] = [

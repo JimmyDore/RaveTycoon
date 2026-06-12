@@ -1,4 +1,4 @@
-import { DJS, GEAR, GEAR_CATEGORIES, SPOTS, getDj, getGenre, getSpot } from '../core/data';
+import { DJS, GEAR_CATEGORIES, SPOTS, getDj, getGenre, getSpot, nextGearOptions, ownedGear } from '../core/data';
 import { BAR_STOCK_COST, ESSENCE_RATE, cautionCost, potentialBar, type BarStock } from '../core/economy';
 import { djLevel, fatigueMalus, lockedDjs, recruitableDjs } from '../core/crew';
 import { rushCost } from '../core/idle';
@@ -157,7 +157,7 @@ export function renderPrepare(
     });
     fees.append(cBtn);
   }
-  const estCap = Math.round(spotDef.cap * GEAR.mur[state.gear.mur].value);
+  const estCap = Math.round(spotDef.cap * ownedGear(state, 'mur').value);
   const estRestock = Math.round(BAR_STOCK_COST[selection.barStock] * potentialBar(spotDef, estCap));
   const estEssence = state.gear.groupe === 0 ? 0 : Math.round(ESSENCE_RATE * (spotDef.duration / 60) * 1);
   fees.append(el('p', 'hint', STR.feesEstimate(estRestock + estEssence)));
@@ -225,9 +225,9 @@ export function renderPrepare(
   const shopSec = el('section', 'panel');
   shopSec.append(el('h2', '', STR.shop));
   for (const cat of GEAR_CATEGORIES) {
-    const tier = state.gear[cat];
-    const current = GEAR[cat][tier];
-    const next = GEAR[cat][tier + 1];
+    // RÉVISION TASK 5 : bouton mono-option temporaire — la vraie UI de voies arrive en Task 5
+    const current = ownedGear(state, cat);
+    const next = nextGearOptions(state, cat)[0];
     const row = el('div', 'gear-row');
     const info = el('div', 'gear-info');
     info.append(el('div', 'gear-cat', STR.gearCats[cat]));

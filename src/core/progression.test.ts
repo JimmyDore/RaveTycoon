@@ -20,10 +20,11 @@ function playNight(state: GameState, seed: number): NightResult {
 }
 
 describe('early-game progression curve', () => {
-  it('night 1 funds a first purchase', () => {
+  it('two nights fund a first purchase (prix ×2.5 — la première heure ralentit)', () => {
     const state = newGame(42);
-    playNight(state, 1234);
-    // at least one tier-1 gear upgrade must be affordable after one night
+    playNight(state, 1);
+    playNight(state, 2);
+    // cheapest tier-1 = Barre de LEDs 300 € ; mesuré ≈ 492 € après 2 nuits
     const cheapest = Math.min(
       ...Object.values(GEAR).map((items) => items[1].price),
     );
