@@ -35,6 +35,8 @@ export function newGame(now = 0): GameState {
     gardeAVue: {},
     casier: 0,
     mursTenus: 0,
+    specialOffer: null,
+    soundclashWon: false,
     tour: defaultTour(),
   };
 }
@@ -92,6 +94,8 @@ function migrate(state: GameState): GameState {
   state.gardeAVue ??= {};
   state.casier ??= 0;
   state.mursTenus ??= 0;
+  state.specialOffer ??= null;
+  state.soundclashWon ??= false;
   return state;
 }
 

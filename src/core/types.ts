@@ -2,6 +2,7 @@ import type { Intensity } from './intensity';
 import type { NightModifierDef } from './modifiers';
 import type { NightPhaseId } from './phases';
 import type { RegionRules, RegionState } from './regions';
+import type { SpecialOfferState } from './specials';
 
 export type SpotId =
   | 'champ'
@@ -197,6 +198,10 @@ export interface GameState {
   casier: number;
   /** murs tenus pendant un siège (tag légende, ⭐ au départ en tournée) */
   mursTenus: number;
+  /** offre de nuit spéciale du soir (story D) — re-tirée à chaque nuit (compteur) */
+  specialOffer: SpecialOfferState | null;
+  /** soundclash gagné au moins une fois — débloque Volt dans le pool */
+  soundclashWon: boolean;
   /** région de la tournée courante (chantier 4) — absente en tournée 1 */
   region?: RegionState;
   tour: TourState;

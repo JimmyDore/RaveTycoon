@@ -39,12 +39,9 @@ export interface RegionRules {
   attenteTolBonus: number;
   /** × sur la rep des objectifs de set (endCurrentSet) */
   goalRepMult: number;
-  /**
-   * Events de nuit supplémentaires possibles (maxEvents).
-   * RÉVISION CHANTIER 1 : fallback vivant des « nuits spéciales 2× plus fréquentes ».
-   */
+  /** Events de nuit supplémentaires possibles (maxEvents) — le « il se passe toujours quelque chose » des fêtes votives. */
   maxEventsBonus: number;
-  /** Dormant. RÉVISION CHANTIER 1 : poids du tirage des nuits spéciales. */
+  /** × sur la probabilité du tirage des nuits spéciales (drawSpecialOffer). */
   specialNightWeightMult: number;
   /** × sur les arrivées (tickNight) */
   arrivalMult: number;
