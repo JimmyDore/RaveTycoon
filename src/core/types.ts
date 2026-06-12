@@ -261,6 +261,14 @@ export interface NightState {
   heat: number;
   peakHeat: number;
   bank: number;
+  /** stock du bar choisi à la prépa — plafonne la recette buvette */
+  barStock: 'leger' | 'normal' | 'large';
+  /** plafond de vente buvette (en €) imposé par le stock */
+  barCap: number;
+  /** ventes buvette cumulées (seule la buvette est plafonnée, pas les events) */
+  barSales: number;
+  /** caution versée au lancement (0 si aucune) — rendue à l'aube, perdue sur bust */
+  cautionPaid: number;
   murStress: number;
   murBlown: boolean;
   /** seconds of sound cut remaining (brownout / repairs) */
@@ -329,6 +337,14 @@ export interface NightResult {
   /** net cash credited to the crew */
   payout: number;
   fine: number;
+  /** essence du groupe, prélevée sur le brut */
+  essence: number;
+  /** restock du bar, prélevé sur le brut */
+  restock: number;
+  /** caution versée au lancement */
+  cautionPaid: number;
+  /** caution rendue à l'aube (0 sur bust ou sans caution) */
+  cautionReturned: number;
   seized: GearCategory | null;
   repGained: number;
   peakCrowd: number;

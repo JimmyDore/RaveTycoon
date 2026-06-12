@@ -1,4 +1,5 @@
 import { GEAR, GEAR_CATEGORIES, getDj, getSpot } from './data';
+import { essenceCost, restockCost } from './economy';
 import { applyNightRest } from './crew';
 import { buzzAfterNight } from './idle';
 import type { GameState, GearCategory, NightResult, NightState } from './types';
@@ -36,7 +37,12 @@ const SUNRISE_REP = 3;
 export function settleNight(state: GameState, night: NightState): NightResult {
   const vibe = avgVibe(night);
   const donationMult = 1 + 0.8 * vibe + 0.6 * (night.peakCrowd / night.cap);
-  const gross = Math.round(night.bank * donationMult);
+  const grossRaw = Math.round(night.bank * donationMult);
+  // frais de nuit : prélevés sur le brut, jamais sur la banque (no-softlock)
+  const spot = getSpot(night.spotId);
+  const essence = Math.min(grossRaw, essenceCost(state, night));
+  const restock = Math.min(grossRaw - essence, restockCost(spot, night.cap, night.barStock));
+  const gross = grossRaw - essence - restock;
   const cuts = cutsTotal(night);
   const payout = Math.round(gross * (1 - cuts));
   const survivedHighHeat = night.peakHeat >= 0.8;
@@ -45,7 +51,7 @@ export function settleNight(state: GameState, night: NightState): NightResult {
   );
   const won = night.spotId === 'teknival';
 
-  state.cash += payout;
+  state.cash += payout + night.cautionPaid; // caution rendue à l'aube
   state.rep += repGained;
   state.nights += 1;
   if (won) state.wonTeknival = true;
@@ -64,6 +70,10 @@ export function settleNight(state: GameState, night: NightState): NightResult {
     cutsTotal: cuts,
     payout,
     fine: 0,
+    essence,
+    restock,
+    cautionPaid: night.cautionPaid,
+    cautionReturned: night.cautionPaid,
     seized: null,
     repGained,
     peakCrowd: Math.round(night.peakCrowd),
@@ -116,6 +126,11 @@ export function applyBust(state: GameState, night: NightState): NightResult {
     if (seized) state.gear[seized] = Math.max(0, state.gear[seized] - 1);
   }
 
+  // les frais ne touchent jamais la banque : plafonnés à ce que la nuit a rapporté
+  const essence = Math.min(gross, essenceCost(state, night));
+  const restock = Math.min(gross - essence, restockCost(spot, night.cap, night.barStock));
+  gross -= essence + restock;
+
   const cuts = cutsTotal(night);
   const payout = Math.round(gross * (1 - cuts));
   state.cash = Math.max(0, state.cash + payout - fine);
@@ -135,6 +150,10 @@ export function applyBust(state: GameState, night: NightState): NightResult {
     cutsTotal: cuts,
     payout,
     fine,
+    essence,
+    restock,
+    cautionPaid: night.cautionPaid,
+    cautionReturned: 0,
     seized,
     repGained,
     peakCrowd: Math.round(night.peakCrowd),

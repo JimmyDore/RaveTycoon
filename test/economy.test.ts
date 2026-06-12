@@ -1,0 +1,175 @@
+import { describe, expect, it } from 'vitest';
+import {
+  BAR_DRIP,
+  BAR_STOCK_CAP,
+  BAR_STOCK_COST,
+  BRIEF_INTENSITY,
+  ESSENCE_RATE,
+  cautionCost,
+  essenceCost,
+  potentialBar,
+} from '../src/core/economy';
+import { getSpot } from '../src/core/data';
+import { createNight, startSet, tickNight } from '../src/core/night';
+import { applyBust, settleNight } from '../src/core/payout';
+import { newGame } from '../src/core/save';
+import type { GameState, NightState } from '../src/core/types';
+
+/** Same shape as payout.test.ts: a champ night frozen at sunrise. */
+function finishedNight(
+  state: GameState,
+  opts: { barStock?: 'leger' | 'normal' | 'large'; caution?: boolean } = {},
+  overrides: Partial<NightState> = {},
+): NightState {
+  const night = createNight(state, 'champ', ['tonton'], 1, opts);
+  Object.assign(night, {
+    t: 180,
+    phase: 'ended',
+    sunrise: true,
+    bank: 100,
+    peakCrowd: 30,
+    vibeSum: 0.8 * 180,
+    vibeSamples: 180,
+    peakHeat: 0.4,
+    playedSets: [
+      { djId: 'tonton', brief: 'normal' },
+      { djId: 'tonton', brief: 'normal' },
+    ],
+  });
+  return Object.assign(night, overrides);
+}
+
+describe('essence du groupe', () => {
+  it('coûte 2 €/min pondérés par la consigne — gratuite au groupe poussif', () => {
+    const state = newGame();
+    const night = finishedNight(state, {}, {
+      playedSets: [
+        { djId: 'tonton', brief: 'normal' },
+        { djId: 'tonton', brief: 'pousser' },
+      ],
+    });
+    expect(essenceCost(state, night)).toBe(0); // groupe tier 0 : no-softlock
+    state.gear.groupe = 1;
+    // RÉVISION CHANTIER 1 : intensité = consigne (safe .25 / normal .5 / pousser 1)
+    // 2 € × 3 min × (0.5 + (0.5 + 1) / 2) = 7.5 → 8
+    expect(ESSENCE_RATE).toBe(2);
+    expect(BRIEF_INTENSITY).toEqual({ safe: 0.25, normal: 0.5, pousser: 1 });
+    expect(essenceCost(state, night)).toBe(8);
+  });
+});
+
+describe('stock du bar', () => {
+  it('expose les fractions coût/plafond du choix de prépa', () => {
+    expect(BAR_DRIP).toBe(0.05); // déplacé de night.ts vers economy.ts
+    expect(BAR_STOCK_COST).toEqual({ leger: 0, normal: 0.15, large: 0.3 });
+    expect(BAR_STOCK_CAP).toEqual({ leger: 0.5, normal: 0.8, large: 1.1 });
+  });
+
+  it('plafonne la recette de la buvette au stock embarqué', () => {
+    const state = newGame();
+    const night = createNight(state, 'champ', ['tonton'], 2, { barStock: 'leger' });
+    // potentiel = cap × drip × priceMult × durée = 36 × 0.05 × 1 × 180 = 324
+    expect(potentialBar(getSpot('champ'), night.cap)).toBeCloseTo(324, 5);
+    expect(night.barCap).toBeCloseTo(162, 5); // léger = 50 %
+    startSet(state, night, 'tonton', 'normal');
+    night.crowd = night.cap;
+    night.barSales = night.barCap; // stock épuisé
+    const bank = night.bank;
+    tickNight(state, night, 1);
+    expect(night.bank).toBe(bank); // plus rien à vendre
+  });
+
+  it('par défaut le stock est léger (zéro frais)', () => {
+    const state = newGame();
+    expect(createNight(state, 'champ', ['tonton'], 3).barStock).toBe('leger');
+  });
+});
+
+describe('frais prélevés sur le brut, jamais sur la banque', () => {
+  it('détaille essence + restock au payout', () => {
+    const state = newGame();
+    state.gear.groupe = 1;
+    const night = finishedNight(state, { barStock: 'normal' });
+    const result = settleNight(state, night);
+    // brut = round(100 × 2.14) = 214 ; essence = 2×3×1 = 6 ; restock = round(0.15×324) = 49
+    expect(result.essence).toBe(6);
+    expect(result.restock).toBe(49);
+    expect(result.gross).toBe(214 - 55);
+    expect(result.payout).toBe(Math.round(159 * 0.95)); // 151
+    expect(state.cash).toBe(151);
+  });
+
+  it('ne fait jamais passer la caisse en négatif (banque vide → frais nuls)', () => {
+    const state = newGame();
+    state.gear.groupe = 3;
+    const night = finishedNight(state, { barStock: 'large' }, { bank: 0, peakCrowd: 0, vibeSum: 0 });
+    settleNight(state, night);
+    expect(state.cash).toBe(0);
+  });
+
+  it('prélève aussi sur le demi-brut d’un premier bust', () => {
+    const state = newGame();
+    state.gear.groupe = 1;
+    const night = finishedNight(state, { barStock: 'normal' }, { sunrise: false, busted: true });
+    const result = applyBust(state, night);
+    // demi-banque = 50, puis essence 6 + restock 44 (restock plafonné à ce qui reste)
+    expect(result.essence).toBe(6);
+    expect(result.restock).toBe(44);
+    expect(result.gross).toBe(0);
+    expect(state.cash).toBe(0); // jamais négatif
+  });
+});
+
+describe('caution du spot (tiers ≥ 3)', () => {
+  it('se paie sur la banque et revient à l’aube', () => {
+    const state = newGame();
+    state.rep = 1000;
+    state.cash = 1000;
+    expect(cautionCost(state, getSpot('carriere'))).toBe(220); // cap × 1 €
+    expect(cautionCost(state, getSpot('champ'))).toBe(0); // tier < 3
+    const night = createNight(state, 'carriere', ['tonton'], 4, { caution: true });
+    expect(state.cash).toBe(780);
+    expect(night.cautionPaid).toBe(220);
+    expect(night.heat).toBe(0);
+    Object.assign(night, {
+      t: 300, phase: 'ended', sunrise: true, bank: 50, peakCrowd: 10,
+      vibeSum: 30, vibeSamples: 300,
+      playedSets: [{ djId: 'tonton', brief: 'normal' }],
+    });
+    const result = settleNight(state, night);
+    expect(result.cautionReturned).toBe(220);
+    expect(state.cash).toBe(780 + result.payout + 220);
+  });
+
+  it('est perdue sur bust', () => {
+    const state = newGame();
+    state.rep = 1000;
+    state.cash = 500;
+    const night = createNight(state, 'carriere', ['tonton'], 5, { caution: true });
+    Object.assign(night, {
+      t: 300, phase: 'ended', busted: true, bank: 0, peakCrowd: 0,
+      playedSets: [{ djId: 'tonton', brief: 'normal' }],
+    });
+    const result = applyBust(state, night);
+    expect(result.cautionReturned).toBe(0);
+    expect(result.cautionPaid).toBe(220);
+    expect(state.cash).toBe(280); // la caution ne revient pas
+  });
+
+  it('sans caution sur un tier ≥ 3, la heat démarre à +0.1 — jouable quand même', () => {
+    const state = newGame();
+    state.rep = 1000;
+    expect(createNight(state, 'carriere', ['tonton'], 6).heat).toBeCloseTo(0.1, 5);
+    expect(createNight(state, 'champ', ['tonton'], 6).heat).toBe(0);
+  });
+
+  it('refuse la caution si la banque ne suit pas (et joue sans)', () => {
+    const state = newGame();
+    state.rep = 1000;
+    state.cash = 100;
+    const night = createNight(state, 'carriere', ['tonton'], 7, { caution: true });
+    expect(night.cautionPaid).toBe(0);
+    expect(state.cash).toBe(100);
+    expect(night.heat).toBeCloseTo(0.1, 5);
+  });
+});

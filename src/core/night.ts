@@ -1,5 +1,6 @@
 import { applySetToll, effectiveTechnique, fatigueQualityMult, getCrewMember } from './crew';
 import { GEAR, getDj, getGenre, getSpot } from './data';
+import { BAR_DRIP, BAR_STOCK_CAP, cautionCost, potentialBar, type BarStock } from './economy';
 import { drawEvent } from './events';
 import { drawGoal } from './goals';
 import { modifierProduct, modifierSum, rollModifiers } from './modifiers';
@@ -19,7 +20,6 @@ import type {
   SpotId,
 } from './types';
 
-const BAR_DRIP = 0.05;
 const BROWNOUT_DURATION = 1.5;
 const BROWNOUT_COOLDOWN = 6;
 /** events per night scale with set count; min spacing in seconds */
@@ -55,15 +55,33 @@ function clamp(x: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, x));
 }
 
+export interface NightOptions {
+  barStock?: BarStock;
+  caution?: boolean;
+}
+
 export function createNight(
   state: GameState,
   spotId: SpotId,
   presentDjs: string[],
   seed: number,
+  opts: NightOptions = {},
 ): NightState {
   const spot = getSpot(spotId);
   const murItem = GEAR.mur[state.gear.mur];
   const murMult = murItem.value * (state.damaged.mur ? 0.6 : 1);
+  const cap = Math.round(spot.cap * murMult);
+  const barStock: BarStock = opts.barStock ?? 'leger';
+  // caution : un choix d'ambition payé sur la banque ; sans elle, heat de départ +0.1
+  let cautionPaid = 0;
+  if (opts.caution && spot.tier >= 3) {
+    const cost = cautionCost(state, spot);
+    if (state.cash >= cost) {
+      state.cash -= cost;
+      cautionPaid = cost;
+    }
+  }
+  const startHeat = spot.tier >= 3 && cautionPaid === 0 ? 0.1 : 0;
   // modifs du soir (météo/foule) — flux RNG dédié, ne perturbe pas le flux des events
   const modifiers = rollModifiers(spot.tier, seed);
   const eventDelay = modifierSum(modifiers, 'eventDelay');
@@ -85,13 +103,17 @@ export function createNight(
     setQuality: 0,
     crowd: 0,
     peakCrowd: 0,
-    cap: Math.round(spot.cap * murMult),
+    cap,
     vibe: 0.4,
     vibeSum: 0,
     vibeSamples: 0,
-    heat: 0,
-    peakHeat: 0,
+    heat: startHeat,
+    peakHeat: startHeat,
     bank: 0,
+    barStock,
+    barCap: BAR_STOCK_CAP[barStock] * potentialBar(spot, cap),
+    barSales: 0,
+    cautionPaid,
     murStress: 0,
     murBlown: false,
     soundCutT: 0,
@@ -287,8 +309,11 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
     return events;
   }
 
-  // --- bar drip ----------------------------------------------------------------------
-  night.bank += night.crowd * BAR_DRIP * spot.priceMult * priceMod * dt;
+  // --- bar drip — plafonné par le stock embarqué -------------------------------------
+  const drip = night.crowd * BAR_DRIP * spot.priceMult * priceMod * dt;
+  const sold = Math.min(drip, Math.max(0, night.barCap - night.barSales));
+  night.barSales += sold;
+  night.bank += sold;
 
   // --- flash-prompts du dancefloor (non bloquants) ----------------------------------------
   if (night.floorPrompt && night.t > night.floorPrompt.expiresAt) {
