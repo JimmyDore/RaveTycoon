@@ -146,11 +146,18 @@ export function applyBust(state: GameState, night: NightState): NightResult {
   state.busts += 1;
   const offense = state.busts;
 
+  const aggrave = night.raid?.outcome === 'mur-casse';
   let gross = 0;
   let fine = 0;
   let seized: GearCategory | null = null;
 
-  if (offense === 1) {
+  if (aggrave) {
+    // mur cassé : −50 % caisse + saisie immédiate (−1 tier, jamais le starter),
+    // quel que soit le casier — la garde à vue a été posée par raid.ts
+    gross = Math.round(night.bank * 0.5);
+    seized = bestSeizable(state);
+    if (seized) state.gear[seized] = Math.max(0, state.gear[seized] - 1);
+  } else if (offense === 1) {
     gross = Math.round(night.bank * 0.5);
   } else if (offense === 2) {
     fine = 200 * spot.tier;

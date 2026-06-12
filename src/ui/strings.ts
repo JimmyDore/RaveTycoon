@@ -138,6 +138,7 @@ export const STR = {
     'prompt-missed': '🙈 Trop tard — tu as laissé passer le moment.',
     'phase-change': '🌒 La nuit bascule…',
     descente: '🚨 LES BLEUS ARRIVENT — décide vite.',
+    'mur-tenu': '🛡 LE MUR A TENU ! Les bleus reculent — légende.',
     heatWarning: '👮 Ça sent le roussi… calme le jeu.',
   },
   phaseToast: {

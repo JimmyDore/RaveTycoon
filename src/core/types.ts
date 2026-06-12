@@ -442,7 +442,8 @@ export type NightTickEventType =
   | 'set-ended'
   | 'prompt-missed'
   | 'phase-change'
-  | 'descente';
+  | 'descente'
+  | 'mur-tenu';
 
 export interface NightTickEvent {
   type: NightTickEventType;

@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { createNight, setIntensity, startSet, tickNight } from './night';
-import { descenteCountdown, negoChance, negoCost, raidEvacuer, raidNegocier } from './raid';
+import { createNight, resolveEvent, setIntensity, startSet, tickNight } from './night';
+import {
+  descenteCountdown,
+  negoChance,
+  negoCost,
+  raidEvacuer,
+  raidNegocier,
+  raidTenir,
+  SIEGE_DURATION,
+  SIEGE_MAX_LOW,
+  SIEGE_VIBE_MIN,
+} from './raid';
 import { applyBust, settleNight } from './payout';
 import { gardeAVueNights, isEnGardeAVue } from './crew';
 import { newGame } from './save';
@@ -169,5 +179,68 @@ describe('conséquences persistantes : casier & garde à vue', () => {
       playedSets: [{ djId: 'tonton' }],
     }));
     expect(isEnGardeAVue(state, 'gamine')).toBe(false);
+  });
+});
+
+describe('tenir le mur : le siège', () => {
+  function siegeNight(seed = 7) {
+    const { state, night } = playing(seed);
+    night.heat = 0.86;
+    tickNight(state, night, 0.1);
+    expect(raidTenir(state, night)).toBe(true);
+    expect(night.raid?.status).toBe('siege');
+    return { state, night };
+  }
+
+  it('vibe tenue ≥ 0.65 pendant 45 s → mur tenu : rep +25, montée pleine, heat drainée', () => {
+    const { state, night } = siegeNight();
+    night.vibe = 0.9;
+    const repBefore = night.repBonus;
+    for (let t = 0; t < SIEGE_DURATION + 1; t += 0.1) {
+      if (night.phase === 'event') resolveEvent(state, night, 0);
+      night.vibe = Math.max(night.vibe, SIEGE_VIBE_MIN + 0.05); // la vibe tient
+      tickNight(state, night, 0.1);
+    }
+    expect(night.raid?.outcome).toBe('mur-tenu');
+    expect(night.repBonus).toBeGreaterThanOrEqual(repBefore + 25);
+    expect(night.montee).toBe(1);
+    expect(night.heat).toBeLessThan(0.5);
+    expect(state.mursTenus).toBe(1);
+    expect(night.busted).toBe(false);
+  });
+
+  it('> 8 s cumulées sous le seuil → bust aggravé : saisie, garde à vue, −50 % caisse', () => {
+    const state = newGame(42);
+    state.rep = 100;
+    state.gear.mur = 2; // du matos saisissable
+    state.crew.push({ id: 'gamine', xp: 0, fatigue: 0, setsPlayed: 0, gifted: false, studioBonus: 0 });
+    const night = createNight(state, 'champ', ['gamine'], 7);
+    startSet(state, night, 'gamine');
+    night.heat = 0.86;
+    tickNight(state, night, 0.1);
+    raidTenir(state, night);
+    for (let t = 0; t < SIEGE_MAX_LOW + 2 && !night.busted; t += 0.1) {
+      night.vibe = 0.1; // le mur casse
+      tickNight(state, night, 0.1);
+    }
+    night.bank = 400; // figée après coup : les ticks du siège grappillent quelques €
+    expect(night.raid?.outcome).toBe('mur-casse');
+    expect(night.busted).toBe(true);
+    expect(state.gardeAVue.gamine).toBe(2); // le DJ aux platines paie
+    const result = applyBust(state, night);
+    expect(result.seized).toBe('mur'); // saisie dès le premier bust
+    expect(state.gear.mur).toBe(1);
+    expect(result.bank).toBe(400);
+    expect(result.gross).toBeLessThanOrEqual(200); // −50 % caisse
+  });
+
+  it('le fondateur et l’insaisissable ne vont jamais en garde à vue', () => {
+    const { state, night } = siegeNight(); // tonton aux platines
+    for (let t = 0; t < SIEGE_MAX_LOW + 2 && !night.busted; t += 0.1) {
+      night.vibe = 0.1;
+      tickNight(state, night, 0.1);
+    }
+    expect(night.busted).toBe(true);
+    expect(state.gardeAVue.tonton).toBeUndefined();
   });
 });

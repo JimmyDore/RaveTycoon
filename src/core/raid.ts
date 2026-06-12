@@ -17,6 +17,8 @@ export const SIEGE_VIBE_MIN = 0.65;
 export const SIEGE_MAX_LOW = 8;
 export const NEGO_COST_BASE = 50;
 export const NEGO_COST_PER_CROWD = 2;
+export const MUR_TENU_REP = 25;
+export const GARDE_A_VUE_NIGHTS = 2;
 
 /** logTier efficace, plafonné à 3 (les tiers 4+ gardent leur value de heat). */
 function logTier(state: GameState): number {
@@ -62,8 +64,45 @@ export function tickRaid(
     raid.outcome = 'bust-timer';
     bust(state, night, events);
   }
-  // (le siège — raid.status === 'siege' — arrive en task 9)
-  void dt;
+  if (raid.status === 'siege') {
+    if (night.vibe < SIEGE_VIBE_MIN) raid.siegeLowT += dt;
+    if (raid.siegeLowT > SIEGE_MAX_LOW) {
+      // mur cassé : bust aggravé (saisie + garde à vue + −50 % caisse, voir payout)
+      raid.status = 'done';
+      raid.outcome = 'mur-casse';
+      jailCurrentDj(state, night);
+      night.journal.push({ t: night.t, titre: 'Le siège', outcome: 'Le mur a cassé. Les bleus sont entrés dans le son.' });
+      bust(state, night, events);
+    } else if (night.t >= raid.siegeEndAt) {
+      // mur tenu : les bleus se retirent devant la marée humaine
+      raid.status = 'done';
+      raid.outcome = 'mur-tenu';
+      night.heat = 0.3;
+      night.montee = 1; // Montée pleine offerte
+      night.repBonus += MUR_TENU_REP * (night.nightPhase === 'aube' ? 2 : 1);
+      state.mursTenus += 1;
+      night.journal.push({ t: night.t, titre: 'Le siège', outcome: 'Le mur a tenu. Les bleus ont reculé devant la foule. Légende.' });
+      events.push({ type: 'mur-tenu' });
+    }
+  }
+}
+
+/** TENIR LE MUR : 45 s de siège, la vibe contre le seuil. */
+export function raidTenir(state: GameState, night: NightState): boolean {
+  if (night.raid?.status !== 'countdown') return false;
+  night.raid.status = 'siege';
+  night.raid.siegeEndAt = night.t + SIEGE_DURATION;
+  night.raid.siegeLowT = 0;
+  void state;
+  return true;
+}
+
+/** Le DJ aux platines part en garde à vue — fondateur et insaisissable immunisés. */
+function jailCurrentDj(state: GameState, night: NightState): void {
+  const id = night.currentDj;
+  if (!id || id === 'tonton') return; // no-softlock : le fondateur reste libre
+  if (getDj(id).gimmick === 'insaisissable') return;
+  state.gardeAVue[id] = GARDE_A_VUE_NIGHTS;
 }
 
 /** ÉVACUER : nuit terminée immédiatement, caisse conservée, pas de bust. */
