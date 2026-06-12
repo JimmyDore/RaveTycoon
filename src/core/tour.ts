@@ -40,15 +40,11 @@ export const LEGENDE_PER_TEKNIVAL = 3;
 
 /**
  * legende = floor(rep / 100) + 3 × victoires Teknival cette tournée
- *         + 1 par « mur tenu » + 1 par arc mené à terme.
- *
- * RÉVISION CHANTIER 1 (partie 2): les arcs n'existent pas encore — leur hook
- * reste à 0 ici. Quand la partie 2 pose son compteur sur GameState, le
- * brancher dans cette constante.
+ *         + 1 par « mur tenu » (story C) + 1 par arc mené à terme (story E).
  */
 export function computeLegende(state: GameState): number {
   const mursTenus = state.mursTenus;
-  const arcsTermines = 0;
+  const arcsTermines = state.arcsCompleted.length;
   const base =
     Math.floor(state.rep / 100) +
     state.tour.teknivalWins * LEGENDE_PER_TEKNIVAL +
@@ -86,8 +82,9 @@ export function applyPerks(state: GameState): void {
  *
  * La garde à vue, le casier et les murs tenus ne survivent pas au départ : le
  * newGame frais les remet à zéro (« Le casier — les bleus t'oublient »).
- * RÉVISION CHANTIER 1 (partie 2): quand les arcs en cours arriveront sur
- * GameState, ils sont remis à zéro ici de la même façon.
+ * Les arcs en cours, les effets temporaires, le casier, la garde à vue et
+ * l'offre spéciale ne survivent pas au départ : le `newGame` frais les remet
+ * à leurs défauts vides (vérifié par test/tour.test.ts).
  */
 export function departOnTour(
   state: GameState,

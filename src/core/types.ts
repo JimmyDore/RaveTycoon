@@ -204,6 +204,12 @@ export interface GameState {
   specialOffer: SpecialOfferState | null;
   /** soundclash gagné au moins une fois — débloque Volt dans le pool */
   soundclashWon: boolean;
+  /** arcs de conséquences en cours — l'échéance décompte à chaque règlement */
+  pendingArcs: { arcId: string; stage: number; nightsLeft: number; payload?: number }[];
+  /** effets temporaires génériques (heat de base ×, heat de départ +), en nuits */
+  tempEffects: { heatBuildMult?: number; startHeatAdd?: number; nightsLeft: number }[];
+  /** ids des arcs menés à terme (⭐ légende, château squatté) */
+  arcsCompleted: string[];
   /** région de la tournée courante (chantier 4) — absente en tournée 1 */
   region?: RegionState;
   tour: TourState;
@@ -241,6 +247,18 @@ export interface EventEffects {
   arrivalCutT?: number;
   /** charge/décharge la jauge de montée */
   montee?: number;
+  /** plante un arc de conséquences (story E) — tiré au RNG de nuit */
+  plantsArc?: { arcId: string; stage?: number; chance: number };
+  /** marque l'arc comme mené à terme (⭐ légende, déblocages) */
+  arcComplete?: string;
+  /** multiplie la heat COURANTE (flic : « heat −40 % cette nuit » = ×0.6) */
+  heatMultNow?: number;
+  /** multiplie le buzz (journaliste : l'article sort, ×1.6) */
+  buzzMult?: number;
+  /** efface le casier (le forfait du flic) */
+  casierClear?: boolean;
+  /** effet temporaire générique : heat de base ×, heat de départ +, pendant n nuits */
+  tempHeat?: { heatBuildMult?: number; startHeatAdd?: number; nights: number };
 }
 
 export interface NightEventDef {
@@ -310,6 +328,8 @@ export interface SetGoalDef {
 
 export interface PendingEvent {
   def: NightEventDef;
+  /** event d'échéance d'arc (marqueur « suite » dans l'UI) */
+  arc?: { arcId: string; stage: number };
 }
 
 export interface SetRecord {

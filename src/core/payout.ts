@@ -1,3 +1,4 @@
+import { settleArcs } from './arcs';
 import { BRANCH_TIER, GEAR, GEAR_CATEGORIES, getDj, getSpot, ownedGear, switchBranchItem } from './data';
 import { essenceCost, restockCost } from './economy';
 import { applyNightRest, effectiveCut, getCrewMember } from './crew';
@@ -84,6 +85,7 @@ export function settleNight(state: GameState, night: NightState): NightResult {
   state.cash += payout + night.cautionPaid; // caution rendue à l'aube
   state.rep += repGained;
   state.nights += 1;
+  settleArcs(state, night);
   tickGardeAVue(state);
   if (!night.rules.casierGele) state.casier = Math.max(0, state.casier - 1);
   if (won) {
@@ -195,6 +197,7 @@ export function applyBust(state: GameState, night: NightState): NightResult {
   const repGained = Math.round((night.peakCrowd / 20 + night.repBonus) * (special?.rewards.repMult ?? 1));
   state.rep += repGained;
   state.nights += 1;
+  settleArcs(state, night);
   // PAS de tickGardeAVue ici (voir son doc-comment) : une garde à vue
   // antérieure ne décompte pas non plus sur une nuit bustée, assumé
   state.casier += 1;

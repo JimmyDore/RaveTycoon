@@ -185,6 +185,21 @@ describe('departOnTour : le reset', () => {
     expect(next.bestCrowd).toBe(1500);
     expect(next.bestPayout).toBe(9000);
   });
+
+  it('le départ efface arcs, tempEffects et offre spéciale (le newGame frais)', () => {
+    const state = newGame(42);
+    state.rep = 100;
+    state.pendingArcs = [{ arcId: 'flic-corrompu', stage: 0, nightsLeft: 2 }];
+    state.tempEffects = [{ heatBuildMult: 0.8, nightsLeft: 3 }];
+    state.arcsCompleted = ['fermier'];
+    state.soundclashWon = true;
+    const fresh = departOnTour(state);
+    expect(fresh.pendingArcs).toEqual([]);
+    expect(fresh.tempEffects).toEqual([]);
+    expect(fresh.arcsCompleted).toEqual([]); // le fermier d'ici ne connaît pas la région d'à côté
+    expect(fresh.specialOffer).toBeNull();
+    expect(fresh.soundclashWon).toBe(false); // Volt se regagne — le clash est par tournée
+  });
 });
 
 describe('departOnTour : le crew', () => {

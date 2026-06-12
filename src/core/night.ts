@@ -1,8 +1,10 @@
+import { plantArc, takeDueArc, tempHeatBuildMult, tempStartHeat } from './arcs';
 import { applySetToll, effectiveTechnique, fatigueQualityMult, getCrewMember } from './crew';
 import { getDj, getGenre, getSpot, ownedGear } from './data';
 import { BAR_DRIP, BAR_STOCK_CAP, cautionCost, potentialBar, type BarStock } from './economy';
 import { drawEvent } from './events';
 import { drawGoal } from './goals';
+import { BUZZ_CAP } from './idle';
 import { ATTENTE_GENRE, INTENSITY_HEAT, INTENSITY_LEVEL, INTENSITY_POWER, INTENSITY_QUALITY, isHighIntensity, type Intensity } from './intensity';
 import { modifierProduct, modifierSum, rollModifiers } from './modifiers';
 import { getPhase, phaseAt, phaseAttente } from './phases';
@@ -103,7 +105,11 @@ export function createNight(
   }
   // sans caution sur un tier ≥ 3 : +0.1 ; le casier chauffe les villes (tier ≥ 4)
   const casierHeat = spot.tier >= 4 ? 0.05 * state.casier : 0;
-  const startHeat = clamp((spot.tier >= 3 && cautionPaid === 0 ? 0.1 : 0) + casierHeat, 0, 0.5);
+  const startHeat = clamp(
+    (spot.tier >= 3 && cautionPaid === 0 ? 0.1 : 0) + casierHeat + tempStartHeat(state),
+    0,
+    0.5,
+  );
   const rules = buildRegionRules(state.region);
   // modifs du soir (météo/foule) — flux RNG dédié, ne perturbe pas le flux des events
   const modifiers = rollModifiers(spot.tier, seed, rules.negativeModifierWeightMult);
@@ -450,7 +456,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   // --- heat -----------------------------------------------------------------------
   const logistique = ownedGear(state, 'logistique').value;
   const riskMult = dj ? RISK_HEAT[dj.risk] : 1;
-  night.heat += spot.heatBuild * genre.heatMult * INTENSITY_HEAT[night.intensity] * riskMult * logistique * heatMod * phase.heatMult * branchHeatMult(state) * night.rules.heatMult * HEAT_BASE * (tooHard ? 1 + 2 * (gap - tol) : 1) * dt;
+  night.heat += spot.heatBuild * genre.heatMult * INTENSITY_HEAT[night.intensity] * riskMult * logistique * heatMod * phase.heatMult * branchHeatMult(state) * tempHeatBuildMult(state) * night.rules.heatMult * HEAT_BASE * (tooHard ? 1 + 2 * (gap - tol) : 1) * dt;
   if (night.intensity === 'chill') night.heat -= 0.01 * dt;
   night.heat = clamp(night.heat, 0, 1);
   night.peakHeat = Math.max(night.peakHeat, night.heat);
@@ -466,6 +472,22 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   }
   tickRaid(state, night, dt, events);
   if (night.phase !== 'playing') return events; // bust par timer (ou siège, task 9)
+
+  // --- arcs de conséquences : l'échéance passe AVANT le tirage aléatoire --------
+  // (et avant le bar drip : l'event d'arc fige la banque au tick où il s'ouvre)
+  if (
+    !night.pendingEvent &&
+    night.setElapsed > 8 &&
+    night.setElapsed < night.setLen - 10
+  ) {
+    const due = takeDueArc(state);
+    if (due) {
+      night.pendingEvent = { def: due.event, arc: { arcId: due.arcId, stage: due.stage } };
+      night.phase = 'event';
+      night.floorPrompt = null; // pas de doublon visuel
+      return events; // hors quota : eventsFired n'est pas touché
+    }
+  }
 
   // --- bar drip — plafonné par le stock embarqué -------------------------------------
   const drip = night.crowd * BAR_DRIP * spot.priceMult * priceMod * phase.barMult * night.rules.barMult * (night.special?.rewards.barMult ?? 1) * dt;
@@ -578,6 +600,22 @@ export function applyEffects(state: GameState, night: NightState, fx: EventEffec
   if (fx.damageRisk && night.rng() < fx.damageRisk.chance) {
     if (fx.damageRisk.category === 'mur') night.murBlown = true;
     state.damaged[fx.damageRisk.category] = true;
+  }
+  if (fx.heatMultNow) night.heat = clamp(night.heat * fx.heatMultNow, 0, 0.99);
+  if (fx.buzzMult) state.buzz = Math.min(BUZZ_CAP, state.buzz * fx.buzzMult);
+  if (fx.casierClear) state.casier = 0;
+  if (fx.tempHeat) {
+    state.tempEffects.push({
+      heatBuildMult: fx.tempHeat.heatBuildMult,
+      startHeatAdd: fx.tempHeat.startHeatAdd,
+      nightsLeft: fx.tempHeat.nights,
+    });
+  }
+  if (fx.plantsArc && night.rng() < fx.plantsArc.chance) {
+    plantArc(state, fx.plantsArc.arcId, fx.plantsArc.stage ?? 0, night.rng);
+  }
+  if (fx.arcComplete && !state.arcsCompleted.includes(fx.arcComplete)) {
+    state.arcsCompleted.push(fx.arcComplete);
   }
 }
 

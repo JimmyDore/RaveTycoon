@@ -37,6 +37,9 @@ export function newGame(now = 0): GameState {
     mursTenus: 0,
     specialOffer: null,
     soundclashWon: false,
+    pendingArcs: [],
+    tempEffects: [],
+    arcsCompleted: [],
     tour: defaultTour(),
   };
 }
@@ -96,6 +99,9 @@ function migrate(state: GameState): GameState {
   state.mursTenus ??= 0;
   state.specialOffer ??= null;
   state.soundclashWon ??= false;
+  state.pendingArcs ??= [];
+  state.tempEffects ??= [];
+  state.arcsCompleted ??= [];
   return state;
 }
 
