@@ -1,6 +1,6 @@
 import { DJS, GEAR_CATEGORIES, SPOTS, getDj, getGenre, getSpot, nextGearOptions, ownedGear, switchBranchItem } from '../core/data';
 import { BAR_STOCK_COST, ESSENCE_RATE, cautionCost, potentialBar, type BarStock } from '../core/economy';
-import { djLevel, fatigueMalus, lockedDjs, recruitableDjs } from '../core/crew';
+import { STUDIO_COST, STUDIO_MAX, dayOffCost, djLevel, effectiveCut, fatigueMalus, giftCost, lockedDjs, recruitableDjs } from '../core/crew';
 import { rushCost } from '../core/idle';
 import { isSpotUnlocked } from '../core/payout';
 import { MONTEE_MIN_DROP, computeSetQuality } from '../core/night';
@@ -74,6 +74,9 @@ export interface PrepareSelection {
 export interface PrepareCallbacks {
   onLaunch(): void;
   onRecruit(djId: string): void;
+  onGift(djId: string): void;
+  onDayOff(djId: string): void;
+  onStudio(djId: string): void;
   onBuy(cat: GearCategory, branch?: GearBranch): void;
   onSwitchBranch(cat: GearCategory): void;
   onRepairStart(cat: GearCategory): void;
@@ -172,7 +175,8 @@ export function renderPrepare(
   for (const member of state.crew) {
     const def = getDj(member.id);
     const aboard = selection.present.has(member.id);
-    const card = el('button', `card dj-card${aboard ? ' selected' : ''}`);
+    // nested buttons are invalid DOM — the sink buttons live inside, so the card is a div
+    const card = el('div', `card dj-card${aboard ? ' selected' : ''}`);
     const row = el('div', 'dj-row');
     row.append(portrait(member.id));
     const info = el('div', 'dj-info');
@@ -184,13 +188,36 @@ export function renderPrepare(
     info.append(statsLine);
     const djGenre = getGenre(def.genre);
     info.append(el('div', 'dj-genre-badge', `${djGenre.nom} · ${djGenre.bpm} BPM`));
-    const riskLine = el('div', 'dj-risk', `${STR.risk[def.risk]}${STR.riskHint[def.risk] ? ' — ' + STR.riskHint[def.risk] : ''} · ${STR.cut(def.cut)}`);
+    const riskLine = el('div', 'dj-risk', `${STR.risk[def.risk]}${STR.riskHint[def.risk] ? ' — ' + STR.riskHint[def.risk] : ''} · ${STR.cut(effectiveCut(def, member))}`);
     info.append(riskLine);
     const fat = el('div', 'dj-fatigue');
     fat.append(el('span', 'dj-stat-label', STR.fatigue), fatigueBar(member.fatigue));
     const malus = fatigueMalusLabel(member.fatigue);
     if (malus) fat.append(malus);
     info.append(fat);
+    const sinks = el('div', 'crew-sinks');
+    const sinkBtn = (label: string, hint: string, enabled: boolean, onClick: () => void) => {
+      const b = el('button', 'btn small', label);
+      b.title = hint;
+      b.disabled = !enabled;
+      b.addEventListener('click', (e) => {
+        e.stopPropagation(); // ne pas (dé)sélectionner le DJ
+        onClick();
+      });
+      sinks.append(b);
+    };
+    if (!member.gifted) {
+      const cost = giftCost(member);
+      sinkBtn(STR.giftBtn(cost), STR.giftHint, state.cash >= cost, () => cb.onGift(member.id));
+    }
+    if (member.fatigue > 0) {
+      const cost = dayOffCost(member);
+      sinkBtn(STR.dayOffBtn(cost), STR.dayOffHint, state.cash >= cost, () => cb.onDayOff(member.id));
+    }
+    if (member.studioBonus < STUDIO_MAX) {
+      sinkBtn(STR.studioBtn(STUDIO_COST), STR.studioHint, state.cash >= STUDIO_COST, () => cb.onStudio(member.id));
+    }
+    if (sinks.childElementCount > 0) info.append(sinks);
     row.append(info);
     card.append(row);
     card.addEventListener('click', () => {
@@ -572,7 +599,7 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
         info.append(el('div', 'dj-genre-badge pick', `🎵 ${djGenre.nom} · ${djGenre.bpm} BPM`));
         const q = computeSetQuality(state, night, djId, 'normal');
         const stars = '♪'.repeat(Math.max(1, Math.round(q * 5)));
-        info.append(el('div', 'card-desc', `${stars} · ${STR.risk[def.risk]} · ${STR.cut(def.cut)}`));
+        info.append(el('div', 'card-desc', `${stars} · ${STR.risk[def.risk]} · ${STR.cut(effectiveCut(def, member))}`));
         const fat = el('div', 'dj-fatigue');
         fat.append(fatigueBar(member.fatigue));
         const malus = fatigueMalusLabel(member.fatigue);

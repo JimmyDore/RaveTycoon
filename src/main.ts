@@ -1,6 +1,6 @@
 import './style.css';
 import { AudioEngine } from './audio/engine';
-import { recruitDj } from './core/crew';
+import { buyDayOff, buyStudioSession, giftDj, recruitDj } from './core/crew';
 import { getDj, getSpot } from './core/data';
 import { cautionCost } from './core/economy';
 import { applyIdleTime, rushRepair, startRepair } from './core/idle';
@@ -241,6 +241,24 @@ function showPrepare(): void {
     onRecruit: (djId) => {
       if (recruitDj(state, djId)) {
         selection.present.add(djId);
+        saveGame(localStorage, state);
+        showPrepare();
+      }
+    },
+    onGift: (djId) => {
+      if (giftDj(state, djId)) {
+        saveGame(localStorage, state);
+        showPrepare();
+      }
+    },
+    onDayOff: (djId) => {
+      if (buyDayOff(state, djId)) {
+        saveGame(localStorage, state);
+        showPrepare();
+      }
+    },
+    onStudio: (djId) => {
+      if (buyStudioSession(state, djId)) {
         saveGame(localStorage, state);
         showPrepare();
       }

@@ -85,6 +85,12 @@ export const STR = {
   inCrew: 'Dans le crew',
   bringTonight: 'Embarquer ce soir',
   newRecruit: (nom: string) => `${nom} veut rejoindre le crew !`,
+  giftBtn: (cost: number) => `🎁 Cadeau (${cost} €)`,
+  giftHint: 'Son cut baisse de 2 points — une fois par DJ',
+  dayOffBtn: (cost: number) => `🛋 Jour off (${cost} €)`,
+  dayOffHint: 'Récupère toute sa fatigue, même s’il joue la prochaine nuit',
+  studioBtn: (cost: number) => `🎚 Studio (${cost} €)`,
+  studioHint: '+0,5 technique permanent (max +1)',
 
   // night screen
   setLabel: (n: number, total: number) => `Set ${n}/${total}`,
