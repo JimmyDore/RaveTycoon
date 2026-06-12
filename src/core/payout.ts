@@ -51,8 +51,9 @@ export function settleNight(state: GameState, night: NightState): NightResult {
   const cuts = cutsTotal(state, night);
   const payout = Math.round(gross * (1 - cuts));
   const survivedHighHeat = night.peakHeat >= 0.8;
+  // le dernier drop de l'aube compte double encore : re-crédité au règlement
   const repGained = Math.round(
-    SUNRISE_REP + night.peakCrowd / 10 + (survivedHighHeat ? 15 : 0) + night.repBonus,
+    SUNRISE_REP + night.peakCrowd / 10 + (survivedHighHeat ? 15 : 0) + night.repBonus + night.lastAubeDropRep,
   );
   const won = night.spotId === 'teknival';
 

@@ -27,7 +27,7 @@ describe('early-game progression curve', () => {
     const state = newGame(42);
     playNight(state, 1);
     playNight(state, 2);
-    // cheapest tier-1 = Barre de LEDs 300 € ; mesuré ≈ 493 € après task 2 (la vague)
+    // cheapest tier-1 = Barre de LEDs 300 € ; mesuré ≈ 396 € après task 5 (les phases)
     const cheapest = Math.min(
       ...Object.values(GEAR).map((items) => items[1].price),
     );
@@ -104,8 +104,8 @@ describe('temps-vers-Teknival (politique autoplay)', () => {
     const nights = autoCareer();
     // baseline pré-chantier mesurée ≈ 10 nuits vers rep 500 ; cible spec : ≥ 3× → ≥ 30
     // valeur mesurée après chantier 2 : 31 nuits (seed 42, politique gloutonne)
-    // mesuré 31 nuits après la vague (story A) — la borne ≥ 3× baseline reste tenue
-    expect(nights).toBeGreaterThanOrEqual(29); // mesuré 31 − marge 2
+    // mesuré 34 nuits après les phases (story B) — la borne ≥ 3× baseline reste tenue
+    expect(nights).toBeGreaterThanOrEqual(32); // mesuré 34 − marge 2
     expect(nights).toBeLessThan(200);
   });
 });

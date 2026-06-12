@@ -132,6 +132,7 @@ export const STR = {
     sunrise: '🌅 Le soleil se lève sur le dancefloor…',
     'set-ended': '🎚 Fin du set — à qui le tour ?',
     'prompt-missed': '🙈 Trop tard — tu as laissé passer le moment.',
+    'phase-change': '🌒 La nuit bascule…',
     heatWarning: '👮 Ça sent le roussi… calme le jeu.',
   },
   cantAfford: 'La caisse ne suit pas',

@@ -5,6 +5,7 @@ import { drawEvent } from './events';
 import { drawGoal } from './goals';
 import { ATTENTE_GENRE, INTENSITY_HEAT, INTENSITY_LEVEL, INTENSITY_POWER, INTENSITY_QUALITY, isHighIntensity, type Intensity } from './intensity';
 import { modifierProduct, modifierSum, rollModifiers } from './modifiers';
+import { getPhase, phaseAt, phaseAttente } from './phases';
 import { drawPrompt } from './prompts';
 import { buildRegionRules } from './regions';
 import { mulberry32 } from './rng';
@@ -145,6 +146,8 @@ export function createNight(
     repBonus: 0,
     setPeakRinseT: 0,
     intensitySum: 0,
+    nightPhase: 'ouverture',
+    lastAubeDropRep: 0,
     attente: 0.35,
     burnout: 0,
     waveScore: 0,
@@ -198,8 +201,8 @@ export function currentWave(state: GameState, night: NightState): WaveState {
   const dj = night.currentDj ? getDj(night.currentDj) : null;
   const member = night.currentDj ? getCrewMember(state, night.currentDj) : null;
   const tech = dj && member ? effectiveTechnique(dj, member) : 1;
-  // baseline provisoire story A : montée linéaire 0.35 → 0.8 sur la nuit
-  const baseline = 0.35 + 0.45 * Math.min(1, night.duration > 0 ? night.t / night.duration : 0);
+  // baseline d'attente phasée : l'arc de la nuit (ouverture→rush→creux→aube)
+  const baseline = phaseAttente(night.duration > 0 ? night.t / night.duration : 0);
   const attente = clamp(
     baseline * ATTENTE_GENRE[night.genreId] - BURNOUT_ATTENTE_MALUS * night.burnout,
     0,
@@ -299,6 +302,14 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   const genre = getGenre(night.genreId);
   const dj = night.currentDj ? getDj(night.currentDj) : null;
 
+  // --- l'arc de la nuit : la phase est une pure fonction de t/duration ----------
+  const frac = night.duration > 0 ? night.t / night.duration : 0;
+  const phase = phaseAt(frac);
+  if (phase.id !== night.nightPhase) {
+    night.nightPhase = phase.id;
+    events.push({ type: 'phase-change' });
+  }
+
   // --- modificateurs du soir : produits/sommes des leviers passifs --------------
   const arrivalMod = modifierProduct(night.modifiers, 'arrivalMult');
   const churnMod = modifierProduct(night.modifiers, 'churnMult');
@@ -380,7 +391,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
         : 1;
   const arrival =
     spot.arrival * genre.arrival * (1 + state.buzz) * (1 + state.rep * 0.002) * pull * arrivalCut *
-    arrivalMod * night.rules.arrivalMult * genreRegionMult;
+    arrivalMod * phase.arrivalMult * night.rules.arrivalMult * genreRegionMult;
   let leaveMult = 1;
   if (!soundOn) leaveMult += 3;
   if (night.murBlown) leaveMult += 0.8;
@@ -388,7 +399,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   // retention plus basse = on garde mieux le public ; le bonus du soir la réduit
   const retention = Math.max(0, 1 - 0.04 * charisme - retentionMod);
   const leaving =
-    night.crowd * genre.churn * spot.churnMult * churnMod * branchChurnMult(state) *
+    night.crowd * genre.churn * spot.churnMult * churnMod * phase.churnMult * branchChurnMult(state) *
     night.rules.churnMult * retention * leaveMult * (tooSoft ? 1 + 2 * (-gap - tol) : 1);
   night.crowd = clamp(night.crowd + (arrival - leaving) * dt, 0, night.cap);
   night.peakCrowd = Math.max(night.peakCrowd, night.crowd);
@@ -417,7 +428,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   // RÉVISION CHANTIER 1: l'insaisissable deviendra immunisé à la garde à vue ;
   // en attendant, son gimmick = moitié moins de heat (levier existant)
   const riskMult = dj ? RISK_HEAT[dj.risk] * (dj.gimmick === 'insaisissable' ? 0.5 : 1) : 1;
-  night.heat += spot.heatBuild * genre.heatMult * INTENSITY_HEAT[night.intensity] * riskMult * logistique * heatMod * branchHeatMult(state) * night.rules.heatMult * HEAT_BASE * (tooHard ? 1 + 2 * (gap - tol) : 1) * dt;
+  night.heat += spot.heatBuild * genre.heatMult * INTENSITY_HEAT[night.intensity] * riskMult * logistique * heatMod * phase.heatMult * branchHeatMult(state) * night.rules.heatMult * HEAT_BASE * (tooHard ? 1 + 2 * (gap - tol) : 1) * dt;
   if (night.intensity === 'chill') night.heat -= 0.01 * dt;
   night.heat = clamp(night.heat, 0, 1);
   night.peakHeat = Math.max(night.peakHeat, night.heat);
@@ -430,7 +441,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   }
 
   // --- bar drip — plafonné par le stock embarqué -------------------------------------
-  const drip = night.crowd * BAR_DRIP * spot.priceMult * priceMod * night.rules.barMult * dt;
+  const drip = night.crowd * BAR_DRIP * spot.priceMult * priceMod * phase.barMult * night.rules.barMult * dt;
   const sold = Math.min(drip, Math.max(0, night.barCap - night.barSales));
   night.barSales += sold;
   night.bank += sold;
@@ -510,7 +521,7 @@ function endCurrentSet(state: GameState, night: NightState): void {
       avgWave: night.setWaveSamples > 0 ? night.setWaveSum / night.setWaveSamples : 0,
     };
     if (night.setGoal.met(stats)) {
-      night.repBonus += (night.setGoal.reward.rep ?? 0) * night.rules.goalRepMult;
+      night.repBonus += (night.setGoal.reward.rep ?? 0) * night.rules.goalRepMult * getPhase(night.nightPhase).repMult;
       night.bank += night.setGoal.reward.cash ?? 0;
       night.goalsMet.push(night.setGoal.label);
     }
@@ -531,7 +542,7 @@ export function applyEffects(state: GameState, night: NightState, fx: EventEffec
   if (fx.forceIntensity) night.intensity = fx.forceIntensity;
   if (fx.qualityMult) night.qualityMultRestOfSet *= fx.qualityMult;
   if (fx.soundCut) night.soundCutT = Math.max(night.soundCutT, fx.soundCut);
-  if (fx.rep) night.repBonus += fx.rep;
+  if (fx.rep) night.repBonus += fx.rep * getPhase(night.nightPhase).repMult;
   if (fx.arrivalCutT) night.arrivalCutT = fx.arrivalCutT;
   if (fx.montee) night.montee = clamp(night.montee + fx.montee, 0, 1);
   if (fx.damageRisk && night.rng() < fx.damageRisk.chance) {
@@ -586,6 +597,13 @@ export function dropMontee(state: GameState, night: NightState): boolean {
   const payoff = ownedGear(state, 'lumieres').effects?.dropMult ?? 1;
   // la vague paie, la foule cramée plafonne : ~1.5× au sommet, ~0.4× spammé
   const waveMult = (0.5 + night.waveScore) * (1 - BURNOUT_DROP_MALUS * night.burnout);
+  // l'aube paie : le drop crédite de la rep (×2 d'aube intégré au barème de 6),
+  // et le dernier drop de l'aube comptera double encore au règlement
+  if (night.nightPhase === 'aube') {
+    const dropRep = Math.round(6 * m * waveMult);
+    night.repBonus += dropRep;
+    night.lastAubeDropRep = dropRep;
+  }
   night.vibe = clamp(night.vibe + (0.1 + 0.25 * m) * payoff * waveMult, 0, 1);
   night.crowd = clamp(night.crowd + night.cap * 0.05 * m * payoff * waveMult, 0, night.cap);
   night.heat = clamp(night.heat + 0.02 + 0.06 * m, 0, night.rules.bustThreshold - 0.01);

@@ -1,5 +1,6 @@
 import type { Intensity } from './intensity';
 import type { NightModifierDef } from './modifiers';
+import type { NightPhaseId } from './phases';
 import type { RegionRules, RegionState } from './regions';
 
 export type SpotId =
@@ -330,6 +331,10 @@ export interface NightState {
   setPeakRinseT: number;
   /** ∑ INTENSITY_LEVEL × dt sur la nuit — essence pondérée temps (economy.ts) */
   intensitySum: number;
+  /** phase de l'arc de nuit, recalculée chaque tick depuis t/duration */
+  nightPhase: NightPhaseId;
+  /** rep créditée par le dernier drop de l'aube — re-créditée au règlement (double) */
+  lastAubeDropRep: number;
   /** attente de la foule [0,1], recalculée chaque tick (baseline × genre − burnout) */
   attente: number;
   /** burnout de foule [0,1] — charge à PEAK/RINSE, décharge à CHILL/GROOVE */
@@ -411,7 +416,8 @@ export type NightTickEventType =
   | 'bust'
   | 'sunrise'
   | 'set-ended'
-  | 'prompt-missed';
+  | 'prompt-missed'
+  | 'phase-change';
 
 export interface NightTickEvent {
   type: NightTickEventType;
