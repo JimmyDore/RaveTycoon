@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { PERKS } from '../src/core/data';
+import { createNight } from '../src/core/night';
+import { settleNight } from '../src/core/payout';
 import { deserialize, newGame, serialize } from '../src/core/save';
-import { buyPerk, canBuyPerk, hasPerk, maxVeterans, perkCount } from '../src/core/tour';
+import {
+  buyPerk,
+  canBuyPerk,
+  computeLegende,
+  hasPerk,
+  maxVeterans,
+  perkCount,
+} from '../src/core/tour';
 
 describe('le bloc tour', () => {
   it('newGame démarre en tournée 1, 0 ⭐, sans perks ni vétérans', () => {
@@ -80,5 +89,44 @@ describe('l’Héritage : achat', () => {
     expect(maxVeterans(state)).toBe(1);
     state.tour.perks = ['famille', 'famille'];
     expect(maxVeterans(state)).toBe(3);
+  });
+});
+
+describe('computeLegende', () => {
+  it('compte floor(rep/100) + 3 par victoire Teknival de la tournée', () => {
+    const state = newGame();
+    state.rep = 530;
+    state.tour.teknivalWins = 2;
+    expect(computeLegende(state)).toBe(5 + 6);
+  });
+
+  it('une première tournée type vaut 10–14 ⭐', () => {
+    const state = newGame();
+    state.rep = 800; // rep plausible après une victoire au Teknival
+    state.tour.teknivalWins = 1;
+    const legende = computeLegende(state);
+    expect(legende).toBeGreaterThanOrEqual(10);
+    expect(legende).toBeLessThanOrEqual(14);
+  });
+});
+
+describe('le compteur de victoires Teknival', () => {
+  it('settleNight au teknival incrémente teknivalWins de la tournée', () => {
+    const state = newGame();
+    state.rep = 1000;
+    const night = createNight(state, 'teknival', ['tonton'], 2);
+    Object.assign(night, {
+      t: 600,
+      phase: 'ended',
+      sunrise: true,
+      bank: 5000,
+      peakCrowd: 900,
+      vibeSum: 540,
+      vibeSamples: 600,
+      playedSets: [{ djId: 'tonton', brief: 'normal' }],
+    });
+    settleNight(state, night);
+    expect(state.tour.teknivalWins).toBe(1);
+    expect(state.wonTeknival).toBe(true);
   });
 });

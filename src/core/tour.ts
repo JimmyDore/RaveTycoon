@@ -29,3 +29,27 @@ export function buyPerk(state: GameState, perkId: string): boolean {
 export function maxVeterans(state: GameState): number {
   return 1 + perkCount(state, 'famille');
 }
+
+// --- le gain de ⭐ Légende, calculé au moment du départ ---------------------------
+
+/** ⭐ par victoire au Teknival sur la tournée. */
+export const LEGENDE_PER_TEKNIVAL = 3;
+
+/**
+ * legende = floor(rep / 100) + 3 × victoires Teknival cette tournée
+ *         + 1 par « mur tenu » + 1 par arc mené à terme.
+ *
+ * RÉVISION CHANTIER 1: les « murs tenus » (tag légende, Story C) et les arcs
+ * n'existent pas encore — leurs hooks restent à 0 ici. Quand le chantier 1
+ * pose ses compteurs sur GameState, les brancher dans ces deux constantes.
+ */
+export function computeLegende(state: GameState): number {
+  const mursTenus = 0;
+  const arcsTermines = 0;
+  return (
+    Math.floor(state.rep / 100) +
+    state.tour.teknivalWins * LEGENDE_PER_TEKNIVAL +
+    mursTenus +
+    arcsTermines
+  );
+}

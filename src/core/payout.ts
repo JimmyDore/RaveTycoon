@@ -54,7 +54,10 @@ export function settleNight(state: GameState, night: NightState): NightResult {
   state.cash += payout + night.cautionPaid; // caution rendue à l'aube
   state.rep += repGained;
   state.nights += 1;
-  if (won) state.wonTeknival = true;
+  if (won) {
+    state.wonTeknival = true;
+    state.tour.teknivalWins += 1;
+  }
   carryDamage(state, night);
   applyNightRest(state, playedDjs(night));
   const quality = Math.min(1, 0.6 * vibe + 0.5 * (night.peakCrowd / night.cap));
