@@ -168,7 +168,7 @@ describe('les règles de région dans la nuit', () => {
     const state = newGame(42);
     if (traits.length > 0) state.region = { nom: 'Région test', traits };
     const night = createNight(state, 'champ', ['tonton'], seed);
-    startSet(state, night, 'tonton', 'normal');
+    startSet(state, night, 'tonton');
     return { state, night };
   }
 
@@ -225,7 +225,7 @@ describe('les règles de région dans la nuit', () => {
       if (traits.length > 0) state.region = { nom: 'Région test', traits };
       state.crew.push({ id: djId, xp: 0, fatigue: 0, setsPlayed: 0, gifted: false, studioBonus: 0 });
       const night = createNight(state, 'champ', [djId], 1);
-      startSet(state, night, djId, 'normal');
+      startSet(state, night, djId);
       night.crowd = 0;
       tickNight(state, night, 0.1);
       return night.crowd;
@@ -255,7 +255,7 @@ describe('les règles de région dans la nuit', () => {
       const state = newGame(42);
       if (traits.length > 0) state.region = { nom: 'Région test', traits };
       const night = createNight(state, 'champ', ['tonton'], 1);
-      startSet(state, night, 'tonton', 'normal');
+      startSet(state, night, 'tonton');
       night.setGoal = { id: 'test', label: 'test', reward: { rep: 10 }, met: () => true, weight: () => 1 };
       night.setElapsed = night.setLen - 0.05; // le tick suivant clôt le set
       tickNight(state, night, 0.1);
@@ -277,7 +277,7 @@ describe('les règles de région au règlement et entre les teufs', () => {
       peakCrowd: 30,
       vibeSum: 0.8 * 180,
       vibeSamples: 180,
-      playedSets: [{ djId: 'tonton', brief: 'normal' }],
+      playedSets: [{ djId: 'tonton' }],
     });
     return night;
   }

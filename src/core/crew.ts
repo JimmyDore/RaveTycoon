@@ -4,9 +4,9 @@ import type { DjDef, DjState, GameState } from './types';
 
 /** Fatigue a rested DJ (one who played no set) recovers each night. */
 export const REST_RECOVERY = 0.5;
-/** Fatigue gained per set played (more when pushing). */
-export const FATIGUE_PER_SET = 0.22;
-export const FATIGUE_PUSH_BONUS = 0.08;
+/** Fatigue de base par set joué + bonus ∝ fraction du set passée à PEAK/RINSE. */
+export const FATIGUE_BASE_PER_SET = 0.18;
+export const FATIGUE_PEAKRINSE_BONUS = 0.16;
 /** XP per second of set played. */
 export const XP_RATE = 1;
 export const XP_PER_LEVEL = 250;
@@ -144,10 +144,10 @@ export function buyStudioSession(state: GameState, djId: string): boolean {
 }
 
 /** Apply the toll of a played set. L'increvable ne prend jamais de fatigue. */
-export function applySetToll(dj: DjState, brief: string, setSeconds: number): void {
+export function applySetToll(dj: DjState, fracPeakRinse: number, setSeconds: number): void {
   if (getDj(dj.id).gimmick !== 'increvable') {
-    dj.fatigue = Math.min(1, dj.fatigue + FATIGUE_PER_SET + (brief === 'pousser' ? FATIGUE_PUSH_BONUS : 0));
+    dj.fatigue = Math.min(1, dj.fatigue + FATIGUE_BASE_PER_SET + FATIGUE_PEAKRINSE_BONUS * fracPeakRinse);
   }
-  dj.xp += setSeconds * XP_RATE * (brief === 'pousser' ? 1.3 : 1);
+  dj.xp += setSeconds * XP_RATE * (1 + 0.3 * fracPeakRinse);
   dj.setsPlayed += 1;
 }

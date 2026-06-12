@@ -792,12 +792,12 @@ button {
   transition: width 0.3s linear;
 }
 .live-controls { display: flex; gap: 6px; align-items: center; pointer-events: auto; }
-.live-brief, .live-drop {
+.live-cran, .live-drop {
   font: inherit; padding: 6px 10px; border-radius: 8px; cursor: pointer;
   background: #1b1430; color: #cfc3ee; border: 1px solid #3a2d63;
 }
-.live-brief.selected { border-color: #ff4f9a; color: #fff; }
-.live-brief:disabled, .live-drop:disabled { opacity: 0.45; cursor: default; }
+.live-cran.selected { border-color: #ff4f9a; color: #fff; }
+.live-cran:disabled, .live-drop:disabled { opacity: 0.45; cursor: default; }
 .live-drop {
   background: #2a1430; border-color: #7a2d63; font-weight: bold;
 }
@@ -922,19 +922,6 @@ button {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-}
-.brief-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.4rem;
-  margin-bottom: 0.9rem;
-}
-.brief-pick {
-  margin-bottom: 0;
-  padding: 0.55rem 0.6rem;
-}
-.brief-pick .card-desc {
-  font-size: 0.68rem;
 }
 .modal-panel .btn.launch {
   width: 100%;

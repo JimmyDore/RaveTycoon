@@ -1,4 +1,4 @@
-import type { Brief } from '../core/types';
+import type { Intensity } from '../core/intensity';
 
 /**
  * Toutes les chaînes UI, externalisées pour une future i18n.
@@ -96,22 +96,17 @@ export const STR = {
   // night screen
   setLabel: (n: number, total: number) => `Set ${n}/${total}`,
   whoPlays: 'Qui prend les platines ?',
-  briefLabel: 'La consigne',
-  briefs: {
-    safe: 'Jouer safe',
-    normal: 'Set normal',
-    pousser: 'Pousser le son',
-  } as const,
-  briefHints: {
-    safe: 'La chaleur retombe, le public s’ennuie un peu',
-    normal: 'Le plan prévu, ni plus ni moins',
-    pousser: 'Plus de monde, plus de vibe — et les bleus rappliquent',
-  } as const,
+  intensites: { chill: 'Chill', groove: 'Groove', peak: 'Peak', rinse: 'Rinse' } as Record<Intensity, string>,
+  intensiteHints: {
+    chill: 'On souffle — la chaleur retombe, la foule se repose',
+    groove: 'Le groove qui tient le floor',
+    peak: 'Ça tape — la vibe monte, les bleus écoutent',
+    rinse: 'Tout dans le rouge — burnout et chaleur garantis',
+  } as Record<Intensity, string>,
+  intensiteToast: (i: Intensity) => `🎚 ${STR.intensites[i]}`,
   startSet: 'Balance le son',
-  briefShort: { safe: 'Calmer', normal: 'Normal', pousser: 'Pousser' } as Record<Brief, string>,
   dropAction: '🔊 LÂCHER',
   dropToast: '🔊 Le drop fait exploser le champ !',
-  briefToast: (b: Brief) => `🎚 Consigne : ${STR.briefs[b]}`,
   promptToast: (icon: string, label: string) => `${icon} ${label}`,
   nowPlaying: (nom: string) => `${nom} aux platines`,
   heat: 'Les bleus',

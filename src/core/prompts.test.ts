@@ -17,7 +17,7 @@ function tickFor(
 function playingNight() {
   const state = newGame(42);
   const night = createNight(state, 'champ', ['tonton'], 7);
-  startSet(state, night, 'tonton', 'normal');
+  startSet(state, night, 'tonton');
   return { state, night };
 }
 

@@ -283,7 +283,7 @@ export const GENRES: GenreDef[] = [
  * Gear semantics by category (`value`):
  * - platines:   set quality multiplier
  * - mur:        crowd capacity multiplier (also the visible wall on screen)
- * - groupe:     power supply (vs demand from crowd+brief) — low tier = brownouts
+ * - groupe:     power supply (vs demand from crowd+intensité) — low tier = brownouts
  * - lumieres:   flat vibe bonus
  * - logistique: heat multiplier (lower = guetteurs warn earlier, cops bite less)
  *
@@ -329,10 +329,10 @@ export const GEAR: Record<GearCategory, GearItem[]> = {
     { category: 'groupe', tier: 3, branch: 'A', nom: 'Semi silencieux', price: 6250, value: 1.2, seizable: true, effects: { heatMult: 0.9 } },
     { category: 'groupe', tier: 4, branch: 'A', nom: 'Caisson furtif', price: 4000, value: 1.32, seizable: true, effects: { heatMult: 0.85 } },
     { category: 'groupe', tier: 5, branch: 'A', nom: 'Centrale fantôme', price: 10000, value: 1.45, seizable: true, effects: { heatMult: 0.8 } },
-    // voie B — Monstre : power ++, pousser sans surcharge (RÉVISION CHANTIER 1 : RINSE)
+    // voie B — Monstre : power ++, RINSE sans surcharge (révision chantier 1 faite)
     { category: 'groupe', tier: 3, branch: 'B', nom: 'Semi monstre', price: 6250, value: 1.35, seizable: true },
-    { category: 'groupe', tier: 4, branch: 'B', nom: 'Turbine de chantier', price: 4000, value: 1.55, seizable: true, effects: { pousserPowerFree: true } },
-    { category: 'groupe', tier: 5, branch: 'B', nom: 'Réacteur du teknival', price: 10000, value: 1.85, seizable: true, effects: { pousserPowerFree: true } },
+    { category: 'groupe', tier: 4, branch: 'B', nom: 'Turbine de chantier', price: 4000, value: 1.55, seizable: true, effects: { rinsePowerFree: true } },
+    { category: 'groupe', tier: 5, branch: 'B', nom: 'Réacteur du teknival', price: 10000, value: 1.85, seizable: true, effects: { rinsePowerFree: true } },
     // mythique — signature : jamais de coupure, même à la carrière (2.0 × 0.6 + 0.15 > 1.07)
     { category: 'groupe', tier: 6, nom: 'La Centrale éternelle', price: 26000, value: 2.0, seizable: true, mythic: true },
   ],

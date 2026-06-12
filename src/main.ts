@@ -4,12 +4,13 @@ import { buyDayOff, buyStudioSession, giftDj, recruitDj } from './core/crew';
 import { SPOTS, getDj, getSpot } from './core/data';
 import { cautionCost } from './core/economy';
 import { applyIdleTime, rushRepair, startRepair } from './core/idle';
-import { changeBrief, createNight, dropMontee, resolveEvent, seizeFloorPrompt, startSet, tickNight } from './core/night';
+import { createNight, dropMontee, resolveEvent, seizeFloorPrompt, setIntensity, startSet, tickNight } from './core/night';
+import type { Intensity } from './core/intensity';
 import { applyBust, buyGearUpgrade, isSpotAvailable, settleNight, switchGearBranch } from './core/payout';
 import { drawRegions, toRegionState } from './core/regions';
 import { exportCode, importCode, loadGame, newGame, saveGame } from './core/save';
 import { buyPerk, departOnTour } from './core/tour';
-import type { Brief, GameState, NightResult, NightState } from './core/types';
+import type { GameState, NightResult, NightState } from './core/types';
 import { RaverSim } from './render/ravers';
 import { SceneRenderer, defaultFloor } from './render/scene';
 import { loadSprites, type SpriteBank } from './render/sprites';
@@ -74,9 +75,9 @@ async function startNight(): Promise<void> {
     caution: selection.caution,
   });
   const screen = renderNight(app, {
-    onBrief: (brief) => {
-      if (active && changeBrief(state, active.night, brief)) {
-        active.screen.toast(STR.briefToast(brief));
+    onIntensity: (i) => {
+      if (active && setIntensity(active.night, i)) {
+        active.screen.toast(STR.intensiteToast(i));
       }
     },
     onDrop: () => {
@@ -108,23 +109,23 @@ async function startNight(): Promise<void> {
   active.raf = requestAnimationFrame(frame);
 }
 
-function onStartSet(djId: string, brief: Brief): void {
+function onStartSet(djId: string): void {
   if (!active) return;
   // révélation des modifs du soir au 1er set, une fois le modal de transition fermé
   const firstSet = active.night.setIndex === 0 && active.night.playedSets.length === 0;
-  startSet(state, active.night, djId, brief);
+  startSet(state, active.night, djId);
   // le son c'est le DJ : on bascule le moteur sur le genre du DJ qui prend le set
   void audio.switchTo(getDj(djId).genre);
   if (firstSet) active.screen.showModifiers(active.night.modifiers);
   active.screen.toast(`🎧 ${STR.nowPlaying(getDj(djId).nom)}`);
 }
 
-/** The set's energy arc — what the audio engine plays. */
+const INTENSITY_ENERGY: Record<Intensity, number> = { chill: 0.35, groove: 0.6, peak: 0.85, rinse: 1 };
+
+/** Ce que joue le moteur audio : le cran EST l'énergie. */
 function setEnergy(night: NightState): number {
   if (night.phase !== 'playing' && night.phase !== 'event') return 0.25;
-  const p = night.setLen > 0 ? Math.min(1, night.setElapsed / night.setLen) : 0;
-  const briefMult = night.brief === 'pousser' ? 1.15 : night.brief === 'safe' ? 0.7 : 1;
-  return Math.min(1, (0.3 + 0.65 * p) * briefMult);
+  return INTENSITY_ENERGY[night.intensity];
 }
 
 function frame(now: number): void {
@@ -168,7 +169,7 @@ function frame(now: number): void {
   audio.update({
     energy: setEnergy(night),
     quality: night.setQuality * night.qualityMultRestOfSet,
-    pushed: playing && night.brief === 'pousser',
+    pushed: playing && night.intensity === 'rinse',
     soundCut: !playing || night.soundCutT > 0,
     crowd: night.cap > 0 ? night.crowd / night.cap : 0,
     murBlown: night.murBlown,

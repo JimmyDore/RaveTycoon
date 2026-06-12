@@ -127,7 +127,7 @@ describe('le compteur de victoires Teknival', () => {
       peakCrowd: 900,
       vibeSum: 540,
       vibeSamples: 600,
-      playedSets: [{ djId: 'tonton', brief: 'normal' }],
+      playedSets: [{ djId: 'tonton' }],
     });
     settleNight(state, night);
     expect(state.tour.teknivalWins).toBe(1);
@@ -231,7 +231,7 @@ describe('les Têtes d’affiche', () => {
 
   it('increvable : La Comète ne prend pas de fatigue, mais gagne l’XP', () => {
     const dj = { id: 'comete', xp: 0, fatigue: 0, setsPlayed: 0, gifted: false, studioBonus: 0 };
-    applySetToll(dj, 'pousser', 90);
+    applySetToll(dj, 1, 90);
     expect(dj.fatigue).toBe(0);
     expect(dj.xp).toBeGreaterThan(0);
     expect(dj.setsPlayed).toBe(1);
@@ -242,7 +242,7 @@ describe('les Têtes d’affiche', () => {
       const state = newGame();
       state.crew.push({ id: djId, xp: 0, fatigue: 0, setsPlayed: 0, gifted: false, studioBonus: 0 });
       const night = createNight(state, 'champ', [djId], 7);
-      startSet(state, night, djId, 'normal');
+      startSet(state, night, djId);
       for (let i = 0; i < 80; i++) tickNight(state, night, 0.1); // 8 s — avant tout event/prompt
       return night.heat;
     };
@@ -321,7 +321,7 @@ describe('mythes du son : le tier mythique', () => {
   it('signature de la centrale mythique : tient la demande max même à la carrière', () => {
     const mythic = GEAR.groupe[GEAR.groupe.length - 1];
     const supply = mythic.value * getSpot('carriere').powerMult + 0.15;
-    expect(supply).toBeGreaterThan(0.35 + 0.5 + 0.22); // demande max (foule pleine + pousser)
+    expect(supply).toBeGreaterThan(0.35 + 0.5 + 0.3); // demande max (foule pleine + RINSE)
   });
 });
 

@@ -14,7 +14,7 @@ export interface EngineParams {
   energy: number;
   /** set quality [0,~1.4] — richer mixes for better DJs */
   quality: number;
-  /** brief "pousser" — audibly clips and distorts */
+  /** cran RINSE — clippe et distord audiblement */
   pushed: boolean;
   /** sound currently cut (brownout / repairs) */
   soundCut: boolean;

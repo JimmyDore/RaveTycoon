@@ -9,7 +9,7 @@ function ctx(): EventContext {
   return {
     heat: 0.2,
     spotTier: 1,
-    brief: 'normal',
+    intensity: 'groove',
     djRisk: 'normal',
     crowdRatio: 0.3,
     gear: { platines: 0, mur: 0, groupe: 0, lumieres: 0, logistique: 0 },
@@ -28,7 +28,7 @@ describe('objectifs de set', () => {
   it('un set propre (zéro brownout) crédite la récompense et l’enregistre', () => {
     const state = newGame(42);
     const night = createNight(state, 'champ', ['tonton'], 7);
-    startSet(state, night, 'tonton', 'normal');
+    startSet(state, night, 'tonton');
     // force l'objectif « zéro brownout », trivialement atteint sur un set court
     const propre = SET_GOALS.find((g) => g.id === 'propre')!;
     night.setGoal = propre;
@@ -48,7 +48,7 @@ describe('objectifs de set', () => {
   it('le résultat (settleNight) expose goalsMet', () => {
     const state = newGame(42);
     const night = createNight(state, 'champ', ['tonton'], 7);
-    startSet(state, night, 'tonton', 'normal');
+    startSet(state, night, 'tonton');
     const propre = SET_GOALS.find((g) => g.id === 'propre')!;
     night.setGoal = propre;
     night.setBrownouts = 0;
@@ -56,7 +56,7 @@ describe('objectifs de set', () => {
     tickNight(state, night, 0.1);
     // mène la nuit jusqu'à sa fin pour pouvoir settle
     for (let guard = 0; guard < 100_000 && night.phase !== 'ended'; guard++) {
-      if (night.phase === 'transition') startSet(state, night, 'tonton', 'normal');
+      if (night.phase === 'transition') startSet(state, night, 'tonton');
       tickNight(state, night, 0.1);
     }
     const result = settleNight(state, night);

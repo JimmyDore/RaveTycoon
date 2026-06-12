@@ -6,9 +6,9 @@ import { isSpotAvailable } from '../core/payout';
 import { buildRegionRules, regionTraits, type RegionChoice } from '../core/regions';
 import { canBuyPerk, computeLegende, hasPerk, maxVeterans, perkCount } from '../core/tour';
 import { MONTEE_MIN_DROP, computeSetQuality } from '../core/night';
+import { INTENSITIES, type Intensity } from '../core/intensity';
 import type { NightModifierDef } from '../core/modifiers';
 import type {
-  Brief,
   DjDef,
   GameState,
   GearBranch,
@@ -446,12 +446,12 @@ export interface NightScreen {
   toast(msg: string): void;
   /** bannière one-shot des modifs du soir, au lancement de la nuit */
   showModifiers(modifiers: NightModifierDef[]): void;
-  showTransition(state: GameState, night: NightState, onStart: (djId: string, brief: Brief) => void): void;
+  showTransition(state: GameState, night: NightState, onStart: (djId: string) => void): void;
   showEvent(night: NightState, pending: PendingEvent, onChoose: (index: number) => string): void;
 }
 
 export interface NightLiveCallbacks {
-  onBrief(brief: Brief): void;
+  onIntensity(i: Intensity): void;
   onDrop(): void;
   onPrompt(): void;
 }
@@ -511,11 +511,12 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
   bottomBar.append(nowCol, heatWrap, vibeWrap);
 
   const liveWrap = el('div', 'live-controls');
-  const briefBtns = new Map<Brief, HTMLButtonElement>();
-  for (const brief of ['safe', 'normal', 'pousser'] as Brief[]) {
-    const b = el('button', 'live-brief', STR.briefShort[brief]) as HTMLButtonElement;
-    b.addEventListener('click', () => live.onBrief(brief));
-    briefBtns.set(brief, b);
+  const cranBtns = new Map<Intensity, HTMLButtonElement>();
+  for (const cran of INTENSITIES) {
+    const b = el('button', 'live-cran', STR.intensites[cran]) as HTMLButtonElement;
+    b.title = STR.intensiteHints[cran];
+    b.addEventListener('click', () => live.onIntensity(cran));
+    cranBtns.set(cran, b);
     liveWrap.append(b);
   }
   const monteeBar = el('div', 'montee-bar');
@@ -571,14 +572,14 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
       heatFill.classList.toggle('hot', night.heat > 0.7);
       vibeFill.style.width = `${(night.vibe * 100).toFixed(1)}%`;
       if (night.currentDj && night.phase === 'playing') {
-        nowPlaying.textContent = `🎧 ${STR.nowPlaying(getDj(night.currentDj).nom)} · ${STR.briefs[night.brief]}`;
+        nowPlaying.textContent = `🎧 ${STR.nowPlaying(getDj(night.currentDj).nom)} · ${STR.intensites[night.intensity]}`;
       } else {
         nowPlaying.textContent = '';
       }
       const playing = night.phase === 'playing';
-      for (const [brief, btn] of briefBtns) {
-        btn.classList.toggle('selected', night.brief === brief);
-        btn.disabled = !playing || night.briefLockT > 0 || night.brief === brief;
+      for (const [cran, btn] of cranBtns) {
+        btn.classList.toggle('selected', night.intensity === cran);
+        btn.disabled = !playing || night.intensity === cran;
       }
       monteeFill.style.width = `${(night.montee * 100).toFixed(1)}%`;
       monteeFill.classList.toggle('full', night.montee >= 0.85);
@@ -665,17 +666,12 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
       panel.append(el('h2', '', `${STR.setLabel(night.setIndex + 1, night.setCount)} — ${STR.whoPlays}`));
 
       let chosenDj = night.presentDjs[0];
-      let chosenBrief: Brief = 'normal';
       const djList = el('div', 'pick-dj-list');
-      const briefRow = el('div', 'brief-row');
       const go = el('button', 'btn launch', STR.startSet);
 
       const refresh = () => {
         for (const child of Array.from(djList.children) as HTMLElement[]) {
           child.classList.toggle('selected', child.dataset.dj === chosenDj);
-        }
-        for (const child of Array.from(briefRow.children) as HTMLElement[]) {
-          child.classList.toggle('selected', child.dataset.brief === chosenBrief);
         }
       };
 
@@ -690,7 +686,7 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
         info.append(el('div', 'card-title', def.nom));
         const djGenre = getGenre(def.genre);
         info.append(el('div', 'dj-genre-badge pick', `🎵 ${djGenre.nom} · ${djGenre.bpm} BPM`));
-        const q = computeSetQuality(state, night, djId, 'normal');
+        const q = computeSetQuality(state, night, djId);
         const stars = '♪'.repeat(Math.max(1, Math.round(q * 5)));
         info.append(el('div', 'card-desc', `${stars} · ${STR.risk[def.risk]} · ${STR.cut(effectiveCut(def, member))}`));
         const fat = el('div', 'dj-fatigue');
@@ -708,23 +704,9 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
       }
       panel.append(djList);
 
-      panel.append(el('h3', '', STR.briefLabel));
-      for (const brief of ['safe', 'normal', 'pousser'] as Brief[]) {
-        const b = el('button', 'card brief-pick');
-        b.dataset.brief = brief;
-        b.append(el('div', 'card-title', STR.briefs[brief]));
-        b.append(el('div', 'card-desc', STR.briefHints[brief]));
-        b.addEventListener('click', () => {
-          chosenBrief = brief;
-          refresh();
-        });
-        briefRow.append(b);
-      }
-      panel.append(briefRow);
-
       go.addEventListener('click', () => {
         modal.className = 'night-modal hidden';
-        onStart(chosenDj, chosenBrief);
+        onStart(chosenDj);
       });
       panel.append(go);
       modal.append(panel);

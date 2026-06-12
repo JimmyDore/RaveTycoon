@@ -17,10 +17,7 @@ function finishedNight(state: GameState, overrides: Partial<NightState> = {}): N
     vibeSum: 0.8 * 180,
     vibeSamples: 180,
     peakHeat: 0.4,
-    playedSets: [
-      { djId: 'tonton', brief: 'normal' },
-      { djId: 'tonton', brief: 'normal' },
-    ],
+    playedSets: [{ djId: 'tonton' }, { djId: 'tonton' }],
   });
   return Object.assign(night, overrides);
 }
@@ -43,10 +40,7 @@ describe('settleNight', () => {
     state.rep = 100;
     recruitDj(state, 'gamine');
     const night = finishedNight(state, {
-      playedSets: [
-        { djId: 'tonton', brief: 'normal' },
-        { djId: 'gamine', brief: 'pousser' },
-      ],
+      playedSets: [{ djId: 'tonton' }, { djId: 'gamine' }],
     });
     expect(cutsTotal(state, night)).toBeCloseTo(0.15, 5);
   });
@@ -63,7 +57,7 @@ describe('settleNight', () => {
       peakCrowd: 900,
       vibeSum: 540,
       vibeSamples: 600,
-      playedSets: [{ djId: 'tonton', brief: 'normal' }],
+      playedSets: [{ djId: 'tonton' }],
     });
     const result = settleNight(state, night);
     expect(result.won).toBe(true);

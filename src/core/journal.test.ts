@@ -8,7 +8,7 @@ describe('night journal', () => {
   it('records each resolved event and surfaces it in the result', () => {
     const state = newGame(42);
     const night = createNight(state, 'champ', ['tonton'], 7);
-    startSet(state, night, 'tonton', 'normal');
+    startSet(state, night, 'tonton');
     night.pendingEvent = { def: NIGHT_EVENTS[0] };
     night.phase = 'event';
     resolveEvent(state, night, 1);

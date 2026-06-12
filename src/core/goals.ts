@@ -1,3 +1,4 @@
+import { isHighIntensity } from './intensity';
 import type { EventContext, SetGoalDef } from './types';
 
 /**
@@ -38,7 +39,7 @@ export const SET_GOALS: SetGoalDef[] = [
     label: 'Lâcher un gros drop (jauge pleine)',
     reward: { rep: 4 },
     met: (s) => s.bestDrop >= 0.8,
-    weight: (ctx) => (ctx.brief === 'pousser' ? 1.3 : 0.8),
+    weight: (ctx) => (isHighIntensity(ctx.intensity) ? 1.3 : 0.8),
   },
   {
     id: 'discret',

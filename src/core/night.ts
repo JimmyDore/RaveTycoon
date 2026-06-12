@@ -3,12 +3,12 @@ import { getDj, getGenre, getSpot, ownedGear } from './data';
 import { BAR_DRIP, BAR_STOCK_CAP, cautionCost, potentialBar, type BarStock } from './economy';
 import { drawEvent } from './events';
 import { drawGoal } from './goals';
+import { INTENSITY_HEAT, INTENSITY_LEVEL, INTENSITY_POWER, INTENSITY_QUALITY, isHighIntensity, type Intensity } from './intensity';
 import { modifierProduct, modifierSum, rollModifiers } from './modifiers';
 import { drawPrompt } from './prompts';
 import { buildRegionRules } from './regions';
 import { mulberry32 } from './rng';
 import type {
-  Brief,
   DjDef,
   EventContext,
   EventEffects,
@@ -26,9 +26,6 @@ const BROWNOUT_DURATION = 1.5;
 const BROWNOUT_COOLDOWN = 6;
 /** events per night scale with set count; min spacing in seconds */
 const EVENT_MIN_SPACING = 25;
-const BRIEF_QUALITY: Record<Brief, number> = { safe: 0.9, normal: 1, pousser: 1.12 };
-const BRIEF_HEAT: Record<Brief, number> = { safe: 0.5, normal: 1, pousser: 1.8 };
-const BRIEF_POWER: Record<Brief, number> = { safe: 0, normal: 0.08, pousser: 0.22 };
 const RISK_HEAT = { discret: 0.8, normal: 1, chaud: 1.35 } as const;
 /** overall damping so heat curves match night lengths */
 const HEAT_BASE = 0.55;
@@ -106,7 +103,7 @@ export function createNight(
     t: 0,
     duration: spot.duration,
     currentDj: null,
-    brief: 'normal',
+    intensity: 'groove',
     setQuality: 0,
     crowd: 0,
     peakCrowd: 0,
@@ -132,7 +129,8 @@ export function createNight(
     qualityMultRestOfSet: 1,
     arrivalCutT: 0,
     repBonus: 0,
-    briefLockT: 0,
+    setPeakRinseT: 0,
+    intensitySum: 0,
     montee: 0,
     bestDropThisSet: 0,
     setGoal: null,
@@ -178,7 +176,7 @@ export function branchHeatMult(state: GameState): number {
   );
 }
 
-export function computeSetQuality(state: GameState, night: NightState, djId: string, brief: Brief): number {
+export function computeSetQuality(state: GameState, night: NightState, djId: string): number {
   const def = getDj(djId);
   const member = getCrewMember(state, djId);
   const platines = ownedGear(state, 'platines').value * (state.damaged.platines ? 0.7 : 1);
@@ -187,25 +185,23 @@ export function computeSetQuality(state: GameState, night: NightState, djId: str
   const tech = effectiveTechnique(def, member);
   const base = 0.18 + 0.16 * tech;
   return clamp(
-    base * platines * murQuality * spotQ * BRIEF_QUALITY[brief] * fatigueQualityMult(member) *
-      night.rules.setQualityMult,
+    base * platines * murQuality * spotQ * fatigueQualityMult(member) * night.rules.setQualityMult,
     0.05,
     1.5,
   );
 }
 
 /** Begin the next set. Only valid in the 'transition' phase. */
-export function startSet(state: GameState, night: NightState, djId: string, brief: Brief): void {
+export function startSet(state: GameState, night: NightState, djId: string): void {
   if (night.phase !== 'transition') throw new Error('not in transition');
   if (!night.presentDjs.includes(djId)) throw new Error(`dj not present: ${djId}`);
   night.currentDj = djId;
-  night.brief = brief;
   // le son c'est le DJ : le genre du set courant est celui du DJ qui joue
   night.genreId = getDj(djId).genre;
-  night.setQuality = computeSetQuality(state, night, djId, brief);
+  night.setQuality = computeSetQuality(state, night, djId);
   night.qualityMultRestOfSet = 1;
   night.setElapsed = 0;
-  night.briefLockT = 0;
+  night.setPeakRinseT = 0;
   night.bestDropThisSet = 0;
   // un prompt ne traverse pas une transition de set (sinon il expire au 1er tick
   // du set suivant et applique son lapse hors du contrôle du joueur)
@@ -218,14 +214,14 @@ export function startSet(state: GameState, night: NightState, djId: string, brie
   night.setBrownouts = 0;
   night.setCrowdStart = night.crowd;
   night.phase = 'playing';
-  night.playedSets.push({ djId, brief });
+  night.playedSets.push({ djId });
 }
 
 function eventContext(state: GameState, night: NightState): EventContext {
   return {
     heat: night.heat,
     spotTier: getSpot(night.spotId).tier,
-    brief: night.brief,
+    intensity: night.intensity,
     djRisk: night.currentDj ? getDj(night.currentDj).risk : 'normal',
     crowdRatio: night.cap > 0 ? night.crowd / night.cap : 0,
     gear: state.gear,
@@ -258,19 +254,19 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   const soundOn = night.soundCutT <= 0;
   if (!soundOn) night.soundCutT -= dt;
   night.brownoutCooldown = Math.max(0, night.brownoutCooldown - dt);
-  night.briefLockT = Math.max(0, night.briefLockT - dt);
   if (night.arrivalCutT > 0) night.arrivalCutT -= dt;
 
-  const quality = night.setQuality * night.qualityMultRestOfSet * (night.murBlown ? 0.6 : 1);
+  const quality =
+    night.setQuality * INTENSITY_QUALITY[night.intensity] * night.qualityMultRestOfSet *
+    (night.murBlown ? 0.6 : 1);
 
   // --- power: demand grows with the crowd, supply is the generator ------------
   const groupeItem = ownedGear(state, 'groupe');
   const supply = groupeItem.value * (state.damaged.groupe ? 0.6 : 1) * spot.powerMult + 0.15;
-  // groupe voie Monstre : pousser le son ne surcharge plus le groupe
-  // RÉVISION CHANTIER 1 : devient « RINSE sans surcharge » avec les crans
-  const briefPower =
-    night.brief === 'pousser' && groupeItem.effects?.pousserPowerFree ? 0 : BRIEF_POWER[night.brief];
-  const demand = 0.35 + 0.5 * (night.cap > 0 ? night.crowd / night.cap : 0) + briefPower;
+  // groupe voie Monstre : RINSE ne surcharge plus le groupe (révision chantier 1 faite)
+  const intensityPower =
+    night.intensity === 'rinse' && groupeItem.effects?.rinsePowerFree ? 0 : INTENSITY_POWER[night.intensity];
+  const demand = 0.35 + 0.5 * (night.cap > 0 ? night.crowd / night.cap : 0) + intensityPower;
   if (demand > supply && soundOn && night.brownoutCooldown <= 0) {
     const prevMontee = night.montee;
     night.soundCutT = BROWNOUT_DURATION;
@@ -284,7 +280,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   }
 
   // --- mur de son stress when pushing ------------------------------------------
-  if (night.brief === 'pousser' && !night.murBlown) {
+  if (night.intensity === 'rinse' && !night.murBlown) {
     const resilience = 1 + state.gear.mur * 0.5;
     night.murStress += (dt / 60) * (0.5 / resilience) * (state.damaged.mur ? 2 : 1);
     if (night.murStress >= 1 || (night.murStress > 0.6 && night.rng() < 0.01 * dt)) {
@@ -334,10 +330,12 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   // accumulateurs du set (pour l'objectif évalué en fin de set)
   night.setVibeSum += night.vibe * dt;
   night.setVibeSamples += dt;
+  // accumulateurs d'intensité : fatigue (set) et essence (nuit)
+  if (isHighIntensity(night.intensity)) night.setPeakRinseT += dt;
+  night.intensitySum += INTENSITY_LEVEL[night.intensity] * dt;
 
   // --- la montée : se charge en faisant vibrer le floor ----------------------------
-  const monteeGain =
-    dt * MONTEE_RATE * night.vibe * (night.brief === 'pousser' ? 1.4 : 1) * MONTEE_GENRE[night.genreId];
+  const monteeGain = dt * MONTEE_RATE * night.vibe * MONTEE_GENRE[night.genreId];
   night.montee = clamp(night.montee + monteeGain, 0, 1);
   if (night.vibe < 0.3) night.montee = Math.max(0, night.montee - dt * MONTEE_DECAY);
 
@@ -346,8 +344,8 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   // RÉVISION CHANTIER 1: l'insaisissable deviendra immunisé à la garde à vue ;
   // en attendant, son gimmick = moitié moins de heat (levier existant)
   const riskMult = dj ? RISK_HEAT[dj.risk] * (dj.gimmick === 'insaisissable' ? 0.5 : 1) : 1;
-  night.heat += spot.heatBuild * genre.heatMult * BRIEF_HEAT[night.brief] * riskMult * logistique * heatMod * branchHeatMult(state) * night.rules.heatMult * HEAT_BASE * dt;
-  if (night.brief === 'safe') night.heat -= 0.01 * dt;
+  night.heat += spot.heatBuild * genre.heatMult * INTENSITY_HEAT[night.intensity] * riskMult * logistique * heatMod * branchHeatMult(state) * night.rules.heatMult * HEAT_BASE * dt;
+  if (night.intensity === 'chill') night.heat -= 0.01 * dt;
   night.heat = clamp(night.heat, 0, 1);
   night.peakHeat = Math.max(night.peakHeat, night.heat);
   if (night.heat >= night.rules.bustThreshold) {
@@ -424,7 +422,8 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
 function endCurrentSet(state: GameState, night: NightState): void {
   if (!night.currentDj) return;
   const member = getCrewMember(state, night.currentDj);
-  applySetToll(member, night.brief, night.setElapsed);
+  const fracPeakRinse = night.setElapsed > 0 ? Math.min(1, night.setPeakRinseT / night.setElapsed) : 0;
+  applySetToll(member, fracPeakRinse, night.setElapsed);
   // évalue l'objectif du set — bonus only, aucune punition si raté
   if (night.setGoal) {
     const stats: SetStats = {
@@ -455,12 +454,7 @@ export function applyEffects(state: GameState, night: NightState, fx: EventEffec
   if (fx.vibe) night.vibe = clamp(night.vibe + fx.vibe, 0, 1);
   if (fx.crowdFrac) night.crowd = clamp(night.crowd * (1 + fx.crowdFrac), 0, night.cap);
   if (fx.cash) night.bank = Math.max(0, night.bank + fx.cash);
-  if (fx.forceBrief) {
-    night.brief = fx.forceBrief;
-    if (night.currentDj) {
-      night.setQuality = computeSetQuality(state, night, night.currentDj, night.brief);
-    }
-  }
+  if (fx.forceIntensity) night.intensity = fx.forceIntensity;
   if (fx.qualityMult) night.qualityMultRestOfSet *= fx.qualityMult;
   if (fx.soundCut) night.soundCutT = Math.max(night.soundCutT, fx.soundCut);
   if (fx.rep) night.repBonus += fx.rep;
@@ -497,16 +491,13 @@ export function seizeFloorPrompt(state: GameState, night: NightState): FloorProm
   return def;
 }
 
-export const BRIEF_LOCK = 18;
-
-/** Change the consigne mid-set. The desk locks for BRIEF_LOCK seconds after. */
-export function changeBrief(state: GameState, night: NightState, brief: Brief): boolean {
-  if (night.phase !== 'playing' || night.briefLockT > 0 || night.brief === brief) return false;
-  night.brief = brief;
-  if (night.currentDj) {
-    night.setQuality = computeSetQuality(state, night, night.currentDj, brief);
-  }
-  night.briefLockT = BRIEF_LOCK;
+/**
+ * Change le cran d'intensité. Tappable à tout moment en phase `playing`,
+ * AUCUN cooldown : le coût est dans la sim (burnout, heat, fatigue).
+ */
+export function setIntensity(night: NightState, i: Intensity): boolean {
+  if (night.phase !== 'playing' || night.intensity === i) return false;
+  night.intensity = i;
   return true;
 }
 

@@ -1,3 +1,4 @@
+import { isHighIntensity } from './intensity';
 import type { EventContext, NightEventDef } from './types';
 
 /**
@@ -13,7 +14,7 @@ export const NIGHT_EVENTS: NightEventDef[] = [
       {
         label: 'Baisser le son un moment',
         outcome: 'Le mur murmure pendant un quart d’heure. La voiture finit par passer son chemin.',
-        effects: { heat: -0.12, vibe: -0.08, forceBrief: 'safe' },
+        effects: { heat: -0.12, vibe: -0.08, forceIntensity: 'chill' },
       },
       {
         label: 'On continue, c’est la teuf',
@@ -67,7 +68,7 @@ export const NIGHT_EVENTS: NightEventDef[] = [
         effects: { cash: -40, qualityMult: 0.95 },
       },
     ],
-    weight: (ctx) => (ctx.brief === 'pousser' ? 1.5 : 0.5) + (ctx.gear.mur === 0 ? 0.5 : 0),
+    weight: (ctx) => (isHighIntensity(ctx.intensity) ? 1.5 : 0.5) + (ctx.gear.mur === 0 ? 0.5 : 0),
   },
   {
     id: 'public-en-redemande',
@@ -76,8 +77,8 @@ export const NIGHT_EVENTS: NightEventDef[] = [
     options: [
       {
         label: 'Lâcher les watts',
-        outcome: 'Le DJ pousse tout. Le champ entier hurle de joie.',
-        effects: { forceBrief: 'pousser', vibe: 0.12 },
+        outcome: 'Le DJ charge la tension. Le champ entier retient son souffle.',
+        effects: { montee: 0.3, vibe: 0.08 },
       },
       {
         label: 'Tenir le plan de vol',
@@ -85,7 +86,7 @@ export const NIGHT_EVENTS: NightEventDef[] = [
         effects: { vibe: -0.05 },
       },
     ],
-    weight: (ctx) => (ctx.brief !== 'pousser' && ctx.crowdRatio > 0.3 ? 1.4 : 0),
+    weight: (ctx) => (!isHighIntensity(ctx.intensity) && ctx.crowdRatio > 0.3 ? 1.4 : 0),
   },
   {
     id: 'voisin',
@@ -154,10 +155,10 @@ export const NIGHT_EVENTS: NightEventDef[] = [
       {
         label: 'Un mot à l’oreille',
         outcome: 'Le set retombe sur ses pattes. Le DJ fait la gueule.',
-        effects: { vibe: -0.04, forceBrief: 'normal' },
+        effects: { vibe: -0.04, forceIntensity: 'groove' },
       },
     ],
-    weight: (ctx) => (ctx.djRisk === 'chaud' && ctx.brief === 'pousser' ? 1.6 : 0),
+    weight: (ctx) => (ctx.djRisk === 'chaud' && isHighIntensity(ctx.intensity) ? 1.6 : 0),
   },
   {
     id: 'rush-buvette',

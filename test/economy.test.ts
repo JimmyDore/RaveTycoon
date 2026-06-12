@@ -3,7 +3,6 @@ import {
   BAR_DRIP,
   BAR_STOCK_CAP,
   BAR_STOCK_COST,
-  BRIEF_INTENSITY,
   ESSENCE_RATE,
   cautionCost,
   essenceCost,
@@ -49,29 +48,21 @@ function finishedNight(
     vibeSum: 0.8 * 180,
     vibeSamples: 180,
     peakHeat: 0.4,
-    playedSets: [
-      { djId: 'tonton', brief: 'normal' },
-      { djId: 'tonton', brief: 'normal' },
-    ],
+    intensitySum: 90, // groove toute la nuit : 0.5 × 180 s
+    playedSets: [{ djId: 'tonton' }, { djId: 'tonton' }],
   });
   return Object.assign(night, overrides);
 }
 
 describe('essence du groupe', () => {
-  it('coûte 2 €/min pondérés par la consigne — gratuite au groupe poussif', () => {
+  it("coûte 2 €/min pondérés par l'intensité moyenne (temps) — gratuite au groupe poussif", () => {
     const state = newGame();
-    const night = finishedNight(state, {}, {
-      playedSets: [
-        { djId: 'tonton', brief: 'normal' },
-        { djId: 'tonton', brief: 'pousser' },
-      ],
-    });
-    expect(essenceCost(state, night)).toBe(0); // groupe tier 0 : no-softlock
+    const night = finishedNight(state, {}, { intensitySum: 0.75 * 180 });
+    state.gear.groupe = 0;
+    expect(essenceCost(state, night)).toBe(0); // no-softlock
     state.gear.groupe = 1;
-    // RÉVISION CHANTIER 1 : intensité = consigne (safe .25 / normal .5 / pousser 1)
-    // 2 € × 3 min × (0.5 + (0.5 + 1) / 2) = 7.5 → 8
+    // 2 € × 3 min × (0.5 + 0.75) = 7.5 → 8
     expect(ESSENCE_RATE).toBe(2);
-    expect(BRIEF_INTENSITY).toEqual({ safe: 0.25, normal: 0.5, pousser: 1 });
     expect(essenceCost(state, night)).toBe(8);
   });
 });
@@ -89,7 +80,7 @@ describe('stock du bar', () => {
     // potentiel = cap × drip × priceMult × durée = 36 × 0.05 × 1 × 180 = 324
     expect(potentialBar(getSpot('champ'), night.cap)).toBeCloseTo(324, 5);
     expect(night.barCap).toBeCloseTo(162, 5); // léger = 50 %
-    startSet(state, night, 'tonton', 'normal');
+    startSet(state, night, 'tonton');
     night.crowd = night.cap;
     night.barSales = night.barCap; // stock épuisé
     const bank = night.bank;
@@ -152,7 +143,7 @@ describe('caution du spot (tiers ≥ 3)', () => {
     Object.assign(night, {
       t: 300, phase: 'ended', sunrise: true, bank: 50, peakCrowd: 10,
       vibeSum: 30, vibeSamples: 300,
-      playedSets: [{ djId: 'tonton', brief: 'normal' }],
+      playedSets: [{ djId: 'tonton' }],
     });
     const result = settleNight(state, night);
     expect(result.cautionReturned).toBe(220);
@@ -166,7 +157,7 @@ describe('caution du spot (tiers ≥ 3)', () => {
     const night = createNight(state, 'carriere', ['tonton'], 5, { caution: true });
     Object.assign(night, {
       t: 300, phase: 'ended', busted: true, bank: 0, peakCrowd: 0,
-      playedSets: [{ djId: 'tonton', brief: 'normal' }],
+      playedSets: [{ djId: 'tonton' }],
     });
     const result = applyBust(state, night);
     expect(result.cautionReturned).toBe(0);
@@ -290,8 +281,8 @@ describe('les voies dans la sim', () => {
     b.gearBranch.mur = 'B';
     const na = mkNight(a, 'champ', ['tonton'], 8);
     const nb = mkNight(b, 'champ', ['tonton'], 8);
-    expect(computeSetQuality(b, nb, 'tonton', 'normal')).toBeCloseTo(
-      computeSetQuality(a, na, 'tonton', 'normal') * 1.06,
+    expect(computeSetQuality(b, nb, 'tonton')).toBeCloseTo(
+      computeSetQuality(a, na, 'tonton') * 1.06,
       5,
     );
   });
@@ -302,7 +293,7 @@ describe('les voies dans la sim', () => {
       state.gear.lumieres = 3;
       state.gearBranch.lumieres = branch;
       const night = mkNight(state, 'champ', ['tonton'], 9);
-      start(state, night, 'tonton', 'normal');
+      start(state, night, 'tonton');
       night.montee = 1;
       night.vibe = 0.3;
       night.crowd = night.cap * 0.3;
@@ -378,8 +369,8 @@ describe('nouveaux spots', () => {
     state.rep = 1000;
     const tunnel = mkNight(state, 'tunnel', ['tonton'], 10);
     const champ = mkNight(state, 'champ', ['tonton'], 10);
-    expect(computeSetQuality(state, tunnel, 'tonton', 'normal')).toBeCloseTo(
-      computeSetQuality(state, champ, 'tonton', 'normal') * 1.15,
+    expect(computeSetQuality(state, tunnel, 'tonton')).toBeCloseTo(
+      computeSetQuality(state, champ, 'tonton') * 1.15,
       5,
     );
   });
@@ -390,7 +381,7 @@ describe('nouveaux spots', () => {
     const night = mkNight(state, 'chateau', ['tonton'], 11);
     Object.assign(night, {
       t: 540, phase: 'ended', sunrise: true, bank: 100, peakCrowd: 0, vibeSum: 0,
-      vibeSamples: 540, playedSets: [{ djId: 'tonton', brief: 'normal' }],
+      vibeSamples: 540, playedSets: [{ djId: 'tonton' }],
     });
     const result = settleNight(state, night);
     expect(result.donationMult).toBeCloseTo(1.3, 5); // (1 + 0 + 0) × 1.3

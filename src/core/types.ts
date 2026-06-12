@@ -1,3 +1,4 @@
+import type { Intensity } from './intensity';
 import type { NightModifierDef } from './modifiers';
 import type { RegionRules, RegionState } from './regions';
 
@@ -80,9 +81,8 @@ export interface GearEffects {
   heatMult?: number;
   /** mur B — line array : bonus de qualité de set */
   qualityMult?: number;
-  /** groupe B — pousser le son ne surcharge plus le groupe.
-   *  RÉVISION CHANTIER 1 : devient « RINSE sans surcharge » avec les crans. */
-  pousserPowerFree?: boolean;
+  /** groupe B — RINSE ne surcharge plus le groupe (révision chantier 1 faite). */
+  rinsePowerFree?: boolean;
   /** lumières B — payoff du drop multiplié */
   dropMult?: number;
   /** logistique B — cautions multipliées (< 1 = réduction) */
@@ -152,8 +152,6 @@ export interface DjState {
   studioBonus: number;
 }
 
-export type Brief = 'safe' | 'normal' | 'pousser';
-
 export interface RepairJob {
   category: GearCategory;
   /** epoch ms at which the repair completes */
@@ -216,8 +214,8 @@ export interface EventEffects {
   crowdFrac?: number;
   /** flat cash from the bank (can be negative) */
   cash?: number;
-  /** force the current set's brief */
-  forceBrief?: Brief;
+  /** force le cran d'intensité courant */
+  forceIntensity?: Intensity;
   /** multiply set quality for the rest of the current set */
   qualityMult?: number;
   /** chance [0,1] that a gear category takes damage */
@@ -244,7 +242,7 @@ export interface NightEventDef {
 export interface EventContext {
   heat: number;
   spotTier: number;
-  brief: Brief;
+  intensity: Intensity;
   djRisk: DjRisk;
   crowdRatio: number;
   gear: Record<GearCategory, number>;
@@ -301,7 +299,6 @@ export interface PendingEvent {
 
 export interface SetRecord {
   djId: string;
-  brief: Brief;
 }
 
 export interface JournalEntry {
@@ -325,7 +322,12 @@ export interface NightState {
   t: number;
   duration: number;
   currentDj: string | null;
-  brief: Brief;
+  /** cran d'intensité courant — persiste d'un set à l'autre */
+  intensity: Intensity;
+  /** secondes du set courant passées à PEAK/RINSE (fatigue ∝ fracPeakRinse) */
+  setPeakRinseT: number;
+  /** ∑ INTENSITY_LEVEL × dt sur la nuit — essence pondérée temps (economy.ts) */
+  intensitySum: number;
   /** current set quality in ~[0.2, 1.4] */
   setQuality: number;
   crowd: number;
@@ -356,8 +358,6 @@ export interface NightState {
   qualityMultRestOfSet: number;
   arrivalCutT: number;
   repBonus: number;
-  /** seconds before the brief can be changed again mid-set */
-  briefLockT: number;
   /** tension gauge [0,1] — chargée en jouant, encaissée par un drop */
   montee: number;
   /** plus gros drop lâché sur le set courant (reset à chaque set) */

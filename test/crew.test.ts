@@ -59,14 +59,15 @@ describe('experience', () => {
 });
 
 describe('fatigue', () => {
-  it('accumulates from sets, more when pushing, capped at 1 (no hidden debt)', () => {
+  it('accumulates from sets, more at PEAK/RINSE, capped at 1 (no hidden debt)', () => {
     const state = newGame();
     const dj = state.crew[0];
-    applySetToll(dj, 'normal', 90);
-    const afterNormal = dj.fatigue;
-    applySetToll(dj, 'pousser', 90);
-    expect(dj.fatigue - afterNormal).toBeGreaterThan(afterNormal);
-    for (let i = 0; i < 20; i++) applySetToll(dj, 'pousser', 90);
+    applySetToll(dj, 0, 90); // un set tout en chill/groove
+    const afterCalm = dj.fatigue;
+    expect(afterCalm).toBeCloseTo(0.18, 5);
+    applySetToll(dj, 1, 90); // un set 100 % peak/rinse
+    expect(dj.fatigue - afterCalm).toBeCloseTo(0.34, 5);
+    for (let i = 0; i < 20; i++) applySetToll(dj, 1, 90);
     expect(dj.fatigue).toBe(1);
   });
 
