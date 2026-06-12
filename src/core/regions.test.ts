@@ -107,7 +107,12 @@ describe('regionTraits', () => {
   it('résout les ids et rend [] sans région', () => {
     expect(regionTraits(undefined)).toEqual([]);
     expect(regionTraits({ nom: 'x', traits: ['terre-de-dub'] })[0].nom).toBe('Terre de dub');
-    expect(() => regionTraits({ nom: 'x', traits: ['nimporte-quoi'] })).toThrow();
+  });
+
+  it('ignore un id de trait inconnu (vieille save, trait renommé)', () => {
+    const traits = regionTraits({ nom: 'x', traits: ['nimporte-quoi', 'terre-de-dub'] });
+    expect(traits).toHaveLength(1);
+    expect(traits[0].id).toBe('terre-de-dub');
   });
 });
 

@@ -252,9 +252,16 @@ export function getRegionTrait(id: string): RegionTraitDef {
   return trait;
 }
 
-/** Les defs des traits d'une région (ou [] sans région — tournée 1). */
+/**
+ * Les defs des traits d'une région (ou [] sans région — tournée 1).
+ * Un id inconnu (trait renommé entre versions) est ignoré plutôt que de
+ * planter le chargement d'une vieille save en pleine tournée.
+ */
 export function regionTraits(region: RegionState | undefined): RegionTraitDef[] {
-  return region ? region.traits.map(getRegionTrait) : [];
+  if (!region) return [];
+  return region.traits
+    .map((id) => REGION_TRAITS.find((t) => t.id === id))
+    .filter((t): t is RegionTraitDef => t !== undefined);
 }
 
 /** Multiplicateur ⭐ = 1 + 0.25 × max(0, somme des difficulty) → ×1.0 à ×2.0. */
