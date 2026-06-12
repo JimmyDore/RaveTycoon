@@ -22,6 +22,8 @@ export interface NightModifierDef {
   priceMult?: number;
   retentionBonus?: number;
   eventDelay?: number;
+  /** météo/foule qui fâche — pèse plus lourd sous « Climat pourri » (régions) */
+  negatif?: boolean;
   /** poids contextuel ; tier-1 ne tire que des modifs douces (voir garde-fou) */
   weight: (spotTier: number) => number;
 }
@@ -44,6 +46,7 @@ export const NIGHT_MODIFIERS: NightModifierDef[] = [
     churnMult: 1.3,
     heatMult: 0.7,
     arrivalMult: 0.85,
+    negatif: true,
     weight: () => 1,
   },
   {
@@ -61,6 +64,7 @@ export const NIGHT_MODIFIERS: NightModifierDef[] = [
     icon: '🌫',
     eventDelay: 30,
     arrivalMult: 0.9,
+    negatif: true,
     weight: () => 1,
   },
   {
@@ -80,6 +84,7 @@ export const NIGHT_MODIFIERS: NightModifierDef[] = [
     arrivalMult: 1.25,
     churnMult: 1.3,
     heatMult: 1.15,
+    negatif: true,
     // poids nul au tier 1 : trop agressif sur la chaleur/le décrochage (garde-fou)
     weight: (tier) => (tier >= 2 ? 1 : 0),
   },
@@ -100,14 +105,14 @@ export const NIGHT_MODIFIERS: NightModifierDef[] = [
  * porté par `night.rng`. Déterministe pour une graine donnée. Tirage **sans
  * remise**, pondéré par le tier du spot.
  */
-export function rollModifiers(spotTier: number, seed: number): NightModifierDef[] {
+export function rollModifiers(spotTier: number, seed: number, negWeightMult = 1): NightModifierDef[] {
   const rng = mulberry32((seed ^ 0x9e3779b9) >>> 0);
   // 1 ou 2 modifs ce soir (≈ moitié-moitié)
   const count = rng() < 0.5 ? 1 : 2;
   const picked: NightModifierDef[] = [];
   for (let n = 0; n < count; n++) {
     const pool = NIGHT_MODIFIERS.filter((m) => !picked.includes(m));
-    const weights = pool.map((m) => Math.max(0, m.weight(spotTier)));
+    const weights = pool.map((m) => Math.max(0, m.weight(spotTier) * (m.negatif ? negWeightMult : 1)));
     const total = weights.reduce((a, b) => a + b, 0);
     if (total <= 0) break;
     let roll = rng() * total;

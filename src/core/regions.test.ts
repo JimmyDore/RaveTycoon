@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyIdleTime } from './idle';
+import { NIGHT_MODIFIERS, rollModifiers } from './modifiers';
 import { applyEffects, createNight, startSet, tickNight } from './night';
 import { isSpotAvailable, settleNight } from './payout';
 import { newGame } from './save';
@@ -316,5 +317,42 @@ describe('les règles de région au règlement et entre les teufs', () => {
     applyIdleTime(blanche, 24 * 3_600_000);
     expect(base.buzz).toBeCloseTo(0.5, 5);
     expect(blanche.buzz).toBeCloseTo(0.25, 5);
+  });
+});
+
+describe('Climat pourri : la météo négative pèse double', () => {
+  it('le multiplicateur à 1 ne change rien au tirage (déterminisme conservé)', () => {
+    for (let seed = 0; seed < 50; seed++) {
+      expect(rollModifiers(2, seed, 1).map((m) => m.id)).toEqual(
+        rollModifiers(2, seed).map((m) => m.id),
+      );
+    }
+  });
+
+  it('×2 augmente la fréquence des modificateurs négatifs', () => {
+    const negIds = new Set(NIGHT_MODIFIERS.filter((m) => m.negatif).map((m) => m.id));
+    expect(negIds.size).toBeGreaterThanOrEqual(3); // pluie, brouillard, touristes
+    const countNeg = (mult: number) => {
+      let n = 0;
+      for (let seed = 0; seed < 400; seed++) {
+        for (const m of rollModifiers(3, seed, mult)) if (negIds.has(m.id)) n++;
+      }
+      return n;
+    };
+    expect(countNeg(2)).toBeGreaterThan(countNeg(1));
+  });
+
+  it('createNight branche le multiplicateur de la région', () => {
+    const countNegNights = (traits: string[]) => {
+      let n = 0;
+      for (let seed = 0; seed < 200; seed++) {
+        const state = newGame(42);
+        if (traits.length > 0) state.region = { nom: 'Région test', traits };
+        const night = createNight(state, 'foret', ['tonton'], seed);
+        if (night.modifiers.some((m) => m.negatif)) n++;
+      }
+      return n;
+    };
+    expect(countNegNights(['climat-pourri'])).toBeGreaterThan(countNegNights([]));
   });
 });

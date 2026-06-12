@@ -90,7 +90,7 @@ export function createNight(
   const startHeat = spot.tier >= 3 && cautionPaid === 0 ? 0.1 : 0;
   const rules = buildRegionRules(state.region);
   // modifs du soir (météo/foule) — flux RNG dédié, ne perturbe pas le flux des events
-  const modifiers = rollModifiers(spot.tier, seed);
+  const modifiers = rollModifiers(spot.tier, seed, rules.negativeModifierWeightMult);
   const eventDelay = modifierSum(modifiers, 'eventDelay');
   return {
     spotId,
