@@ -16,7 +16,11 @@ export type GenreId =
   | 'mentale'
   | 'techno'
   | 'raggatek'
-  | 'darkpsy';
+  | 'darkpsy'
+  | 'tribe'
+  | 'hardcore'
+  | 'downtempo'
+  | 'electro';
 
 /** v2 gear: five categories serving the management sim. */
 export type GearCategory = 'platines' | 'mur' | 'groupe' | 'lumieres' | 'logistique';

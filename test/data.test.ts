@@ -25,15 +25,20 @@ describe('spots', () => {
 });
 
 describe('genres', () => {
-  it('has 8 genres, one per DJ', () => {
-    expect(GENRES).toHaveLength(8);
-    expect(new Set(GENRES.map((g) => g.id)).size).toBe(8);
+  it('has 12 genres with unique ids', () => {
+    expect(GENRES).toHaveLength(12);
+    expect(new Set(GENRES.map((g) => g.id)).size).toBe(12);
   });
 
   it('models dub as slow/chill and acid as hot', () => {
     expect(getGenre('dub').heatMult).toBeLessThan(getGenre('hardtek').heatMult);
     expect(getGenre('acid').heatMult).toBeGreaterThan(getGenre('hardtek').heatMult);
     expect(getGenre('dub').churn).toBeLessThan(getGenre('hardtek').churn);
+  });
+
+  it('models hardcore as the hottest and downtempo as the chillest', () => {
+    expect(getGenre('hardcore').heatMult).toBeGreaterThan(getGenre('frenchcore').heatMult);
+    expect(getGenre('downtempo').heatMult).toBeLessThan(getGenre('dub').heatMult);
   });
 });
 

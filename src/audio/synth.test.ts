@@ -17,6 +17,10 @@ const ALL_GENRES: GenreId[] = [
   'techno',
   'raggatek',
   'darkpsy',
+  'tribe',
+  'hardcore',
+  'downtempo',
+  'electro',
 ];
 
 const EXPECTED_BPM: Record<GenreId, number> = {
@@ -28,6 +32,10 @@ const EXPECTED_BPM: Record<GenreId, number> = {
   techno: 130,
   raggatek: 175,
   darkpsy: 150,
+  tribe: 165,
+  hardcore: 220,
+  downtempo: 95,
+  electro: 128,
 };
 
 const EXPECTED_LEAD: Record<GenreId, LeadStyle> = {
@@ -39,6 +47,10 @@ const EXPECTED_LEAD: Record<GenreId, LeadStyle> = {
   techno: 'stab',
   raggatek: 'ragga',
   darkpsy: 'psy',
+  tribe: 'stab',
+  hardcore: 'hoover',
+  downtempo: 'arp',
+  electro: 'stab',
 };
 
 function signature(p: GenrePatterns): string {

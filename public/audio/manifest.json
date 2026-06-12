@@ -6,5 +6,9 @@
   "mentale":    { "bpm": 180, "bars": 4, "stems": { "kick": "mentale-kick.ogg", "sub": "mentale-sub.ogg", "lead": "mentale-lead.ogg", "hats": "mentale-hats.ogg" } },
   "techno":     { "bpm": 130, "bars": 4, "stems": { "kick": "techno-kick.ogg", "sub": "techno-sub.ogg", "lead": "techno-lead.ogg", "hats": "techno-hats.ogg" } },
   "raggatek":   { "bpm": 175, "bars": 4, "stems": { "kick": "raggatek-kick.ogg", "sub": "raggatek-sub.ogg", "lead": "raggatek-lead.ogg", "hats": "raggatek-hats.ogg" } },
-  "darkpsy":    { "bpm": 150, "bars": 4, "stems": { "kick": "darkpsy-kick.ogg", "sub": "darkpsy-sub.ogg", "lead": "darkpsy-lead.ogg", "hats": "darkpsy-hats.ogg" } }
+  "darkpsy":    { "bpm": 150, "bars": 4, "stems": { "kick": "darkpsy-kick.ogg", "sub": "darkpsy-sub.ogg", "lead": "darkpsy-lead.ogg", "hats": "darkpsy-hats.ogg" } },
+  "tribe":      { "bpm": 165, "bars": 4, "stems": { "kick": "tribe-kick.ogg", "sub": "tribe-sub.ogg", "lead": "tribe-lead.ogg", "hats": "tribe-hats.ogg" } },
+  "hardcore":   { "bpm": 220, "bars": 4, "stems": { "kick": "hardcore-kick.ogg", "sub": "hardcore-sub.ogg", "lead": "hardcore-lead.ogg", "hats": "hardcore-hats.ogg" } },
+  "downtempo":  { "bpm": 95,  "bars": 4, "stems": { "kick": "downtempo-kick.ogg", "sub": "downtempo-sub.ogg", "lead": "downtempo-lead.ogg", "hats": "downtempo-hats.ogg" } },
+  "electro":    { "bpm": 128, "bars": 4, "stems": { "kick": "electro-kick.ogg", "sub": "electro-sub.ogg", "lead": "electro-lead.ogg", "hats": "electro-hats.ogg" } }
 }

@@ -220,6 +220,79 @@ function buildDarkpsy(): GenrePatterns {
   return { bpm, steps, loopSeconds: loopSeconds(bpm), leadStyle: 'psy', kick: fourOnFloor(steps), sub, lead, hats };
 }
 
+function buildTribe(): GenrePatterns {
+  const bpm = 165;
+  const steps = loopSteps();
+  // tribe : kick roulé (doubles en fin de bar), sub tribal, stab hypnotique
+  const kick = fourOnFloor(steps);
+  kick.push({ step: 14, freq: 50, vel: 0.7, len: 1 }, { step: 30, freq: 50, vel: 0.7, len: 1 });
+  const sub: Note[] = [];
+  const bassline = [0, -5, -2, 0, -7, -5, 0, -2];
+  for (let i = 0; i < steps; i += 4) {
+    sub.push({ step: i + 2, freq: note(bassline[(i / 4) % bassline.length] - 5), vel: 0.9, len: 2 });
+  }
+  const lead = [
+    ...onSteps([0, 6, 16, 22], note(10), 0.7, 2),
+    ...onSteps([10, 26], note(5), 0.6, 1),
+  ];
+  const hats: Note[] = [];
+  for (let s = 2; s < steps; s += 4) hats.push({ step: s, freq: 9500, vel: 0.7, len: 1 });
+  for (let s = 1; s < steps; s += 4) hats.push({ step: s, freq: 12000, vel: 0.25, len: 1 });
+  return { bpm, steps, loopSeconds: loopSeconds(bpm), leadStyle: 'stab', kick, sub, lead, hats };
+}
+
+function buildHardcore(): GenrePatterns {
+  const bpm = 220;
+  const steps = loopSteps();
+  // 220 BPM : kick massif doublé au sub, hoover en rafales
+  const sub: Note[] = [];
+  for (let s = 0; s < steps; s += 4) sub.push({ step: s, freq: note(-7), vel: 1, len: 3 });
+  const riff = [0, 0, 5, 3, 0, 7, 5, 3];
+  const lead: Note[] = [];
+  for (let i = 0; i < steps; i += 2) {
+    if (i % 8 !== 6) {
+      lead.push({ step: i, freq: note(riff[(i / 2) % riff.length]), vel: i % 8 === 0 ? 1 : 0.75, len: 2 });
+    }
+  }
+  const hats: Note[] = [];
+  for (let s = 0; s < steps; s += 2) hats.push({ step: s, freq: 11000, vel: s % 4 === 2 ? 0.9 : 0.4, len: 1 });
+  return { bpm, steps, loopSeconds: loopSeconds(bpm), leadStyle: 'hoover', kick: fourOnFloor(steps), sub, lead, hats };
+}
+
+function buildDowntempo(): GenrePatterns {
+  const bpm = 95;
+  const steps = loopSteps();
+  // mi-temps planant : kick clairsemé, long sub, arpège doux
+  const kick = onSteps([0, 10, 16, 26], 50, 0.9, 1);
+  const sub: Note[] = [];
+  for (let s = 0; s < steps; s += 8) sub.push({ step: s, freq: note(-12), vel: 0.85, len: 7 });
+  const arp = [0, 7, 12, 10];
+  const lead: Note[] = [];
+  for (let s = 0; s < steps; s += 4) {
+    lead.push({ step: s + 2, freq: note(arp[(s / 4) % arp.length] + 12), vel: 0.5, len: 3 });
+  }
+  const hats = onSteps([4, 12, 20, 28], 8500, 0.35, 1);
+  return { bpm, steps, loopSeconds: loopSeconds(bpm), leadStyle: 'arp', kick, sub, lead, hats };
+}
+
+function buildElectro(): GenrePatterns {
+  const bpm = 128;
+  const steps = loopSteps();
+  // electro carré : 4-floor propre, basse syncopée, stab brillant sur l'offbeat
+  const sub: Note[] = [];
+  const bassline = [0, 0, 3, 0, -2, 0, 5, 3];
+  for (let i = 0; i < steps; i += 4) {
+    sub.push({ step: i + 2, freq: note(bassline[(i / 4) % bassline.length] - 12), vel: 0.85, len: 2 });
+  }
+  const lead = [
+    ...onSteps([2, 10, 18, 26], note(12), 0.75, 1),
+    ...onSteps([6, 22], note(15), 0.6, 1),
+  ];
+  const hats: Note[] = [];
+  for (let s = 2; s < steps; s += 4) hats.push({ step: s, freq: 10500, vel: 0.65, len: 1 });
+  return { bpm, steps, loopSeconds: loopSeconds(bpm), leadStyle: 'stab', kick: fourOnFloor(steps), sub, lead, hats };
+}
+
 const BUILDERS: Record<GenreId, () => GenrePatterns> = {
   hardtek: buildHardtek,
   acid: buildAcid,
@@ -229,6 +302,10 @@ const BUILDERS: Record<GenreId, () => GenrePatterns> = {
   techno: buildTechno,
   raggatek: buildRaggatek,
   darkpsy: buildDarkpsy,
+  tribe: buildTribe,
+  hardcore: buildHardcore,
+  downtempo: buildDowntempo,
+  electro: buildElectro,
 };
 
 export function patternsFor(genre: GenreId): GenrePatterns {

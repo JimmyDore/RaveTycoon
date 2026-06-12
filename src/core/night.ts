@@ -42,6 +42,10 @@ const MONTEE_GENRE: Record<GenreId, number> = {
   techno: 0.9,
   raggatek: 1.15,
   darkpsy: 1.0,
+  tribe: 1.15,
+  hardcore: 1.35,
+  downtempo: 0.7,
+  electro: 1.0,
 };
 /** décroissance /s quand la vibe est trop basse */
 const MONTEE_DECAY = 0.03;

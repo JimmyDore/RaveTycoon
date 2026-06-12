@@ -170,6 +170,42 @@ export const GENRES: GenreDef[] = [
     heatMult: 0.9,
     description: 'Forêt, basses roulantes, transe sans fin. On ne sait plus l’heure.',
   },
+  {
+    id: 'tribe',
+    nom: 'Tribe',
+    bpm: 165,
+    arrival: 1.05,
+    churn: 0.009,
+    heatMult: 1.0,
+    description: 'Le kick roulé des montagnes. Hypnotique, tribal, increvable.',
+  },
+  {
+    id: 'hardcore',
+    nom: 'Hardcore',
+    bpm: 220,
+    arrival: 1.6,
+    churn: 0.025,
+    heatMult: 1.8,
+    description: 'Au-delà du rouge. Ça déferle, ça crame, ça repart en ambulance.',
+  },
+  {
+    id: 'downtempo',
+    nom: 'Downtempo',
+    bpm: 95,
+    arrival: 0.55,
+    churn: 0.003,
+    heatMult: 0.5,
+    description: 'Le souffle entre deux tempêtes. Personne ne part, personne ne s’énerve.',
+  },
+  {
+    id: 'electro',
+    nom: 'Electro',
+    bpm: 128,
+    arrival: 1.2,
+    churn: 0.012,
+    heatMult: 0.9,
+    description: 'Carré, funky, fédérateur. Le son qui fait danser même les guetteurs.',
+  },
 ];
 
 /**
