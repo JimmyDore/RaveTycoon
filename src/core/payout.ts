@@ -1,6 +1,6 @@
 import { BRANCH_TIER, GEAR, GEAR_CATEGORIES, getDj, getSpot, ownedGear, switchBranchItem } from './data';
 import { essenceCost, restockCost } from './economy';
-import { applyNightRest } from './crew';
+import { applyNightRest, effectiveCut, getCrewMember } from './crew';
 import { buzzAfterNight } from './idle';
 import type { GameState, GearBranch, GearCategory, GearItem, NightResult, NightState } from './types';
 
@@ -23,10 +23,10 @@ function trackRecords(state: GameState, result: NightResult): void {
 }
 
 /** Sum of cuts for the unique DJs who played tonight. */
-export function cutsTotal(night: NightState): number {
+export function cutsTotal(state: GameState, night: NightState): number {
   const played = playedDjs(night);
   let total = 0;
-  for (const id of played) total += getDj(id).cut;
+  for (const id of played) total += effectiveCut(getDj(id), getCrewMember(state, id));
   return Math.min(0.6, total);
 }
 
@@ -43,7 +43,7 @@ export function settleNight(state: GameState, night: NightState): NightResult {
   const essence = Math.min(grossRaw, essenceCost(state, night));
   const restock = Math.min(grossRaw - essence, restockCost(spot, night.cap, night.barStock));
   const gross = grossRaw - essence - restock;
-  const cuts = cutsTotal(night);
+  const cuts = cutsTotal(state, night);
   const payout = Math.round(gross * (1 - cuts));
   const survivedHighHeat = night.peakHeat >= 0.8;
   const repGained = Math.round(
@@ -131,7 +131,7 @@ export function applyBust(state: GameState, night: NightState): NightResult {
   const restock = Math.min(gross - essence, restockCost(spot, night.cap, night.barStock));
   gross -= essence + restock;
 
-  const cuts = cutsTotal(night);
+  const cuts = cutsTotal(state, night);
   const payout = Math.round(gross * (1 - cuts));
   state.cash = Math.max(0, state.cash + payout - fine);
   const repGained = Math.round(night.peakCrowd / 20 + night.repBonus);

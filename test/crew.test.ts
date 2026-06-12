@@ -87,6 +87,6 @@ describe('fatigue', () => {
     expect(fatigueMalus(0)).toBe(0);
     expect(fatigueMalus(1)).toBeCloseTo(0.35, 5);
     expect(fatigueMalus(1.5)).toBeCloseTo(0.35, 5);
-    expect(fatigueQualityMult({ id: 'x', xp: 0, fatigue: 1, setsPlayed: 0 })).toBeCloseTo(0.65, 5);
+    expect(fatigueQualityMult({ id: 'x', xp: 0, fatigue: 1, setsPlayed: 0, gifted: false, studioBonus: 0 })).toBeCloseTo(0.65, 5);
   });
 });

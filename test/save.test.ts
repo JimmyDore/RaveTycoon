@@ -39,7 +39,7 @@ describe('serialize / load', () => {
     state.gear.mur = 2;
     state.damaged.mur = true;
     state.repairs.push({ category: 'mur', readyAt: 999 });
-    state.crew.push({ id: 'gamine', xp: 500, fatigue: 0.4, setsPlayed: 7 });
+    state.crew.push({ id: 'gamine', xp: 500, fatigue: 0.4, setsPlayed: 7, gifted: false, studioBonus: 0 });
     expect(deserialize(serialize(state))).toEqual(state);
   });
 
@@ -63,14 +63,21 @@ describe('serialize / load', () => {
 
 describe('migration v2 → v3', () => {
   it('charge une vieille sauvegarde : gearBranch ajouté, voie A par défaut au tier 3', () => {
-    const v2 = { ...newGame(), version: 2 } as unknown as Record<string, unknown>;
+    const v2 = JSON.parse(serialize(newGame())) as Record<string, unknown>;
+    v2.version = 2;
     delete v2.gearBranch;
+    for (const m of v2.crew as Array<Record<string, unknown>>) {
+      delete m.gifted;
+      delete m.studioBonus;
+    }
     v2.gear = { platines: 3, mur: 1, groupe: 0, lumieres: 0, logistique: 0 };
     const loaded = deserialize(JSON.stringify(v2));
     expect(loaded).not.toBeNull();
     expect(loaded!.version).toBe(3);
     expect(loaded!.gearBranch.platines).toBe('A');
     expect(loaded!.gearBranch.mur).toBeUndefined();
+    expect(loaded!.crew[0].gifted).toBe(false);
+    expect(loaded!.crew[0].studioBonus).toBe(0);
   });
 });
 

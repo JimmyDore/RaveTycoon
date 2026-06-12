@@ -22,7 +22,7 @@ export function newGame(now = 0): GameState {
     damaged: {},
     repairs: [],
     // the founding DJ — le pote du camion, là depuis le début
-    crew: [{ id: 'tonton', xp: 0, fatigue: 0, setsPlayed: 0 }],
+    crew: [{ id: 'tonton', xp: 0, fatigue: 0, setsPlayed: 0, gifted: false, studioBonus: 0 }],
     pseudo: '',
     lastSeen: now,
     bestCrowd: 0,
@@ -60,6 +60,11 @@ export function serialize(state: GameState): string {
 function migrateV2(o: Record<string, unknown>): void {
   if (o.version !== 2) return;
   o.version = 3;
+  // sinks crew v3 : cadeau / studio absents des vieilles sauvegardes
+  for (const m of (o.crew as Array<Record<string, unknown>>) ?? []) {
+    m.gifted = m.gifted ?? false;
+    m.studioBonus = m.studioBonus ?? 0;
+  }
   const gear = (o.gear ?? {}) as Record<GearCategory, number>;
   const gearBranch: Partial<Record<GearCategory, GearBranch>> = {};
   for (const cat of Object.keys(gear) as GearCategory[]) {

@@ -21,7 +21,7 @@ export function djLevel(dj: DjState): number {
 
 /** Effective technique including experience gained with the crew. */
 export function effectiveTechnique(def: DjDef, state: DjState): number {
-  return def.technique + djLevel(state) * TECH_PER_LEVEL;
+  return def.technique + djLevel(state) * TECH_PER_LEVEL + (state.studioBonus ?? 0);
 }
 
 /** Quality penalty fraction (0…FATIGUE_QUALITY_MALUS) for a given fatigue. */
@@ -56,7 +56,7 @@ export function lockedDjs(state: GameState): DjDef[] {
 export function recruitDj(state: GameState, djId: string): boolean {
   const def = getDj(djId);
   if (isInCrew(state, djId) || state.rep < def.repReq) return false;
-  state.crew.push({ id: djId, xp: 0, fatigue: 0, setsPlayed: 0 });
+  state.crew.push({ id: djId, xp: 0, fatigue: 0, setsPlayed: 0, gifted: false, studioBonus: 0 });
   return true;
 }
 
@@ -70,6 +70,58 @@ export function applyNightRest(state: GameState, playedDjIds: Set<string>): void
       dj.fatigue = Math.max(0, dj.fatigue - REST_RECOVERY);
     }
   }
+}
+
+// --- sinks crew : cadeau, jour off payé, session studio -----------------------
+
+export const GIFT_BASE = 500;
+export const GIFT_CUT_REDUCTION = 0.02;
+export const GIFT_CUT_FLOOR = 0.03;
+export const DAYOFF_BASE = 100;
+export const STUDIO_COST = 1200;
+export const STUDIO_STEP = 0.5;
+export const STUDIO_MAX = 1;
+
+export function giftCost(member: DjState): number {
+  return GIFT_BASE * Math.max(1, djLevel(member));
+}
+
+export function dayOffCost(member: DjState): number {
+  return DAYOFF_BASE * Math.max(1, djLevel(member));
+}
+
+/** Cut réel d'un DJ du crew : le cadeau le fait baisser de 2 points (plancher 3 %). */
+export function effectiveCut(def: DjDef, member: DjState): number {
+  return member.gifted ? Math.max(GIFT_CUT_FLOOR, def.cut - GIFT_CUT_REDUCTION) : def.cut;
+}
+
+/** 🎁 Cadeau : rend les gros cuts négociables — une fois par DJ. */
+export function giftDj(state: GameState, djId: string): boolean {
+  const member = getCrewMember(state, djId);
+  const cost = giftCost(member);
+  if (member.gifted || state.cash < cost) return false;
+  state.cash -= cost;
+  member.gifted = true;
+  return true;
+}
+
+/** 🛋 Jour off payé : toute la fatigue récupérée, même s'il joue la prochaine nuit. */
+export function buyDayOff(state: GameState, djId: string): boolean {
+  const member = getCrewMember(state, djId);
+  const cost = dayOffCost(member);
+  if (member.fatigue <= 0 || state.cash < cost) return false;
+  state.cash -= cost;
+  member.fatigue = 0;
+  return true;
+}
+
+/** 🎚 Session studio : +0.5 de technique permanent, max +1 par DJ. */
+export function buyStudioSession(state: GameState, djId: string): boolean {
+  const member = getCrewMember(state, djId);
+  if (member.studioBonus >= STUDIO_MAX || state.cash < STUDIO_COST) return false;
+  state.cash -= STUDIO_COST;
+  member.studioBonus += STUDIO_STEP;
+  return true;
 }
 
 /** Apply the toll of a played set. */

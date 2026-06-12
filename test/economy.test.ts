@@ -22,7 +22,14 @@ import {
   startSet as start,
   tickNight,
 } from '../src/core/night';
-import { applyBust, buyGearUpgrade, settleNight, switchGearBranch } from '../src/core/payout';
+import {
+  buyDayOff,
+  buyStudioSession,
+  effectiveCut,
+  effectiveTechnique,
+  giftDj,
+} from '../src/core/crew';
+import { applyBust, buyGearUpgrade, cutsTotal, settleNight, switchGearBranch } from '../src/core/payout';
 import { newGame } from '../src/core/save';
 import type { GameState, NightState } from '../src/core/types';
 
@@ -308,5 +315,56 @@ describe('les voies dans la sim', () => {
     state.gear.logistique = 3;
     state.gearBranch.logistique = 'B';
     expect(cautionCost(state, getSpot('carriere'))).toBe(110);
+  });
+});
+
+describe('sinks crew', () => {
+  it('cadeau : 500 € × niveau, cut −2 pts plancher 3 %, une seule fois par DJ', () => {
+    const state = newGame();
+    state.cash = 10000;
+    const tonton = state.crew[0];
+    expect(giftDj(state, 'tonton')).toBe(true);
+    expect(state.cash).toBe(9500); // niveau 0 compte comme 1
+    expect(effectiveCut(getDj('tonton'), tonton)).toBeCloseTo(0.03, 5); // 0.05 − 0.02 ≥ plancher
+    expect(giftDj(state, 'tonton')).toBe(false); // une fois par DJ
+  });
+
+  it('le cadeau passe dans cutsTotal au payout', () => {
+    const state = newGame();
+    state.cash = 10000;
+    giftDj(state, 'tonton');
+    const night = finishedNight(state);
+    expect(cutsTotal(state, night)).toBeCloseTo(0.03, 5);
+  });
+
+  it('jour off payé : 100 € × niveau, toute la fatigue récupérée', () => {
+    const state = newGame();
+    state.cash = 1000;
+    state.crew[0].fatigue = 0.8;
+    expect(buyDayOff(state, 'tonton')).toBe(true);
+    expect(state.cash).toBe(900);
+    expect(state.crew[0].fatigue).toBe(0);
+    expect(buyDayOff(state, 'tonton')).toBe(false); // déjà frais
+  });
+
+  it('session studio : 1 200 €, +0.5 technique permanent, plafonné à +1', () => {
+    const state = newGame();
+    state.cash = 10000;
+    const base = effectiveTechnique(getDj('tonton'), state.crew[0]);
+    expect(buyStudioSession(state, 'tonton')).toBe(true);
+    expect(effectiveTechnique(getDj('tonton'), state.crew[0])).toBeCloseTo(base + 0.5, 5);
+    expect(buyStudioSession(state, 'tonton')).toBe(true);
+    expect(buyStudioSession(state, 'tonton')).toBe(false); // max +1
+    expect(state.cash).toBe(10000 - 2400);
+    expect(effectiveTechnique(getDj('tonton'), state.crew[0])).toBeCloseTo(base + 1, 5);
+  });
+
+  it('refuse quand la caisse ne suit pas', () => {
+    const state = newGame();
+    state.cash = 100;
+    state.crew[0].fatigue = 0.5;
+    expect(giftDj(state, 'tonton')).toBe(false);
+    expect(buyStudioSession(state, 'tonton')).toBe(false);
+    expect(state.cash).toBe(100);
   });
 });

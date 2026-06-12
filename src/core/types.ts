@@ -118,6 +118,10 @@ export interface DjState {
   /** 0 = fresh, 1 = exhausted; recovers per rested night (a night played no set) */
   fatigue: number;
   setsPlayed: number;
+  /** 🎁 cadeau reçu — son cut a baissé de 2 points, une fois pour toutes */
+  gifted: boolean;
+  /** 🎚 bonus de technique permanent acheté en studio (0 / 0.5 / 1) */
+  studioBonus: number;
 }
 
 export type Brief = 'safe' | 'normal' | 'pousser';

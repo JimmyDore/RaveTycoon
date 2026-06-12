@@ -48,7 +48,7 @@ describe('settleNight', () => {
         { djId: 'gamine', brief: 'pousser' },
       ],
     });
-    expect(cutsTotal(night)).toBeCloseTo(0.15, 5);
+    expect(cutsTotal(state, night)).toBeCloseTo(0.15, 5);
   });
 
   it('marks the teknival sunrise as the win moment', () => {
