@@ -9,8 +9,19 @@ import {
   essenceCost,
   potentialBar,
 } from '../src/core/economy';
-import { BRANCH_TIER, GEAR, GEAR_CATEGORIES, gearItem, getSpot, nextGearOptions, ownedGear, switchBranchItem } from '../src/core/data';
-import { createNight, startSet, tickNight } from '../src/core/night';
+import { BRANCH_TIER, GEAR, GEAR_CATEGORIES, gearItem, getDj, getSpot, nextGearOptions, ownedGear, switchBranchItem } from '../src/core/data';
+import {
+  branchChurnMult,
+  branchHeatMult,
+  computeSetQuality,
+  createNight,
+  createNight as mkNight,
+  dropMontee,
+  effectiveCharisme,
+  startSet,
+  startSet as start,
+  tickNight,
+} from '../src/core/night';
 import { applyBust, buyGearUpgrade, settleNight, switchGearBranch } from '../src/core/payout';
 import { newGame } from '../src/core/save';
 import type { GameState, NightState } from '../src/core/types';
@@ -226,5 +237,76 @@ describe('branches du matos', () => {
       expect(GEAR[cat][0].seizable).toBe(false);
     }
     expect(BRANCH_TIER).toBe(3);
+  });
+});
+
+describe('les voies dans la sim', () => {
+  it('platines B : charisme effectif +1 pour tous les DJs', () => {
+    const state = newGame();
+    expect(effectiveCharisme(state, getDj('tonton'))).toBe(2);
+    state.gear.platines = 3;
+    state.gearBranch.platines = 'B';
+    expect(effectiveCharisme(state, getDj('tonton'))).toBe(3);
+    state.gearBranch.platines = 'A';
+    expect(effectiveCharisme(state, getDj('tonton'))).toBe(2);
+  });
+
+  it('mur A + lumières A : le churn se multiplie', () => {
+    const state = newGame();
+    expect(branchChurnMult(state)).toBe(1);
+    state.gear.mur = 3;
+    state.gearBranch.mur = 'A';
+    state.gear.lumieres = 3;
+    state.gearBranch.lumieres = 'A';
+    expect(branchChurnMult(state)).toBeCloseTo(0.88 * 0.9, 5);
+  });
+
+  it('mur B + groupe A : la heat se multiplie', () => {
+    const state = newGame();
+    expect(branchHeatMult(state)).toBe(1);
+    state.gear.mur = 3;
+    state.gearBranch.mur = 'B';
+    state.gear.groupe = 3;
+    state.gearBranch.groupe = 'A';
+    expect(branchHeatMult(state)).toBeCloseTo(0.92 * 0.9, 5);
+  });
+
+  it('mur B : le line array bonifie la qualité de set', () => {
+    const a = newGame();
+    a.gear.mur = 3;
+    a.gearBranch.mur = 'A';
+    const b = newGame();
+    b.gear.mur = 3;
+    b.gearBranch.mur = 'B';
+    const na = mkNight(a, 'champ', ['tonton'], 8);
+    const nb = mkNight(b, 'champ', ['tonton'], 8);
+    expect(computeSetQuality(b, nb, 'tonton', 'normal')).toBeCloseTo(
+      computeSetQuality(a, na, 'tonton', 'normal') * 1.06,
+      5,
+    );
+  });
+
+  it('lumières B : le drop paie plus', () => {
+    const mk = (branch: 'A' | 'B') => {
+      const state = newGame();
+      state.gear.lumieres = 3;
+      state.gearBranch.lumieres = branch;
+      const night = mkNight(state, 'champ', ['tonton'], 9);
+      start(state, night, 'tonton', 'normal');
+      night.montee = 1;
+      night.vibe = 0.3;
+      night.crowd = night.cap * 0.3;
+      dropMontee(state, night);
+      return night;
+    };
+    expect(mk('B').vibe).toBeGreaterThan(mk('A').vibe);
+    expect(mk('B').crowd).toBeGreaterThan(mk('A').crowd);
+  });
+
+  it('logistique B : cautions −50 %', () => {
+    const state = newGame();
+    state.gear.logistique = 3;
+    state.gearBranch.logistique = 'B';
+    expect(cautionCost(state, getSpot('carriere'))).toBe(110);
   });
 });

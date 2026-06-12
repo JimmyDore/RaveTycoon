@@ -76,7 +76,7 @@ async function startNight(): Promise<void> {
       }
     },
     onDrop: () => {
-      if (active && dropMontee(active.night)) {
+      if (active && dropMontee(state, active.night)) {
         active.screen.toast(STR.dropToast);
       }
     },

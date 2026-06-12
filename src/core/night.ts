@@ -8,6 +8,7 @@ import { drawPrompt } from './prompts';
 import { mulberry32 } from './rng';
 import type {
   Brief,
+  DjDef,
   EventContext,
   EventEffects,
   EventOption,
@@ -148,14 +149,37 @@ export function createNight(
   };
 }
 
+/** Charisme effectif : la voie Showmanship des platines profite à tout le crew. */
+export function effectiveCharisme(state: GameState, dj: DjDef | null): number {
+  const base = dj ? dj.charisme : 2;
+  return base + (ownedGear(state, 'platines').effects?.charismeBonus ?? 0);
+}
+
+/** Produit des churnMult de voie (mur Infrabasses, lumières Hypnose). */
+export function branchChurnMult(state: GameState): number {
+  return (
+    (ownedGear(state, 'mur').effects?.churnMult ?? 1) *
+    (ownedGear(state, 'lumieres').effects?.churnMult ?? 1)
+  );
+}
+
+/** Produit des heatMult de voie (mur Line array, groupe Silencieux). */
+export function branchHeatMult(state: GameState): number {
+  return (
+    (ownedGear(state, 'mur').effects?.heatMult ?? 1) *
+    (ownedGear(state, 'groupe').effects?.heatMult ?? 1)
+  );
+}
+
 export function computeSetQuality(state: GameState, _night: NightState, djId: string, brief: Brief): number {
   const def = getDj(djId);
   const member = getCrewMember(state, djId);
   const platines = ownedGear(state, 'platines').value * (state.damaged.platines ? 0.7 : 1);
+  const murQuality = ownedGear(state, 'mur').effects?.qualityMult ?? 1;
   const tech = effectiveTechnique(def, member);
   const base = 0.18 + 0.16 * tech;
   return clamp(
-    base * platines * BRIEF_QUALITY[brief] * fatigueQualityMult(member),
+    base * platines * murQuality * BRIEF_QUALITY[brief] * fatigueQualityMult(member),
     0.05,
     1.5,
   );
@@ -233,7 +257,11 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   // --- power: demand grows with the crowd, supply is the generator ------------
   const groupeItem = ownedGear(state, 'groupe');
   const supply = groupeItem.value * (state.damaged.groupe ? 0.6 : 1) * spot.powerMult + 0.15;
-  const demand = 0.35 + 0.5 * (night.cap > 0 ? night.crowd / night.cap : 0) + BRIEF_POWER[night.brief];
+  // groupe voie Monstre : pousser le son ne surcharge plus le groupe
+  // RÉVISION CHANTIER 1 : devient « RINSE sans surcharge » avec les crans
+  const briefPower =
+    night.brief === 'pousser' && groupeItem.effects?.pousserPowerFree ? 0 : BRIEF_POWER[night.brief];
+  const demand = 0.35 + 0.5 * (night.cap > 0 ? night.crowd / night.cap : 0) + briefPower;
   if (demand > supply && soundOn && night.brownoutCooldown <= 0) {
     const prevMontee = night.montee;
     night.soundCutT = BROWNOUT_DURATION;
@@ -261,7 +289,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   }
 
   // --- crowd ---------------------------------------------------------------------
-  const charisme = dj ? dj.charisme : 2;
+  const charisme = effectiveCharisme(state, dj);
   const lumieres = ownedGear(state, 'lumieres').value;
   const pull = soundOn ? 0.25 + 0.85 * quality + 0.06 * charisme : 0;
   const arrivalCut = night.arrivalCutT > 0 ? 0.5 : 1;
@@ -273,7 +301,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   if (quality < 0.3) leaveMult += 1;
   // retention plus basse = on garde mieux le public ; le bonus du soir la réduit
   const retention = Math.max(0, 1 - 0.04 * charisme - retentionMod);
-  const leaving = night.crowd * genre.churn * churnMod * retention * leaveMult;
+  const leaving = night.crowd * genre.churn * churnMod * branchChurnMult(state) * retention * leaveMult;
   night.crowd = clamp(night.crowd + (arrival - leaving) * dt, 0, night.cap);
   night.peakCrowd = Math.max(night.peakCrowd, night.crowd);
 
@@ -297,7 +325,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   // --- heat -----------------------------------------------------------------------
   const logistique = ownedGear(state, 'logistique').value;
   const riskMult = dj ? RISK_HEAT[dj.risk] : 1;
-  night.heat += spot.heatBuild * genre.heatMult * BRIEF_HEAT[night.brief] * riskMult * logistique * heatMod * HEAT_BASE * dt;
+  night.heat += spot.heatBuild * genre.heatMult * BRIEF_HEAT[night.brief] * riskMult * logistique * heatMod * branchHeatMult(state) * HEAT_BASE * dt;
   if (night.brief === 'safe') night.heat -= 0.01 * dt;
   night.heat = clamp(night.heat, 0, 1);
   night.peakHeat = Math.max(night.peakHeat, night.heat);
@@ -463,11 +491,13 @@ export function changeBrief(state: GameState, night: NightState, brief: Brief): 
  * Encaisse la montée : drop. Pleine jauge = climax énorme mais exposé,
  * drop tôt = petit gain safe. Pas de cooldown — la recharge EST la barrière.
  */
-export function dropMontee(night: NightState): boolean {
+export function dropMontee(state: GameState, night: NightState): boolean {
   if (night.phase !== 'playing' || night.montee < MONTEE_MIN_DROP) return false;
   const m = night.montee;
-  night.vibe = clamp(night.vibe + 0.1 + 0.25 * m, 0, 1);
-  night.crowd = clamp(night.crowd + night.cap * 0.05 * m, 0, night.cap);
+  // lumières voie Stroboscopique : le payoff du drop est multiplié
+  const payoff = ownedGear(state, 'lumieres').effects?.dropMult ?? 1;
+  night.vibe = clamp(night.vibe + (0.1 + 0.25 * m) * payoff, 0, 1);
+  night.crowd = clamp(night.crowd + night.cap * 0.05 * m * payoff, 0, night.cap);
   night.heat = clamp(night.heat + 0.02 + 0.06 * m, 0, 0.99);
   night.bestDropThisSet = Math.max(night.bestDropThisSet, m);
   night.montee = 0;

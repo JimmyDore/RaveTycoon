@@ -56,7 +56,7 @@ describe('la montée', () => {
     const vibe = night.vibe;
     const heat = night.heat;
     const crowd = night.crowd;
-    expect(dropMontee(night)).toBe(true);
+    expect(dropMontee(state, night)).toBe(true);
     expect(night.vibe).toBeGreaterThan(vibe);
     expect(night.crowd).toBeGreaterThan(crowd);
     expect(night.heat).toBeGreaterThan(heat);
@@ -64,9 +64,9 @@ describe('la montée', () => {
   });
 
   it('refuse sous MONTEE_MIN_DROP', () => {
-    const { night } = playingNight();
+    const { state, night } = playingNight();
     night.montee = MONTEE_MIN_DROP - 0.01;
-    expect(dropMontee(night)).toBe(false);
+    expect(dropMontee(state, night)).toBe(false);
   });
 
   it('un brownout draine la jauge', () => {

@@ -1,3 +1,4 @@
+import { ownedGear } from './data';
 import type { Brief, GameState, NightState, SpotDef } from './types';
 
 /** € banked per teufeur per second at the buvette (moved here from night.ts). */
@@ -35,9 +36,11 @@ export function essenceCost(state: GameState, night: NightState): number {
 }
 
 /** Spot deposit: cap × 1 €, tiers ≥ 3 only. Paid from the bank, by choice. */
-export function cautionCost(_state: GameState, spot: SpotDef): number {
+export function cautionCost(state: GameState, spot: SpotDef): number {
   if (spot.tier < 3) return 0;
-  return Math.round(spot.cap);
+  // logistique voie Mobilité : cautions réduites
+  const mult = ownedGear(state, 'logistique').effects?.cautionMult ?? 1;
+  return Math.round(spot.cap * mult);
 }
 
 /** Bar restock fee for the chosen stock level, charged on the gross. */
