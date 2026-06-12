@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { DJS, GEAR } from './data';
+import { getCrewMember, recruitDj, recruitableDjs } from './crew';
+import { DJS, GEAR, GEAR_CATEGORIES, SPOTS, getSpot } from './data';
 import { createNight, resolveEvent, startSet, tickNight } from './night';
-import { settleNight } from './payout';
+import { applyBust, buyGearUpgrade, settleNight } from './payout';
 import { newGame } from './save';
 import type { GameState, NightResult } from './types';
 
@@ -40,5 +41,67 @@ describe('early-game progression curve', () => {
     playNight(state, 3);
     playNight(state, 4);
     expect(state.rep).toBeGreaterThanOrEqual(16); // forêt threshold after restretch ×1.3
+  });
+});
+
+describe('no-softlock (spec chantier 2, §5)', () => {
+  it('jouer au Champ paumé avec le starter ne perd jamais d’argent', () => {
+    // starter = groupe tier 0 (essence gratuite) + stock léger (0 €) + tier 1 (pas de caution)
+    for (const seed of [11, 22, 33, 44, 55, 66, 77, 88]) {
+      const state = newGame(42);
+      const before = state.cash;
+      playNight(state, seed);
+      expect(state.cash).toBeGreaterThanOrEqual(before);
+    }
+  });
+});
+
+describe('temps-vers-Teknival (politique autoplay)', () => {
+  /** Une carrière gloutonne : plus gros spot débloqué, tout le crew, consigne normale. */
+  function autoCareer(): number {
+    const state = newGame(42);
+    let nights = 0;
+    const teknivalRep = getSpot('teknival').repReq; // 650
+    while (state.rep < teknivalRep && nights < 200) {
+      for (const d of recruitableDjs(state)) recruitDj(state, d.id);
+      const spot = [...SPOTS]
+        .filter((s) => s.id !== 'teknival' && state.rep >= s.repReq)
+        .at(-1)!;
+      const present = state.crew.map((d) => d.id);
+      const night = createNight(state, spot.id, present, 1000 + nights, {
+        barStock: 'normal',
+        caution: state.cash >= spot.cap * 2,
+      });
+      for (let guard = 0; guard < 100_000 && night.phase !== 'ended'; guard++) {
+        if (night.phase === 'transition') {
+          const freshest = night.presentDjs.reduce((a, b) =>
+            getCrewMember(state, a).fatigue <= getCrewMember(state, b).fatigue ? a : b,
+          );
+          startSet(state, night, freshest, 'normal');
+        }
+        if (night.phase === 'event') resolveEvent(state, night, 0);
+        tickNight(state, night, 0.1);
+      }
+      if (night.busted) applyBust(state, night);
+      else settleNight(state, night);
+      // achats gloutons : le moins cher d'abord, voie A par défaut au tier 3
+      let bought = true;
+      while (bought) {
+        bought = false;
+        for (const cat of GEAR_CATEGORIES) {
+          if (buyGearUpgrade(state, cat) || buyGearUpgrade(state, cat, 'A')) bought = true;
+        }
+      }
+      nights += 1;
+    }
+    return nights;
+  }
+
+  it('la courbe tient : Teknival ni trop tôt (≥ 30 nuits) ni hors de portée (< 200)', () => {
+    const nights = autoCareer();
+    // baseline pré-chantier mesurée ≈ 10 nuits vers rep 500 ; cible spec : ≥ 3× → ≥ 30
+    // valeur mesurée après chantier 2 : 31 nuits (seed 42, politique gloutonne)
+    expect(nights).toBeGreaterThanOrEqual(30);
+    expect(nights).toBeLessThan(200);
   });
 });
