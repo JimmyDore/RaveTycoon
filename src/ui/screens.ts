@@ -2,7 +2,8 @@ import { DJS, GEAR_CATEGORIES, PERKS, SPOTS, getDj, getGenre, getSpot, nextGearO
 import { BAR_STOCK_COST, ESSENCE_RATE, cautionCost, potentialBar, type BarStock } from '../core/economy';
 import { STUDIO_COST, STUDIO_MAX, dayOffCost, djLevel, djRepThreshold, effectiveCut, fatigueMalus, giftCost, lockedDjs, recruitableDjs } from '../core/crew';
 import { rushCost } from '../core/idle';
-import { isSpotUnlocked } from '../core/payout';
+import { isSpotAvailable } from '../core/payout';
+import { buildRegionRules, regionTraits, type RegionChoice } from '../core/regions';
 import { canBuyPerk, computeLegende, hasPerk, maxVeterans, perkCount } from '../core/tour';
 import { MONTEE_MIN_DROP, computeSetQuality } from '../core/night';
 import type { NightModifierDef } from '../core/modifiers';
@@ -121,20 +122,39 @@ export function renderPrepare(
     root.append(depart);
   }
 
+  // bandeau région : la tournée entière se joue sous ces traits (chantier 4)
+  if (state.region) {
+    const banner = el('div', 'region-banner');
+    banner.append(el('span', 'region-banner-nom', `🗺 ${state.region.nom}`));
+    for (const t of regionTraits(state.region)) {
+      const chip = el('span', 'region-trait-chip', `${t.icon} ${t.nom}`);
+      chip.title = t.desc;
+      banner.append(chip);
+    }
+    root.append(banner);
+  }
+
   const main = el('div', 'prepare-grid');
 
   // --- spots column
   const where = el('section', 'panel');
   where.append(el('h2', '', STR.chooseSpot));
   for (const spot of SPOTS) {
-    const unlocked = isSpotUnlocked(state, spot.id);
+    const unlocked = isSpotAvailable(state, spot.id);
     const card = el('button', `card spot-card${selection.spot === spot.id ? ' selected' : ''}${unlocked ? '' : ' locked'}`);
     card.disabled = !unlocked;
     card.append(el('div', 'card-title', spot.id === 'teknival' ? `🏆 ${spot.nom}` : spot.nom));
     card.append(
       el('div', 'card-meta', `${STR.capacity(spot.cap)} · ${STR.duration(Math.round(spot.duration / 60))} · ${STR.setsCount(spot.setCount)}`),
     );
-    card.append(el('div', 'card-desc', unlocked ? spot.description : `🔒 ${STR.repNeeded(spot.repReq)}`));
+    const banned = buildRegionRules(state.region).bannedSpotIds.includes(spot.id);
+    card.append(
+      el(
+        'div',
+        'card-desc',
+        unlocked ? spot.description : banned ? `🚧 ${STR.spotBanned}` : `🔒 ${STR.repNeeded(spot.repReq)}`,
+      ),
+    );
     if (unlocked) {
       card.addEventListener('click', () => {
         selection.spot = spot.id;
@@ -982,6 +1002,39 @@ export function renderHeritage(root: HTMLElement, state: GameState, cb: Heritage
   const back = el('button', 'btn launch', STR.back);
   back.addEventListener('click', () => cb.onBack());
   panel.append(back);
+  root.append(panel);
+}
+
+// --- region draw (départ en tournée, chantier 4) -------------------------------
+
+export function renderRegionDraw(
+  root: HTMLElement,
+  choices: RegionChoice[],
+  onPick: (choice: RegionChoice) => void,
+): void {
+  root.innerHTML = '';
+  root.className = 'screen screen-region-draw';
+  const panel = el('div', 'region-draw-panel');
+  panel.append(el('h1', '', `🗺 ${STR.regionDrawTitle}`));
+  panel.append(el('p', 'hint', STR.regionDrawHint));
+  const cards = el('div', 'region-cards');
+  for (const choice of choices) {
+    const card = el('button', 'card region-card');
+    card.append(el('div', 'card-title', choice.nom));
+    for (const t of choice.traits) {
+      const row = el('div', 'region-trait-row');
+      row.append(el('span', 'region-trait-icon', t.icon));
+      const txt = el('div', 'region-trait-txt');
+      txt.append(el('div', 'region-trait-nom', t.nom), el('div', 'card-desc', t.desc));
+      row.append(txt);
+      card.append(row);
+    }
+    card.append(el('div', 'region-mult', STR.regionMult(choice.mult.toFixed(2))));
+    card.append(el('div', 'btn small accent region-go', STR.regionPick));
+    card.addEventListener('click', () => onPick(choice));
+    cards.append(card);
+  }
+  panel.append(cards);
   root.append(panel);
 }
 

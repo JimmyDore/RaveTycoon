@@ -1,11 +1,12 @@
 import './style.css';
 import { AudioEngine } from './audio/engine';
 import { buyDayOff, buyStudioSession, giftDj, recruitDj } from './core/crew';
-import { getDj, getSpot } from './core/data';
+import { SPOTS, getDj, getSpot } from './core/data';
 import { cautionCost } from './core/economy';
 import { applyIdleTime, rushRepair, startRepair } from './core/idle';
 import { changeBrief, createNight, dropMontee, resolveEvent, seizeFloorPrompt, startSet, tickNight } from './core/night';
-import { applyBust, buyGearUpgrade, settleNight, switchGearBranch } from './core/payout';
+import { applyBust, buyGearUpgrade, isSpotAvailable, settleNight, switchGearBranch } from './core/payout';
+import { drawRegions, toRegionState } from './core/regions';
 import { exportCode, importCode, loadGame, newGame, saveGame } from './core/save';
 import { buyPerk, departOnTour } from './core/tour';
 import type { Brief, GameState, NightResult, NightState } from './core/types';
@@ -20,6 +21,7 @@ import {
   renderNight,
   renderPrepare,
   renderRecap,
+  renderRegionDraw,
   type NightScreen,
   type PrepareSelection,
 } from './ui/screens';
@@ -242,7 +244,9 @@ function showHeritage(): void {
 function showPrepare(): void {
   applyIdleTime(state, Date.now());
   saveGame(localStorage, state);
-  if (state.rep < getSpot(selection.spot).repReq) selection.spot = 'champ';
+  if (!isSpotAvailable(state, selection.spot)) {
+    selection.spot = SPOTS.find((s) => isSpotAvailable(state, s.id))?.id ?? 'champ';
+  }
   if (selection.caution && state.cash < cautionCost(state, getSpot(selection.spot))) selection.caution = false;
   for (const id of selection.present) {
     if (!state.crew.some((d) => d.id === id)) selection.present.delete(id);
@@ -339,12 +343,16 @@ function showPrepare(): void {
     },
     onHeritage: () => showHeritage(),
     onDepart: (veteranIds) => {
-      state = departOnTour(state, veteranIds);
-      saveGame(localStorage, state);
-      selection.present.clear();
-      for (const d of state.crew) selection.present.add(d.id);
-      selection.spot = 'champ';
-      showPrepare();
+      // chantier 4 : 3 cartes-régions, on en choisit une pour toute la tournée
+      const choices = drawRegions((Date.now() ^ 0x4e9) >>> 0);
+      renderRegionDraw(app, choices, (choice) => {
+        state = departOnTour(state, veteranIds, toRegionState(choice));
+        saveGame(localStorage, state);
+        selection.present.clear();
+        for (const d of state.crew) selection.present.add(d.id);
+        selection.spot = 'champ'; // showPrepare retombe sur un spot jouable si banni
+        showPrepare();
+      });
     },
   });
 }

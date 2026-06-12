@@ -122,6 +122,13 @@ export const STR = {
   setGoalLabel: 'objectif',
   modifiersBanner: 'Ce soir…',
   modifiersRecapTitle: 'La couleur du soir',
+  // régions (la tournée, chantier 4)
+  regionDrawTitle: 'Choisis ta région',
+  regionDrawHint:
+    'Toute la tournée se jouera sous ces règles. Les régions dures paient plus de ⭐.',
+  regionMult: (m: string) => `⭐ ×${m}`,
+  regionPick: 'Partir ici',
+  spotBanned: 'Introuvable dans cette région',
   events: {
     brownout: '⚡ Le groupe décroche ! Le son se coupe.',
     'mur-blown': '💥 Une enceinte vient de lâcher !',
