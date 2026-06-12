@@ -1,6 +1,7 @@
 import type { GearBranch, GearCategory, SpotId } from '../core/types';
 import type { RaverSim, DanceFloor } from './ravers';
-import { drawRaverFrame, type PropName, type SpriteBank, type TerrainName } from './sprites';
+import { buildRig, rigKey, type StageRig } from './rig';
+import { drawAnimatedFrame, drawRaverFrame, type PropName, type SpriteBank, type TerrainName } from './sprites';
 
 /** Internal pixel resolution; scaled up with image-rendering: pixelated. */
 export const SCENE_W = 480;
@@ -196,6 +197,15 @@ export class SceneRenderer {
   private terrainCache: HTMLCanvasElement | null = null;
   private terrainSpot: SpotId | null = null;
   private ctx: CanvasRenderingContext2D;
+  /** rig de scène memoïsé (recalculé seulement quand le matos change) */
+  private rig: StageRig | null = null;
+  private rigId = '';
+  /** FSM machine à fumée : allumage → boucle → extinction */
+  private fogPhase: 'off' | 'on' | 'loop' | 'stopping' = 'off';
+  private fogSince = 0;
+  /** détection du drop : chute brutale de la montée d'une frame à l'autre */
+  private prevMontee = 0;
+  private dropUntil = 0;
 
   constructor(private canvas: HTMLCanvasElement, private bank: SpriteBank) {
     this.ctx = canvas.getContext('2d')!;
@@ -212,6 +222,14 @@ export class SceneRenderer {
   render(p: SceneParams, ravers: RaverSim, timeMs: number): void {
     const c = this.bctx;
     c.imageSmoothingEnabled = false;
+    const key = rigKey(p.gear, p.gearBranch, p.murBlown);
+    if (key !== this.rigId || !this.rig) {
+      this.rig = buildRig(p.gear, p.gearBranch, p.murBlown, SCENE_W / 2, STAGE_BOTTOM);
+      this.rigId = key;
+    }
+    // le drop : la montée s'encaisse → ~0.8s de flash laser + bouffée de fumée
+    if (this.prevMontee - p.montee > 0.2 && this.prevMontee > 0.35) this.dropUntil = timeMs + 800;
+    this.prevMontee = p.montee;
     this.drawTerrain(c, p);
     this.drawProps(c, p);
     this.drawStage(c, p, timeMs);
@@ -293,6 +311,14 @@ export class SceneRenderer {
     this.prop(c, 'stage_spot_left', cx - 150, 8);
     this.prop(c, 'stage_spot_right', cx + 118, 8);
 
+    // spots animés pendus au truss — voie B strobe les fait battre plus vite
+    if (!p.soundCut && this.rig) {
+      const fpsScale = p.gearBranch.lumieres === 'B' ? 1.5 : 1;
+      for (const s of this.rig.spotlights) {
+        drawAnimatedFrame(c, this.bank, 'spotlight', s.x, s.y, timeMs, { fpsScale });
+      }
+    }
+
     // the mur de son — stacks of real loudspeakers, growing with the tier
     const tier = p.gear.mur;
     const big = this.bank.props.speaker_big;
@@ -347,6 +373,52 @@ export class SceneRenderer {
     c.fillRect(cx + 1, STAGE_BOTTOM - 31, 2, 2);
     c.fillStyle = p.heat > 0.6 ? '#ff3b4e' : '#5e1c24';
     c.fillRect(cx - 1, STAGE_BOTTOM - 27, 2, 2);
+
+    this.drawFog(c, p, timeMs);
+    this.drawLasers(c, p, timeMs);
+  }
+
+  /** Machine à fumée au pied de scène — FSM on/loop/off pilotée par vibe et drop. */
+  private drawFog(c: CanvasRenderingContext2D, p: SceneParams, timeMs: number): void {
+    const fog = this.rig?.fog;
+    if (!fog) return;
+    const want = !p.soundCut && (p.vibe > 0.45 || this.dropUntil > timeMs);
+    if (want && this.fogPhase === 'off') {
+      this.fogPhase = 'on';
+      this.fogSince = timeMs;
+    } else if (!want && (this.fogPhase === 'on' || this.fogPhase === 'loop')) {
+      this.fogPhase = 'stopping';
+      this.fogSince = timeMs;
+    }
+    if (this.fogPhase === 'on' && timeMs - this.fogSince >= 500) this.fogPhase = 'loop';
+    if (this.fogPhase === 'stopping' && timeMs - this.fogSince >= 750) this.fogPhase = 'off';
+    if (this.fogPhase === 'off') return;
+    if (this.fogPhase === 'loop') {
+      drawAnimatedFrame(c, this.bank, 'fog_loop', fog.x, fog.y, timeMs);
+      // voie A hypnose : nappe dense — une seconde couche de fumée détourée
+      if (fog.dense || this.dropUntil > timeMs) {
+        c.save();
+        c.globalAlpha = 0.7;
+        drawAnimatedFrame(c, this.bank, 'fog_only_loop', fog.x + 34, fog.y + 4, timeMs + 400);
+        c.restore();
+      }
+    } else {
+      // allumage/extinction : frame indexée sur l'âge de la transition
+      const sheet = this.fogPhase === 'on' ? 'fog_on' : 'fog_off';
+      const last = this.fogPhase === 'on' ? 3 : 5;
+      const frame = Math.min(last, Math.floor((timeMs - this.fogSince) / 125));
+      drawAnimatedFrame(c, this.bank, sheet, fog.x, fog.y, timeMs, { frame });
+    }
+  }
+
+  /** Machines laser aux coins de scène — nerveuses en voie B, déchaînées au drop. */
+  private drawLasers(c: CanvasRenderingContext2D, p: SceneParams, timeMs: number): void {
+    if (!this.rig || p.soundCut || p.vibe < 0.15) return;
+    const drop = this.dropUntil > timeMs;
+    const fpsScale = drop ? 2 : p.gearBranch.lumieres === 'B' ? 1.4 : 0.6;
+    for (const l of this.rig.lasers) {
+      drawAnimatedFrame(c, this.bank, l.sheet, l.x, l.y, timeMs, { fpsScale });
+    }
   }
 
   /** Night darkness with warm light pools; fades out as sunrise approaches. */
@@ -411,10 +483,12 @@ export class SceneRenderer {
     if (tier <= 0 || p.vibe < 0.15) return;
     const cx = SCENE_W / 2;
     const beams = tier * 2;
+    // voie A hypnose : balayages presque deux fois plus lents
+    const slow = p.gearBranch.lumieres === 'A' ? 1.9 : 1;
     c.save();
     c.globalCompositeOperation = 'lighter';
     for (let i = 0; i < beams; i++) {
-      const sweep = Math.sin(timeMs / (650 + i * 110) + i * 1.7);
+      const sweep = Math.sin(timeMs / ((650 + i * 110) * slow) + i * 1.7);
       const hue = (timeMs / 25 + i * 55) % 360;
       c.strokeStyle = `hsla(${hue}, 95%, 60%, ${0.08 + p.vibe * 0.1})`;
       c.lineWidth = 3;
@@ -426,6 +500,17 @@ export class SceneRenderer {
     // strobe on the beat at tier 2+
     if (tier >= 2 && p.vibe > 0.5 && p.beatPhase < 0.06) {
       c.fillStyle = 'rgba(255, 255, 255, 0.16)';
+      c.fillRect(0, 0, SCENE_W, SCENE_H);
+    }
+    // voie B strobe : bursts blancs calés sur le beat
+    if (p.gearBranch.lumieres === 'B' && tier >= 3 && p.vibe > 0.4 && p.beatPhase < 0.05) {
+      c.fillStyle = 'rgba(255, 255, 255, 0.2)';
+      c.fillRect(0, 0, SCENE_W, SCENE_H);
+    }
+    // le drop : white-out qui s'éteint sur ~0.8s
+    if (this.dropUntil > timeMs) {
+      const t = (this.dropUntil - timeMs) / 800;
+      c.fillStyle = `rgba(255, 255, 255, ${0.3 * t})`;
       c.fillRect(0, 0, SCENE_W, SCENE_H);
     }
     c.restore();
