@@ -7,6 +7,7 @@ import { buildRegionRules, regionTraits, type RegionChoice } from '../core/regio
 import { canBuyPerk, computeLegende, hasPerk, maxVeterans, perkCount } from '../core/tour';
 import { MONTEE_MIN_DROP, computeSetQuality, currentWave } from '../core/night';
 import { INTENSITIES, type Intensity } from '../core/intensity';
+import { SIEGE_MAX_LOW, SIEGE_VIBE_MIN, negoCost } from '../core/raid';
 import { NIGHT_PHASES, getPhase } from '../core/phases';
 import type { NightModifierDef } from '../core/modifiers';
 import type {
@@ -468,6 +469,7 @@ export interface NightLiveCallbacks {
   onIntensity(i: Intensity): void;
   onDrop(): void;
   onPrompt(): void;
+  onRaid(choice: 'evacuer' | 'negocier' | 'tenir'): void;
 }
 
 export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightScreen {
@@ -581,6 +583,35 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
   sceneWrap.append(prompt);
   let promptId = '';
 
+  // bandeau descente : non bloquant — la teuf continue derrière
+  const raidBanner = el('div', 'raid-banner hidden');
+  const raidTitle = el('div', 'raid-title', '');
+  const raidBtns = el('div', 'raid-btns');
+  const mkRaidBtn = (label: string, hint: string, choice: 'evacuer' | 'negocier' | 'tenir') => {
+    const b = el('button', 'btn raid-btn', label) as HTMLButtonElement;
+    b.title = hint;
+    b.addEventListener('click', () => live.onRaid(choice));
+    raidBtns.append(b);
+    return b;
+  };
+  const evacBtn = mkRaidBtn(STR.raidEvacuer, STR.raidEvacuerHint, 'evacuer');
+  const negoBtn = mkRaidBtn(STR.raidNegocier(0), STR.raidNegocierHint, 'negocier');
+  const tenirBtn = mkRaidBtn(STR.raidTenir, STR.raidTenirHint, 'tenir');
+  raidBanner.append(raidTitle, raidBtns);
+  sceneWrap.append(raidBanner);
+
+  // vignette de siège : la vibe contre le seuil
+  const siegeBox = el('div', 'siege-box hidden');
+  const siegeTitle = el('div', 'siege-title', '');
+  const siegeBar = el('div', 'siege-bar');
+  const siegeFill = el('div', 'siege-fill');
+  const siegeThreshold = el('div', 'siege-threshold');
+  siegeThreshold.style.left = `${SIEGE_VIBE_MIN * 100}%`;
+  siegeBar.append(siegeFill, siegeThreshold);
+  const siegeMarge = el('div', 'siege-marge', '');
+  siegeBox.append(siegeTitle, siegeBar, siegeMarge);
+  sceneWrap.append(siegeBox);
+
   const modal = el('div', 'night-modal hidden');
   sceneWrap.append(modal);
   root.append(sceneWrap);
@@ -676,6 +707,30 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
         promptId = '';
         prompt.classList.add('hidden');
       }
+
+      const raid = night.raid;
+      if (raid?.status === 'countdown' && playing) {
+        raidTitle.textContent = STR.raidBanner(Math.max(0, Math.ceil(raid.deadline - night.t)));
+        const cost = negoCost(night);
+        negoBtn.textContent = STR.raidNegocier(cost);
+        negoBtn.disabled = night.bank < cost;
+        evacBtn.disabled = false;
+        tenirBtn.disabled = false;
+        raidBanner.classList.remove('hidden');
+      } else {
+        raidBanner.classList.add('hidden');
+      }
+      if (raid?.status === 'siege' && playing) {
+        siegeTitle.textContent = STR.siegeVignette(Math.max(0, Math.ceil(raid.siegeEndAt - night.t)));
+        siegeFill.style.width = `${(night.vibe * 100).toFixed(1)}%`;
+        siegeFill.classList.toggle('low', night.vibe < SIEGE_VIBE_MIN);
+        siegeMarge.textContent = STR.siegeMarge(Math.max(0, SIEGE_MAX_LOW - raid.siegeLowT));
+        siegeBox.classList.remove('hidden');
+      } else {
+        siegeBox.classList.add('hidden');
+      }
+      // gyrophares sur les bords pendant toute la séquence
+      root.classList.toggle('raid-active', (raid?.status === 'countdown' || raid?.status === 'siege') && playing);
     },
     toast(msg) {
       const now = performance.now();
@@ -815,6 +870,8 @@ export function renderRecap(
   } else {
     panel.append(el('h1', 'recap-title', result.busted ? `🚨 ${STR.busted}` : `🌅 ${STR.sunrise}`));
   }
+  if (result.raidOutcome === 'mur-tenu') panel.append(el('div', 'recap-sub recap-legende', STR.recapMurTenu));
+  if (result.evacuated) panel.append(el('div', 'recap-sub', STR.recapEvacue));
   const genresPlayed = [...new Set(result.lineup.map((s) => getDj(s.djId).genre))]
     .map((g) => getGenre(g).nom)
     .join(' · ');

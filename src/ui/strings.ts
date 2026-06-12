@@ -122,6 +122,19 @@ export const STR = {
   setGoalLabel: 'objectif',
   modifiersBanner: 'Ce soir…',
   modifiersRecapTitle: 'La couleur du soir',
+  raidBanner: (s: number) => `🚨 LES BLEUS ARRIVENT — ${s} s`,
+  raidEvacuer: '🚐 ÉVACUER',
+  raidEvacuerHint: 'La caisse est sauvée, la rep trinque. Sortie propre.',
+  raidNegocier: (cost: number) => `🤝 NÉGOCIER (−${cost} €)`,
+  raidNegocierHint: 'Une enveloppe et un sourire. Ça passe ou ça casse.',
+  raidTenir: '🛡 TENIR LE MUR',
+  raidTenirHint: '45 s de siège : la vibe doit tenir, sinon tout aggrave.',
+  siegeVignette: (s: number) => `🛡 TENIR — ${s} s`,
+  siegeMarge: (s: number) => `⚠ ${s.toFixed(1)} s de marge`,
+  raidNegoOkToast: '🤝 Négocié — le gradé repart, la teuf continue.',
+  raidEvacueToast: '🚐 Évacuation propre — tout le monde dehors, la caisse au chaud.',
+  recapMurTenu: '🛡 LÉGENDE — le mur a tenu',
+  recapEvacue: '🚐 Évacuation propre',
   // régions (la tournée, chantier 4)
   regionDrawTitle: 'Choisis ta région',
   regionDrawHint:
@@ -139,7 +152,7 @@ export const STR = {
     'phase-change': '🌒 La nuit bascule…',
     descente: '🚨 LES BLEUS ARRIVENT — décide vite.',
     'mur-tenu': '🛡 LE MUR A TENU ! Les bleus reculent — légende.',
-    heatWarning: '👮 Ça sent le roussi… calme le jeu.',
+    heatWarning: '👮 Sirènes au loin… des voitures qui passent. Calme le jeu.',
   },
   phaseToast: {
     ouverture: '🌒 Ouverture — le champ s’éveille, on chauffe doucement',

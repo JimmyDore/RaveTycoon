@@ -7,6 +7,7 @@ import { applyIdleTime, rushRepair, startRepair } from './core/idle';
 import { createNight, dropMontee, resolveEvent, seizeFloorPrompt, setIntensity, startSet, tickNight } from './core/night';
 import type { Intensity } from './core/intensity';
 import { applyBust, buyGearUpgrade, isSpotAvailable, settleNight, switchGearBranch } from './core/payout';
+import { DESCENTE_WARNING, raidEvacuer, raidNegocier, raidTenir } from './core/raid';
 import { drawRegions, toRegionState } from './core/regions';
 import { exportCode, importCode, loadGame, newGame, saveGame } from './core/save';
 import { buyPerk, departOnTour } from './core/tour';
@@ -92,6 +93,16 @@ async function startNight(): Promise<void> {
       const def = seizeFloorPrompt(state, active.night);
       if (def) active.screen.toast(STR.promptToast(def.icon, def.label));
     },
+    onRaid: (choice) => {
+      if (!active) return;
+      const night = active.night;
+      if (choice === 'evacuer' && raidEvacuer(state, night)) active.screen.toast(STR.raidEvacueToast);
+      if (choice === 'negocier' && raidNegocier(state, night)) {
+        active.screen.toast(night.raid?.outcome === 'nego-ok' ? STR.raidNegoOkToast : STR.events.bust);
+        if (night.raid?.outcome === 'nego-rate') audio.playSiren();
+      }
+      if (choice === 'tenir' && raidTenir(state, night)) active.screen.toast(STR.raidTenir);
+    },
   });
   const scene = new SceneRenderer(screen.canvas, b);
   const ravers = new RaverSim(defaultFloor());
@@ -145,12 +156,14 @@ function frame(now: number): void {
         if (ev.type === 'phase-change') screen.toast(STR.phaseToast[night.nightPhase]);
         else screen.toast(STR.events[ev.type]);
         if (ev.type === 'bust') audio.playSiren();
+        if (ev.type === 'descente') audio.playSiren();
         if (ev.type === 'set-ended') screen.showTransition(state, night, onStartSet);
       }
-      if (!active.heatWarned && night.heat > 0.75) {
+      if (!active.heatWarned && night.heat > DESCENTE_WARNING) {
         active.heatWarned = true;
         screen.toast(STR.events.heatWarning);
-      } else if (night.heat < 0.6) {
+        audio.playSiren(1.5); // sirène lointaine — courte et discrète
+      } else if (night.heat < DESCENTE_WARNING - 0.1) {
         active.heatWarned = false;
       }
       if ((night.phase as string) === 'event' && night.pendingEvent) {
@@ -159,13 +172,16 @@ function frame(now: number): void {
           return option.outcome;
         });
       }
-      if ((night.phase as string) === 'ended' && active.endAt === null) {
-        active.endAt = now + (night.busted ? 3800 : 4000);
-        if (!night.busted) audio.stop();
-      }
     }
   } else {
     active.simAccumulator = 0;
+  }
+
+  // la descente peut terminer la nuit depuis un bouton (évacuer / négo ratée),
+  // hors du tick — l'armement de fin s'évalue à chaque frame
+  if (night.phase === 'ended' && active.endAt === null) {
+    active.endAt = now + (night.busted ? 3800 : 4000);
+    if (!night.busted) audio.stop();
   }
 
   const playing = night.phase === 'playing';
