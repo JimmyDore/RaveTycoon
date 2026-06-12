@@ -44,6 +44,15 @@ export function isInCrew(state: GameState, djId: string): boolean {
   return state.crew.some((d) => d.id === djId);
 }
 
+/** Nuits de garde à vue restantes pour ce DJ (0 = libre). */
+export function gardeAVueNights(state: GameState, djId: string): number {
+  return state.gardeAVue[djId] ?? 0;
+}
+
+export function isEnGardeAVue(state: GameState, djId: string): boolean {
+  return gardeAVueNights(state, djId) > 0;
+}
+
 /** Seuil de rep effectif : le carnet d'adresses ouvre la porte à 70 %. */
 export const CARNET_THRESHOLD = 0.7;
 

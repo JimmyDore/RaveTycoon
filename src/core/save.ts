@@ -32,6 +32,9 @@ export function newGame(now = 0): GameState {
     bestCrowd: 0,
     bestPayout: 0,
     wonTeknival: false,
+    gardeAVue: {},
+    casier: 0,
+    mursTenus: 0,
     tour: defaultTour(),
   };
 }
@@ -86,6 +89,9 @@ function migrateV2(o: Record<string, unknown>): void {
 /** Vieille save d'avant la tournée : bloc `tour` absent = tournée 1, 0 ⭐. */
 function migrate(state: GameState): GameState {
   if (!state.tour) state.tour = defaultTour();
+  state.gardeAVue ??= {};
+  state.casier ??= 0;
+  state.mursTenus ??= 0;
   return state;
 }
 

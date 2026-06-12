@@ -19,10 +19,7 @@ export interface RegionRules {
   heatMult: number;
   /** Seuil de heat qui déclenche la descente (raid.ts) — 0.85 de base. */
   descenteThreshold: number;
-  /**
-   * Le casier ne décroît pas. Dormant : aucune décroissance de casier n'existe.
-   * RÉVISION CHANTIER 1 : brancher sur la décroissance du casier.
-   */
+  /** Le casier ne décroît pas sur une nuit propre (settleNight). */
   casierGele: boolean;
   /** × sur le prix libre (settleNight) */
   prixLibreMult: number;

@@ -42,12 +42,12 @@ export const LEGENDE_PER_TEKNIVAL = 3;
  * legende = floor(rep / 100) + 3 × victoires Teknival cette tournée
  *         + 1 par « mur tenu » + 1 par arc mené à terme.
  *
- * RÉVISION CHANTIER 1: les « murs tenus » (tag légende, Story C) et les arcs
- * n'existent pas encore — leurs hooks restent à 0 ici. Quand le chantier 1
- * pose ses compteurs sur GameState, les brancher dans ces deux constantes.
+ * RÉVISION CHANTIER 1 (partie 2): les arcs n'existent pas encore — leur hook
+ * reste à 0 ici. Quand la partie 2 pose son compteur sur GameState, le
+ * brancher dans cette constante.
  */
 export function computeLegende(state: GameState): number {
-  const mursTenus = 0;
+  const mursTenus = state.mursTenus;
   const arcsTermines = 0;
   const base =
     Math.floor(state.rep / 100) +
@@ -84,9 +84,10 @@ export function applyPerks(state: GameState): void {
  * Conservé : ⭐ Légende (cumulée avec le gain du départ), perks, n° de
  * tournée, pseudo, nights et records all-time (le leaderboard track des maxima).
  *
- * RÉVISION CHANTIER 1: quand le chantier 1 ajoutera arcs en cours / garde à
- * vue sur GameState, ils sont remis à zéro ici (ils ne survivent pas — le
- * newGame frais s'en charge tant qu'ils ont des valeurs par défaut vides).
+ * La garde à vue, le casier et les murs tenus ne survivent pas au départ : le
+ * newGame frais les remet à zéro (« Le casier — les bleus t'oublient »).
+ * RÉVISION CHANTIER 1 (partie 2): quand les arcs en cours arriveront sur
+ * GameState, ils sont remis à zéro ici de la même façon.
  */
 export function departOnTour(
   state: GameState,

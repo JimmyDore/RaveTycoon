@@ -1,6 +1,6 @@
 import './style.css';
 import { AudioEngine } from './audio/engine';
-import { buyDayOff, buyStudioSession, giftDj, recruitDj } from './core/crew';
+import { buyDayOff, buyStudioSession, giftDj, isEnGardeAVue, recruitDj } from './core/crew';
 import { SPOTS, getDj, getSpot } from './core/data';
 import { cautionCost } from './core/economy';
 import { applyIdleTime, rushRepair, startRepair } from './core/idle';
@@ -67,7 +67,9 @@ const SIM_DT = 0.1;
 
 async function startNight(): Promise<void> {
   applyIdleTime(state, Date.now());
-  const present = [...selection.present].filter((id) => state.crew.some((d) => d.id === id));
+  const present = [...selection.present].filter(
+    (id) => state.crew.some((d) => d.id === id) && !isEnGardeAVue(state, id),
+  );
   if (present.length === 0) return;
   const b = await bankReady;
   const night = createNight(state, selection.spot, present, (Date.now() ^ 0x7e7) >>> 0, {
@@ -253,8 +255,13 @@ function showPrepare(): void {
   for (const id of selection.present) {
     if (!state.crew.some((d) => d.id === id)) selection.present.delete(id);
   }
+  for (const id of selection.present) {
+    if (isEnGardeAVue(state, id)) selection.present.delete(id);
+  }
   if (selection.present.size === 0) {
-    for (const d of state.crew) selection.present.add(d.id);
+    // le fondateur n'allant jamais en garde à vue, il reste toujours au moins
+    // un DJ libre — no-softlock
+    for (const d of state.crew) if (!isEnGardeAVue(state, d.id)) selection.present.add(d.id);
   }
   renderPrepare(app, state, selection, Date.now(), {
     onLaunch: () => void startNight(),

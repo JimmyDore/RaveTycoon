@@ -19,6 +19,20 @@ function carryDamage(state: GameState, night: NightState): void {
   if (night.murBlown) state.damaged.mur = true;
 }
 
+/**
+ * Une nuit propre passe : la garde à vue décrémente — au settle UNIQUEMENT
+ * (spec : « décrémente à chaque settle »). Pas dans applyBust : la nuit du
+ * bust aggravé poserait 2 nuits puis en consommerait une immédiatement —
+ * le DJ ne raterait qu'une seule nuit au lieu des 2 promises.
+ */
+function tickGardeAVue(state: GameState): void {
+  for (const id of Object.keys(state.gardeAVue)) {
+    const left = (state.gardeAVue[id] ?? 0) - 1;
+    if (left <= 0) delete state.gardeAVue[id];
+    else state.gardeAVue[id] = left;
+  }
+}
+
 function trackRecords(state: GameState, result: NightResult): void {
   state.bestCrowd = Math.max(state.bestCrowd, result.peakCrowd);
   state.bestPayout = Math.max(state.bestPayout, result.payout);
@@ -64,6 +78,8 @@ export function settleNight(state: GameState, night: NightState): NightResult {
   state.cash += payout + night.cautionPaid; // caution rendue à l'aube
   state.rep += repGained;
   state.nights += 1;
+  tickGardeAVue(state);
+  if (!night.rules.casierGele) state.casier = Math.max(0, state.casier - 1);
   if (won) {
     state.wonTeknival = true;
     state.tour.teknivalWins += 1;
@@ -155,6 +171,9 @@ export function applyBust(state: GameState, night: NightState): NightResult {
   const repGained = Math.round(night.peakCrowd / 20 + night.repBonus);
   state.rep += repGained;
   state.nights += 1;
+  // PAS de tickGardeAVue ici (voir son doc-comment) : une garde à vue
+  // antérieure ne décompte pas non plus sur une nuit bustée, assumé
+  state.casier += 1;
   carryDamage(state, night);
   applyNightRest(state, playedDjs(night));
 

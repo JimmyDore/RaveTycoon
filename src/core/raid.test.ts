@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createNight, setIntensity, startSet, tickNight } from './night';
 import { descenteCountdown, negoChance, negoCost, raidEvacuer, raidNegocier } from './raid';
-import { settleNight } from './payout';
+import { applyBust, settleNight } from './payout';
+import { gardeAVueNights, isEnGardeAVue } from './crew';
 import { newGame } from './save';
 
 function playing(seed = 7, spot: Parameters<typeof createNight>[1] = 'champ') {
@@ -116,5 +117,57 @@ describe('négocier', () => {
     raidNegocier(ko.state, ko.night);
     expect(ko.night.busted).toBe(true);
     expect(ko.night.raid?.outcome).toBe('nego-rate');
+  });
+});
+
+describe('conséquences persistantes : casier & garde à vue', () => {
+  it('le casier monte à chaque bust, redescend par nuit propre (min 0)', () => {
+    const { state, night } = playing();
+    Object.assign(night, { phase: 'ended', busted: true, t: 180, bank: 0 });
+    applyBust(state, night);
+    expect(state.casier).toBe(1);
+    const { state: s2 } = playing();
+    s2.casier = 2;
+    const clean = createNight(s2, 'champ', ['tonton'], 8);
+    startSet(s2, clean, 'tonton');
+    Object.assign(clean, { phase: 'ended', sunrise: true, t: 180, bank: 0, vibeSamples: 1 });
+    settleNight(s2, clean);
+    expect(s2.casier).toBe(1);
+  });
+
+  it('Préfet zélé : le casier ne décroît pas (casierGele)', () => {
+    const state = newGame(42);
+    state.region = { nom: 'Test', traits: ['prefet-zele'] };
+    state.casier = 2;
+    const night = createNight(state, 'champ', ['tonton'], 8);
+    startSet(state, night, 'tonton');
+    Object.assign(night, { phase: 'ended', sunrise: true, t: 180, bank: 0, vibeSamples: 1 });
+    settleNight(state, night);
+    expect(state.casier).toBe(2);
+  });
+
+  it('le casier chauffe les spots tier ≥ 4 : +0.05 × casier au départ', () => {
+    const state = newGame(42);
+    state.rep = 1000;
+    state.casier = 3;
+    expect(createNight(state, 'hangar', ['tonton'], 8).heat).toBeCloseTo(0.1 + 0.15, 5);
+    expect(createNight(state, 'champ', ['tonton'], 8).heat).toBe(0); // tier 1 : épargné
+  });
+
+  it('la garde à vue décrémente à chaque règlement et bloque la sélection', () => {
+    const state = newGame(42);
+    state.gardeAVue = { gamine: 2 };
+    expect(isEnGardeAVue(state, 'gamine')).toBe(true);
+    expect(gardeAVueNights(state, 'gamine')).toBe(2);
+    const night = createNight(state, 'champ', ['tonton'], 8);
+    startSet(state, night, 'tonton');
+    Object.assign(night, { phase: 'ended', sunrise: true, t: 180, bank: 0, vibeSamples: 1 });
+    settleNight(state, night);
+    expect(gardeAVueNights(state, 'gamine')).toBe(1);
+    settleNight(state, Object.assign(createNight(state, 'champ', ['tonton'], 9), {
+      phase: 'ended', sunrise: true, t: 180, bank: 0, vibeSamples: 1,
+      playedSets: [{ djId: 'tonton' }],
+    }));
+    expect(isEnGardeAVue(state, 'gamine')).toBe(false);
   });
 });

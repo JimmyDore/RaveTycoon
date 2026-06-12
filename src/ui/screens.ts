@@ -1,6 +1,6 @@
 import { DJS, GEAR_CATEGORIES, PERKS, SPOTS, getDj, getGenre, getSpot, nextGearOptions, ownedGear, switchBranchItem } from '../core/data';
 import { BAR_STOCK_COST, ESSENCE_RATE, cautionCost, potentialBar, type BarStock } from '../core/economy';
-import { STUDIO_COST, STUDIO_MAX, dayOffCost, djLevel, djRepThreshold, effectiveCut, fatigueMalus, giftCost, lockedDjs, recruitableDjs } from '../core/crew';
+import { STUDIO_COST, STUDIO_MAX, dayOffCost, djLevel, djRepThreshold, effectiveCut, fatigueMalus, gardeAVueNights, giftCost, isEnGardeAVue, lockedDjs, recruitableDjs } from '../core/crew';
 import { rushCost } from '../core/idle';
 import { isSpotAvailable } from '../core/payout';
 import { buildRegionRules, regionTraits, type RegionChoice } from '../core/regions';
@@ -110,6 +110,11 @@ export function renderPrepare(
     stat('⭐', String(Math.floor(state.rep)), STR.rep),
     stat('📢', `${Math.round(state.buzz * 100)}%`, STR.buzz),
   );
+  if (state.casier > 0) {
+    const chip = stat('📁', String(state.casier), 'casier');
+    chip.title = STR.casierHint;
+    stats.append(chip);
+  }
   header.append(stats);
   root.append(header);
 
@@ -203,10 +208,11 @@ export function renderPrepare(
   const crewSec = el('section', 'panel');
   crewSec.append(el('h2', '', STR.chooseCrew));
   for (const member of state.crew) {
+    const jailed = isEnGardeAVue(state, member.id);
     const def = getDj(member.id);
     const aboard = selection.present.has(member.id);
     // nested buttons are invalid DOM — the sink buttons live inside, so the card is a div
-    const card = el('div', `card dj-card${aboard ? ' selected' : ''}`);
+    const card = el('div', `card dj-card${aboard ? ' selected' : ''}${jailed ? ' locked' : ''}`);
     const row = el('div', 'dj-row');
     row.append(portrait(member.id));
     const info = el('div', 'dj-info');
@@ -225,36 +231,43 @@ export function renderPrepare(
     const malus = fatigueMalusLabel(member.fatigue);
     if (malus) fat.append(malus);
     info.append(fat);
-    const sinks = el('div', 'crew-sinks');
-    const sinkBtn = (label: string, hint: string, enabled: boolean, onClick: () => void) => {
-      const b = el('button', 'btn small', label);
-      b.title = hint;
-      b.disabled = !enabled;
-      b.addEventListener('click', (e) => {
-        e.stopPropagation(); // ne pas (dé)sélectionner le DJ
-        onClick();
-      });
-      sinks.append(b);
-    };
-    if (!member.gifted) {
-      const cost = giftCost(member);
-      sinkBtn(STR.giftBtn(cost), STR.giftHint, state.cash >= cost, () => cb.onGift(member.id));
+    if (jailed) {
+      // en garde à vue : pas de sinks, pas de sélection — juste le badge
+      info.append(el('div', 'dj-risk', STR.gardeAVueBadge(gardeAVueNights(state, member.id))));
+    } else {
+      const sinks = el('div', 'crew-sinks');
+      const sinkBtn = (label: string, hint: string, enabled: boolean, onClick: () => void) => {
+        const b = el('button', 'btn small', label);
+        b.title = hint;
+        b.disabled = !enabled;
+        b.addEventListener('click', (e) => {
+          e.stopPropagation(); // ne pas (dé)sélectionner le DJ
+          onClick();
+        });
+        sinks.append(b);
+      };
+      if (!member.gifted) {
+        const cost = giftCost(member);
+        sinkBtn(STR.giftBtn(cost), STR.giftHint, state.cash >= cost, () => cb.onGift(member.id));
+      }
+      if (member.fatigue > 0) {
+        const cost = dayOffCost(member);
+        sinkBtn(STR.dayOffBtn(cost), STR.dayOffHint, state.cash >= cost, () => cb.onDayOff(member.id));
+      }
+      if (member.studioBonus < STUDIO_MAX) {
+        sinkBtn(STR.studioBtn(STUDIO_COST), STR.studioHint, state.cash >= STUDIO_COST, () => cb.onStudio(member.id));
+      }
+      if (sinks.childElementCount > 0) info.append(sinks);
     }
-    if (member.fatigue > 0) {
-      const cost = dayOffCost(member);
-      sinkBtn(STR.dayOffBtn(cost), STR.dayOffHint, state.cash >= cost, () => cb.onDayOff(member.id));
-    }
-    if (member.studioBonus < STUDIO_MAX) {
-      sinkBtn(STR.studioBtn(STUDIO_COST), STR.studioHint, state.cash >= STUDIO_COST, () => cb.onStudio(member.id));
-    }
-    if (sinks.childElementCount > 0) info.append(sinks);
     row.append(info);
     card.append(row);
-    card.addEventListener('click', () => {
-      if (aboard) selection.present.delete(member.id);
-      else selection.present.add(member.id);
-      renderPrepare(root, state, selection, now, cb);
-    });
+    if (!jailed) {
+      card.addEventListener('click', () => {
+        if (aboard) selection.present.delete(member.id);
+        else selection.present.add(member.id);
+        renderPrepare(root, state, selection, now, cb);
+      });
+    }
     crewSec.append(card);
   }
   for (const def of recruitableDjs(state)) {

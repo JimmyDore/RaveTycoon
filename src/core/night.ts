@@ -100,7 +100,9 @@ export function createNight(
       cautionPaid = cost;
     }
   }
-  const startHeat = spot.tier >= 3 && cautionPaid === 0 ? 0.1 : 0;
+  // sans caution sur un tier ≥ 3 : +0.1 ; le casier chauffe les villes (tier ≥ 4)
+  const casierHeat = spot.tier >= 4 ? 0.05 * state.casier : 0;
+  const startHeat = clamp((spot.tier >= 3 && cautionPaid === 0 ? 0.1 : 0) + casierHeat, 0, 0.5);
   const rules = buildRegionRules(state.region);
   // modifs du soir (météo/foule) — flux RNG dédié, ne perturbe pas le flux des events
   const modifiers = rollModifiers(spot.tier, seed, rules.negativeModifierWeightMult);
@@ -429,9 +431,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
 
   // --- heat -----------------------------------------------------------------------
   const logistique = ownedGear(state, 'logistique').value;
-  // RÉVISION CHANTIER 1: l'insaisissable deviendra immunisé à la garde à vue ;
-  // en attendant, son gimmick = moitié moins de heat (levier existant)
-  const riskMult = dj ? RISK_HEAT[dj.risk] * (dj.gimmick === 'insaisissable' ? 0.5 : 1) : 1;
+  const riskMult = dj ? RISK_HEAT[dj.risk] : 1;
   night.heat += spot.heatBuild * genre.heatMult * INTENSITY_HEAT[night.intensity] * riskMult * logistique * heatMod * phase.heatMult * branchHeatMult(state) * night.rules.heatMult * HEAT_BASE * (tooHard ? 1 + 2 * (gap - tol) : 1) * dt;
   if (night.intensity === 'chill') night.heat -= 0.01 * dt;
   night.heat = clamp(night.heat, 0, 1);

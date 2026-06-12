@@ -237,7 +237,7 @@ describe('les Têtes d’affiche', () => {
     expect(dj.setsPlayed).toBe(1);
   });
 
-  it('insaisissable : DJ Sans Nom chauffe à 40 % d’un risque normal du même genre', () => {
+  it('insaisissable : DJ Sans Nom est immunisé à la garde à vue, heat = discret simple', () => {
     const heatAfter = (djId: string): number => {
       const state = newGame();
       state.crew.push({ id: djId, xp: 0, fatigue: 0, setsPlayed: 0, gifted: false, studioBonus: 0 });
@@ -246,8 +246,9 @@ describe('les Têtes d’affiche', () => {
       for (let i = 0; i < 80; i++) tickNight(state, night, 0.1); // 8 s — avant tout event/prompt
       return night.heat;
     };
-    // memeacide joue aussi mentale, risk normal (×1.0) ; sansnom : discret ×0.8 × gimmick ×0.5
-    expect(heatAfter('sansnom')).toBeCloseTo(heatAfter('memeacide') * 0.4, 5);
+    // le gimmick n'est plus « moitié moins de heat » : il devient l'immunité à la
+    // garde à vue (story C) — la heat de sansnom est celle d'un discret (×0.8)
+    expect(heatAfter('sansnom')).toBeCloseTo(heatAfter('memeacide') * 0.8, 5);
   });
 });
 

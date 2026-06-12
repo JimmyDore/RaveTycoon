@@ -110,8 +110,7 @@ export type DjRisk = 'discret' | 'normal' | 'chaud';
 
 /**
  * Gimmick unique des DJs légendaires — branché sur des leviers existants :
- * - insaisissable : moitié moins de heat (RÉVISION CHANTIER 1: deviendra
- *   l'immunité à la garde à vue quand elle existera)
+ * - insaisissable : ne va jamais en garde à vue
  * - increvable : ne prend jamais de fatigue
  */
 export type DjGimmick = 'insaisissable' | 'increvable';
@@ -192,6 +191,12 @@ export interface GameState {
   bestCrowd: number;
   bestPayout: number;
   wonTeknival: boolean;
+  /** nuits de garde à vue restantes par DJ — décrémente à chaque settle propre (pas sur bust) */
+  gardeAVue: Partial<Record<string, number>>;
+  /** casier : +1 par bust, −1 par nuit sans bust (min 0, gelé en Préfet zélé) */
+  casier: number;
+  /** murs tenus pendant un siège (tag légende, ⭐ au départ en tournée) */
+  mursTenus: number;
   /** région de la tournée courante (chantier 4) — absente en tournée 1 */
   region?: RegionState;
   tour: TourState;

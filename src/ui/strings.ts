@@ -93,6 +93,9 @@ export const STR = {
   dayOffHint: 'Récupère toute sa fatigue, même s’il joue la prochaine nuit',
   studioBtn: (cost: number) => `🎚 Studio (${cost} €)`,
   studioHint: '+0,5 technique permanent (max +1)',
+  gardeAVueBadge: (n: number) => `🚔 Garde à vue — ${n} nuit${n > 1 ? 's' : ''}`,
+  casierBadge: (n: number) => `📁 Casier : ${n}`,
+  casierHint: 'Les villes te connaissent : +5 % de chaleur de départ par cran de casier sur les spots tier 4+.',
 
   // night screen
   setLabel: (n: number, total: number) => `Set ${n}/${total}`,
