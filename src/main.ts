@@ -9,6 +9,7 @@ import type { Intensity } from './core/intensity';
 import { applyBust, buyGearUpgrade, isSpotAvailable, settleNight, switchGearBranch } from './core/payout';
 import { DESCENTE_WARNING, raidEvacuer, raidNegocier, raidTenir } from './core/raid';
 import { drawRegions, toRegionState } from './core/regions';
+import { acceptSpecialOffer, declineSpecialOffer, ensureSpecialOffer } from './core/specials';
 import { exportCode, importCode, loadGame, newGame, saveGame } from './core/save';
 import { buyPerk, departOnTour } from './core/tour';
 import type { GameState, NightResult, NightState } from './core/types';
@@ -68,9 +69,15 @@ const SIM_DT = 0.1;
 
 async function startNight(): Promise<void> {
   applyIdleTime(state, Date.now());
+  // contrat de nuit spéciale : le genre imposé filtre les présents, le spot est forcé
+  const contract = state.specialOffer?.accepted && state.specialOffer.night === state.nights ? state.specialOffer : null;
   const present = [...selection.present].filter(
-    (id) => state.crew.some((d) => d.id === id) && !isEnGardeAVue(state, id),
+    (id) =>
+      state.crew.some((d) => d.id === id) &&
+      !isEnGardeAVue(state, id) &&
+      (!contract?.genreId || getDj(id).genre === contract.genreId),
   );
+  if (contract?.spotId) selection.spot = contract.spotId;
   if (present.length === 0) return;
   const b = await bankReady;
   const night = createNight(state, selection.spot, present, (Date.now() ^ 0x7e7) >>> 0, {
@@ -263,6 +270,8 @@ function showHeritage(): void {
 
 function showPrepare(): void {
   applyIdleTime(state, Date.now());
+  // l'offre du soir (story D) : tirage déterministe par compteur, un double appel est sans effet
+  ensureSpecialOffer(state);
   saveGame(localStorage, state);
   if (!isSpotAvailable(state, selection.spot)) {
     selection.spot = SPOTS.find((s) => isSpotAvailable(state, s.id))?.id ?? 'champ';
@@ -365,6 +374,27 @@ function showPrepare(): void {
     },
     onLeaderboard: () => {
       renderLeaderboard(app, fetchBoard, () => showPrepare());
+    },
+    onAcceptOffer: () => {
+      if (!acceptSpecialOffer(state)) return;
+      const offer = state.specialOffer!;
+      if (offer.spotId) selection.spot = offer.spotId;
+      if (offer.genreId) {
+        for (const id of [...selection.present]) {
+          if (getDj(id).genre !== offer.genreId) selection.present.delete(id);
+        }
+        for (const d of state.crew) {
+          if (getDj(d.id).genre === offer.genreId) selection.present.add(d.id);
+        }
+      }
+      saveGame(localStorage, state);
+      showPrepare();
+    },
+    onDeclineOffer: () => {
+      if (declineSpecialOffer(state)) {
+        saveGame(localStorage, state);
+        showPrepare();
+      }
     },
     onHeritage: () => showHeritage(),
     onDepart: (veteranIds) => {

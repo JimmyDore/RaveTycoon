@@ -4,6 +4,7 @@ import { STUDIO_COST, STUDIO_MAX, dayOffCost, djLevel, djRepThreshold, effective
 import { rushCost } from '../core/idle';
 import { isSpotAvailable } from '../core/payout';
 import { buildRegionRules, regionTraits, type RegionChoice } from '../core/regions';
+import { getSpecial } from '../core/specials';
 import { canBuyPerk, computeLegende, hasPerk, maxVeterans, perkCount } from '../core/tour';
 import { MONTEE_MIN_DROP, computeSetQuality, currentWave } from '../core/night';
 import { INTENSITIES, type Intensity } from '../core/intensity';
@@ -91,6 +92,8 @@ export interface PrepareCallbacks {
   onLeaderboard(): void;
   onHeritage(): void;
   onDepart(veteranIds: string[]): void;
+  onAcceptOffer(): void;
+  onDeclineOffer(): void;
 }
 
 export function renderPrepare(
@@ -141,13 +144,47 @@ export function renderPrepare(
     root.append(banner);
   }
 
+  // offre de nuit spéciale du soir (story D) — au-dessus du choix de spot
+  const offer = state.specialOffer && state.specialOffer.night === state.nights ? state.specialOffer : null;
+  if (offer && !offer.declined) {
+    const def = getSpecial(offer.id);
+    const card = el('div', `card offer-card${offer.accepted ? ' accepted' : ''}`);
+    card.append(el('div', 'offer-tag', offer.accepted ? STR.offerAccepted(def.nom) : STR.offerTag));
+    card.append(el('div', 'card-title', `${def.icon} ${def.nom}`));
+    card.append(el('div', 'card-desc', def.pitch));
+    const terms = el('div', 'offer-terms');
+    if (offer.cashUpfront) terms.append(el('div', 'offer-term', STR.offerCashUpfront(offer.cashUpfront)));
+    if (def.rewards.repMult !== undefined) terms.append(el('div', 'offer-term', STR.offerRepMult(def.rewards.repMult)));
+    if (offer.genreId) terms.append(el('div', 'offer-term', STR.offerGenre(getGenre(offer.genreId).nom)));
+    if (offer.spotId) terms.append(el('div', 'offer-term', STR.offerSpot(getSpot(offer.spotId).nom)));
+    if (def.constraints.maxIntensity) terms.append(el('div', 'offer-term', STR.offerMaxIntensity));
+    if (def.constraints.crowdCap) terms.append(el('div', 'offer-term', STR.offerCrowdCap(Math.round(def.constraints.crowdCap * 100))));
+    if (def.constraints.noDescente) terms.append(el('div', 'offer-term', STR.offerNoDescente));
+    if (def.rewards.attenteMode === 'haute') terms.append(el('div', 'offer-term', STR.offerAttenteHaute));
+    if (def.rewards.attenteMode === 'puriste') terms.append(el('div', 'offer-term', STR.offerAttentePuriste));
+    if (def.id === 'soundclash') terms.append(el('div', 'offer-term', STR.offerClash));
+    card.append(terms);
+    if (!offer.accepted) {
+      const row = el('div', 'offer-actions');
+      const accept = el('button', 'btn small accent', STR.offerAccept);
+      accept.addEventListener('click', () => cb.onAcceptOffer());
+      const decline = el('button', 'btn small ghost', STR.offerDecline);
+      decline.addEventListener('click', () => cb.onDeclineOffer());
+      row.append(accept, decline);
+      card.append(row);
+    }
+    root.append(card);
+  }
+  const contract = offer?.accepted ? offer : null;
+
   const main = el('div', 'prepare-grid');
 
   // --- spots column
   const where = el('section', 'panel');
   where.append(el('h2', '', STR.chooseSpot));
   for (const spot of SPOTS) {
-    const unlocked = isSpotAvailable(state, spot.id);
+    const imposed = contract?.spotId;
+    const unlocked = isSpotAvailable(state, spot.id) && (!imposed || spot.id === imposed);
     const card = el('button', `card spot-card${selection.spot === spot.id ? ' selected' : ''}${unlocked ? '' : ' locked'}`);
     card.disabled = !unlocked;
     card.append(el('div', 'card-title', spot.id === 'teknival' ? `🏆 ${spot.nom}` : spot.nom));
@@ -211,9 +248,11 @@ export function renderPrepare(
   for (const member of state.crew) {
     const jailed = isEnGardeAVue(state, member.id);
     const def = getDj(member.id);
+    // contrat à genre imposé : les DJs d'un autre genre ne sont pas embarquables
+    const genreLocked = contract?.genreId !== undefined && def.genre !== contract.genreId;
     const aboard = selection.present.has(member.id);
     // nested buttons are invalid DOM — the sink buttons live inside, so the card is a div
-    const card = el('div', `card dj-card${aboard ? ' selected' : ''}${jailed ? ' locked' : ''}`);
+    const card = el('div', `card dj-card${aboard ? ' selected' : ''}${jailed || genreLocked ? ' locked' : ''}`);
     const row = el('div', 'dj-row');
     row.append(portrait(member.id));
     const info = el('div', 'dj-info');
@@ -232,6 +271,9 @@ export function renderPrepare(
     const malus = fatigueMalusLabel(member.fatigue);
     if (malus) fat.append(malus);
     info.append(fat);
+    if (genreLocked) {
+      info.append(el('div', 'dj-risk', STR.genreLockedDj(getGenre(contract!.genreId!).nom)));
+    }
     if (jailed) {
       // en garde à vue : pas de sinks, pas de sélection — juste le badge
       info.append(el('div', 'dj-risk', STR.gardeAVueBadge(gardeAVueNights(state, member.id))));
@@ -262,7 +304,7 @@ export function renderPrepare(
     }
     row.append(info);
     card.append(row);
-    if (!jailed) {
+    if (!jailed && !genreLocked) {
       card.addEventListener('click', () => {
         if (aboard) selection.present.delete(member.id);
         else selection.present.add(member.id);
@@ -631,6 +673,12 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
           badge.append(el('span', 'night-modifier-icon', m.icon), el('span', 'night-modifier-nom', m.nom));
           modifierBadges.append(badge);
         }
+        // badge du contrat de nuit spéciale (story D)
+        if (night.special) {
+          const badge = el('div', 'night-modifier-badge special-badge');
+          badge.textContent = STR.specialBadge(night.special.icon, night.special.nom);
+          modifierBadges.append(badge);
+        }
       }
       setValue.textContent = `${Math.min(night.setIndex + 1, night.setCount)}/${night.setCount}`;
       clockValue.textContent = fmtTime(night.duration - night.t);
@@ -879,6 +927,14 @@ export function renderRecap(
     ? `${getSpot(result.spotId).nom} · ${genresPlayed}`
     : getSpot(result.spotId).nom;
   panel.append(el('div', 'recap-sub', recapSub));
+
+  // le contrat de la nuit raconté (story D) : clash, teuf privée, rupture
+  if (result.clashPhasesWon !== null) {
+    panel.append(el('div', `recap-sub ${result.clashWon ? 'recap-legende' : ''}`,
+      result.clashWon ? STR.recapClashWon(result.clashPhasesWon) : STR.recapClashLost));
+  }
+  if (result.specialId === 'teuf-privee' && !result.busted) panel.append(el('div', 'recap-sub', STR.recapZeroRep));
+  if (result.contractRefund > 0) panel.append(el('div', 'recap-sub', STR.recapContractRefund(result.contractRefund)));
 
   // the night's lineup
   const lineup = el('div', 'recap-lineup');
