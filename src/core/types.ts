@@ -4,7 +4,10 @@ export type SpotId =
   | 'champ'
   | 'foret'
   | 'carriere'
+  | 'plage'
   | 'hangar'
+  | 'tunnel'
+  | 'chateau'
   | 'friche'
   | 'teknival';
 
@@ -45,6 +48,12 @@ export interface SpotDef {
   priceMult: number;
   /** quirk: power supply multiplier (carriere = poor power access) */
   powerMult: number;
+  /** quirk: crowd churn multiplier (plage = on reste) */
+  churnMult: number;
+  /** quirk: set quality multiplier (tunnel = acoustique énorme) */
+  qualityMult: number;
+  /** quirk: prix libre multiplier at settle (château = ×1.3) */
+  donationMult: number;
 }
 
 export interface GenreDef {

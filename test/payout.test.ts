@@ -152,7 +152,7 @@ describe('progression', () => {
     state.cash = 999999;
     expect(isSpotUnlocked(state, 'champ')).toBe(true);
     expect(isSpotUnlocked(state, 'hangar')).toBe(false);
-    state.rep = 150;
+    state.rep = 195;
     expect(isSpotUnlocked(state, 'hangar')).toBe(true);
   });
 

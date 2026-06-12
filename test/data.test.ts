@@ -3,11 +3,12 @@ import { SPOTS, GENRES, GEAR, GEAR_CATEGORIES, DJS, getSpot, getGenre, getDj } f
 import { mulberry32 } from '../src/core/rng';
 
 describe('spots', () => {
-  it('has 6 spots sorted by reputation requirement, teknival last', () => {
-    expect(SPOTS).toHaveLength(6);
+  it('has 9 spots sorted by reputation requirement, teknival last at 650', () => {
+    expect(SPOTS).toHaveLength(9);
     const reqs = SPOTS.map((s) => s.repReq);
     expect([...reqs].sort((a, b) => a - b)).toEqual(reqs);
-    expect(SPOTS[5].id).toBe('teknival');
+    expect(SPOTS[8].id).toBe('teknival');
+    expect(getSpot('teknival').repReq).toBe(650);
     expect(SPOTS[0].repReq).toBe(0);
   });
 

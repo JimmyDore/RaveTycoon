@@ -175,15 +175,16 @@ export function branchHeatMult(state: GameState): number {
   );
 }
 
-export function computeSetQuality(state: GameState, _night: NightState, djId: string, brief: Brief): number {
+export function computeSetQuality(state: GameState, night: NightState, djId: string, brief: Brief): number {
   const def = getDj(djId);
   const member = getCrewMember(state, djId);
   const platines = ownedGear(state, 'platines').value * (state.damaged.platines ? 0.7 : 1);
   const murQuality = ownedGear(state, 'mur').effects?.qualityMult ?? 1;
+  const spotQ = getSpot(night.spotId).qualityMult;
   const tech = effectiveTechnique(def, member);
   const base = 0.18 + 0.16 * tech;
   return clamp(
-    base * platines * murQuality * BRIEF_QUALITY[brief] * fatigueQualityMult(member),
+    base * platines * murQuality * spotQ * BRIEF_QUALITY[brief] * fatigueQualityMult(member),
     0.05,
     1.5,
   );
@@ -305,7 +306,8 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   if (quality < 0.3) leaveMult += 1;
   // retention plus basse = on garde mieux le public ; le bonus du soir la réduit
   const retention = Math.max(0, 1 - 0.04 * charisme - retentionMod);
-  const leaving = night.crowd * genre.churn * churnMod * branchChurnMult(state) * retention * leaveMult;
+  const leaving =
+    night.crowd * genre.churn * spot.churnMult * churnMod * branchChurnMult(state) * retention * leaveMult;
   night.crowd = clamp(night.crowd + (arrival - leaving) * dt, 0, night.cap);
   night.peakCrowd = Math.max(night.peakCrowd, night.crowd);
 

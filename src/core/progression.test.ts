@@ -39,6 +39,6 @@ describe('early-game progression curve', () => {
     expect(state.rep).toBeGreaterThanOrEqual(gamine.repReq);
     playNight(state, 3);
     playNight(state, 4);
-    expect(state.rep).toBeGreaterThanOrEqual(12); // forêt threshold after Task 3.2
+    expect(state.rep).toBeGreaterThanOrEqual(16); // forêt threshold after restretch ×1.3
   });
 });

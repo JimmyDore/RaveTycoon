@@ -83,6 +83,17 @@ const RECIPES: Record<SpotId, SpotRecipe> = {
     ],
     fires: [{ x: 40, y: 214, r: 26 }],
   },
+  plage: {
+    terrain: ['grass_3', 'grass_1'],
+    props: [
+      { prop: 'camper_right', x: 10, y: 190 },
+      { prop: 'bush_2', x: 60, y: 96 },
+      { prop: 'bush_1', x: 420, y: 100 },
+      { prop: 'tent_2', x: 430, y: 190 },
+      { prop: 'campfire_1', x: 400, y: 220 },
+    ],
+    fires: [{ x: 408, y: 228, r: 32 }],
+  },
   hangar: {
     terrain: ['asphalt_2', 'asphalt_1', 'asphalt_3'],
     props: [
@@ -95,6 +106,32 @@ const RECIPES: Record<SpotId, SpotRecipe> = {
       { prop: 'barrier', x: 440, y: 236 },
     ],
     fires: [],
+  },
+  tunnel: {
+    terrain: ['asphalt_1', 'asphalt_3'],
+    props: [
+      { prop: 'container_1', x: 4, y: 92 },
+      { prop: 'container_2', x: 430, y: 92 },
+      { prop: 'barrel_1', x: 70, y: 108 },
+      { prop: 'scrap_pile', x: 16, y: 200 },
+      { prop: 'barrel_2', x: 420, y: 160 },
+      { prop: 'barrier', x: 8, y: 236 },
+      { prop: 'barrier', x: 440, y: 236 },
+    ],
+    fires: [{ x: 90, y: 116, r: 22 }],
+  },
+  chateau: {
+    terrain: ['grass_2', 'grass_3'],
+    props: [
+      { prop: 'bunker', x: 8, y: 86 },
+      { prop: 'tree_big', x: 430, y: 88 },
+      { prop: 'tree_med_2', x: 380, y: 102 },
+      { prop: 'tent_1', x: 10, y: 200 },
+      { prop: 'tent_3', x: 430, y: 196 },
+      { prop: 'campfire_1', x: 60, y: 226 },
+      { prop: 'camper_left', x: 380, y: 230 },
+    ],
+    fires: [{ x: 68, y: 234, r: 28 }],
   },
   friche: {
     terrain: ['asphalt_3', 'asphalt_1', 'asphalt_2'],

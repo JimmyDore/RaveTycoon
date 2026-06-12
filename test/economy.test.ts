@@ -368,3 +368,33 @@ describe('sinks crew', () => {
     expect(state.cash).toBe(100);
   });
 });
+
+describe('nouveaux spots', () => {
+  it('tunnel : acoustique énorme (+15 % qualité)', () => {
+    const state = newGame();
+    state.rep = 1000;
+    const tunnel = mkNight(state, 'tunnel', ['tonton'], 10);
+    const champ = mkNight(state, 'champ', ['tonton'], 10);
+    expect(computeSetQuality(state, tunnel, 'tonton', 'normal')).toBeCloseTo(
+      computeSetQuality(state, champ, 'tonton', 'normal') * 1.15,
+      5,
+    );
+  });
+
+  it('château squatté : prix libre ×1.3 au payout', () => {
+    const state = newGame();
+    state.rep = 1000;
+    const night = mkNight(state, 'chateau', ['tonton'], 11);
+    Object.assign(night, {
+      t: 540, phase: 'ended', sunrise: true, bank: 100, peakCrowd: 0, vibeSum: 0,
+      vibeSamples: 540, playedSets: [{ djId: 'tonton', brief: 'normal' }],
+    });
+    const result = settleNight(state, night);
+    expect(result.donationMult).toBeCloseTo(1.3, 5); // (1 + 0 + 0) × 1.3
+  });
+
+  it('plage abandonnée : le churn du spot est plus faible qu’ailleurs', () => {
+    expect(getSpot('plage').churnMult).toBeLessThan(1);
+    expect(getSpot('champ').churnMult).toBe(1);
+  });
+});

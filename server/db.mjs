@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 
-const SPOTS = ['champ', 'foret', 'carriere', 'hangar', 'friche', 'teknival'];
+const SPOTS = ['champ', 'foret', 'carriere', 'plage', 'hangar', 'tunnel', 'chateau', 'friche', 'teknival'];
 const GENRES = ['hardtek', 'acid', 'dub'];
 
 export function openDb(path = ':memory:') {

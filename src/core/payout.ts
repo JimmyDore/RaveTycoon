@@ -36,10 +36,10 @@ const SUNRISE_REP = 3;
 /** Sunrise reached: bank × prix libre, minus the crew's cuts. */
 export function settleNight(state: GameState, night: NightState): NightResult {
   const vibe = avgVibe(night);
-  const donationMult = 1 + 0.8 * vibe + 0.6 * (night.peakCrowd / night.cap);
+  const spot = getSpot(night.spotId);
+  const donationMult = (1 + 0.8 * vibe + 0.6 * (night.peakCrowd / night.cap)) * spot.donationMult;
   const grossRaw = Math.round(night.bank * donationMult);
   // frais de nuit : prélevés sur le brut, jamais sur la banque (no-softlock)
-  const spot = getSpot(night.spotId);
   const essence = Math.min(grossRaw, essenceCost(state, night));
   const restock = Math.min(grossRaw - essence, restockCost(spot, night.cap, night.barStock));
   const gross = grossRaw - essence - restock;
