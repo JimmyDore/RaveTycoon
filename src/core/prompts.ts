@@ -40,8 +40,9 @@ export const FLOOR_PROMPTS: FloorPromptDef[] = [
     icon: '📸',
     label: 'Un type filme le mur de son',
     window: 4,
-    // filmer un champ vide ne vaut rien : poids 0 sous une vraie foule, rep modeste
-    seize: { rep: 2, heat: 0.03 },
+    // filmer un champ vide ne vaut rien : poids 0 sous une vraie foule, rep modeste —
+    // et le type écrit peut-être pour un canard (arc « journaliste », story E)
+    seize: { rep: 2, heat: 0.03, plantsArc: { arcId: 'journaliste', chance: 0.4 } },
     weight: (ctx) => (ctx.crowdRatio > 0.4 ? 1 : 0),
   },
   {

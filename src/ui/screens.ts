@@ -196,7 +196,13 @@ export function renderPrepare(
       el(
         'div',
         'card-desc',
-        unlocked ? spot.description : banned ? `🚧 ${STR.spotBanned}` : `🔒 ${STR.repNeeded(spot.repReq)}`,
+        unlocked
+          ? spot.description
+          : banned
+            ? `🚧 ${STR.spotBanned}`
+            : spot.requiresArc && !state.arcsCompleted.includes(spot.requiresArc)
+              ? `🔒 ${STR.chateauLocked}`
+              : `🔒 ${STR.repNeeded(spot.repReq)}`,
       ),
     );
     if (unlocked) {
@@ -869,6 +875,7 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
       modal.innerHTML = '';
       modal.className = 'night-modal';
       const panel = el('div', 'modal-panel event-panel');
+      if (pending.arc) panel.append(el('div', 'arc-suite-tag', STR.arcSuiteTag));
       panel.append(el('h2', '', `⚠️ ${pending.def.titre}`));
       panel.append(el('p', 'event-text', pending.def.texte));
       pending.def.options.forEach((option, i) => {

@@ -163,6 +163,9 @@ export const STR = {
   regionMult: (m: string) => `⭐ ×${m}`,
   regionPick: 'Partir ici',
   spotBanned: 'Introuvable dans cette région',
+  // arcs de conséquences (story E)
+  arcSuiteTag: '📖 suite',
+  chateauLocked: 'Il faut un ami fermier (et 350 rép)',
   events: {
     brownout: '⚡ Le groupe décroche ! Le son se coupe.',
     'mur-blown': '💥 Une enceinte vient de lâcher !',

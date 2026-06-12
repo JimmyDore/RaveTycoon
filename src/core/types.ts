@@ -43,6 +43,8 @@ export interface SpotDef {
   /** heat build rate per second at full tilt */
   heatBuild: number;
   repReq: number;
+  /** arc à mener à terme pour débloquer le spot (en plus de repReq) */
+  requiresArc?: string;
   tier: number;
   /** rave length in seconds */
   duration: number;

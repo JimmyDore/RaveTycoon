@@ -1017,6 +1017,12 @@ button {
   line-height: 1.5;
   font-size: 0.9rem;
 }
+.arc-suite-tag {
+  color: #d9a13b;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  font-weight: 800;
+}
 .event-option {
   margin-bottom: 0.45rem;
 }

@@ -96,7 +96,7 @@ export const NIGHT_EVENTS: NightEventDef[] = [
       {
         label: 'Lui offrir une bière et la visite',
         outcome: 'Deux bières plus tard il hoche la tête sur le kick. On le reverra.',
-        effects: { cash: -30, heat: -0.08 },
+        effects: { cash: -30, heat: -0.08, plantsArc: { arcId: 'fermier', chance: 0.5 } },
       },
       {
         label: 'L’embrouiller gentiment',
@@ -114,7 +114,7 @@ export const NIGHT_EVENTS: NightEventDef[] = [
       {
         label: 'Lui faire visiter la régie',
         outcome: 'Ses stories tournent déjà. Le nom du sound circule.',
-        effects: { rep: 12, heat: 0.05 },
+        effects: { rep: 12, heat: 0.05, plantsArc: { arcId: 'journaliste', chance: 0.4 } },
       },
       {
         label: 'Pas de caméras ici',

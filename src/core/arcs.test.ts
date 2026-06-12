@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { getArc, plantArc, settleArcs, tempHeatBuildMult, tempStartHeat } from './arcs';
-import { applyEffects, createNight, resolveEvent, startSet, tickNight } from './night';
-import { settleNight } from './payout';
+import { FERMIER_HEAT_MULT, FERMIER_SPOTS, arcSpotHeatMult, getArc, plantArc, settleArcs, tempHeatBuildMult, tempStartHeat } from './arcs';
+import { NIGHT_EVENTS } from './events';
+import { applyEffects, createNight, resolveEvent, seizeFloorPrompt, startSet, tickNight } from './night';
+import { isSpotAvailable, settleNight } from './payout';
+import { FLOOR_PROMPTS } from './prompts';
 import { newGame } from './save';
 import { computeLegende } from './tour';
 import type { GameState, NightState } from './types';
@@ -145,5 +147,90 @@ describe('le moteur des arcs', () => {
     expect(computeLegende(state)).toBe(1);
     state.arcsCompleted = ['flic-corrompu', 'fermier'];
     expect(computeLegende(state)).toBe(3);
+  });
+});
+
+describe('le journaliste', () => {
+  it('le prompt « un type filme » saisi plante l’arc (chance 0.4)', () => {
+    const filme = FLOOR_PROMPTS.find((p) => p.id === 'filme')!;
+    expect(filme.seize.plantsArc).toEqual({ arcId: 'journaliste', chance: 0.4 });
+    const { state, night } = playing();
+    night.floorPrompt = { def: filme, expiresAt: night.t + 4 };
+    night.rng = () => 0.1; // sous la chance
+    seizeFloorPrompt(state, night);
+    expect(state.pendingArcs).toEqual([{ arcId: 'journaliste', stage: 0, nightsLeft: 2 }]);
+  });
+
+  it("l'event « la scène regarde » plante aussi l'arc (spec : prompt OU event)", () => {
+    const blog = NIGHT_EVENTS.find((e) => e.id === 'blog-scene')!;
+    expect(blog.options[0].effects.plantsArc).toEqual({ arcId: 'journaliste', chance: 0.4 });
+  });
+
+  it("l'article sort : buzz ×1.6 et heat de départ +0.1 sur 3 nuits", () => {
+    const { state, night } = playing();
+    state.buzz = 0.5;
+    state.pendingArcs = [{ arcId: 'journaliste', stage: 0, nightsLeft: 0 }];
+    night.setElapsed = 9;
+    night.nextEventAt = 9999;
+    tickNight(state, night, 0.1);
+    expect(night.pendingEvent?.def.id).toBe('journaliste-stage-0');
+    resolveEvent(state, night, 0); // « Encadrer l'article à la buvette »
+    expect(state.buzz).toBeCloseTo(0.8, 5);
+    expect(state.tempEffects).toEqual([{ heatBuildMult: undefined, startHeatAdd: 0.1, nightsLeft: 3 }]);
+    expect(state.arcsCompleted).toEqual(['journaliste']);
+  });
+});
+
+describe('le fermier', () => {
+  it('la bière au voisin plante l’arc (chance 0.5)', () => {
+    const voisin = NIGHT_EVENTS.find((e) => e.id === 'voisin')!;
+    expect(voisin.options[0].effects.plantsArc).toEqual({ arcId: 'fermier', chance: 0.5 });
+  });
+
+  it('inviter le fermier chaîne le stage 2 ; l’alliance rend champ et forêt −20 % de heat', () => {
+    const { state, night } = playing();
+    state.pendingArcs = [{ arcId: 'fermier', stage: 0, nightsLeft: 0 }];
+    night.setElapsed = 9;
+    night.nextEventAt = 9999;
+    night.rng = () => 0;
+    tickNight(state, night, 0.1);
+    expect(night.pendingEvent?.def.id).toBe('fermier-stage-0');
+    resolveEvent(state, night, 0); // l'inviter : vibe +0.1 ce soir, stage 2 dans 3 nuits
+    expect(state.pendingArcs).toEqual([{ arcId: 'fermier', stage: 1, nightsLeft: 3 }]);
+    state.pendingArcs[0].nightsLeft = 0;
+    const n2 = createNight(state, 'champ', ['tonton'], 11);
+    startSet(state, n2, 'tonton');
+    n2.setElapsed = 9;
+    n2.nextEventAt = 9999;
+    tickNight(state, n2, 0.1);
+    resolveEvent(state, n2, 0); // lui faire une place au feu
+    expect(state.arcsCompleted).toEqual(['fermier']);
+    expect(arcSpotHeatMult(state, 'champ')).toBeCloseTo(FERMIER_HEAT_MULT, 5);
+    expect(arcSpotHeatMult(state, 'foret')).toBeCloseTo(FERMIER_HEAT_MULT, 5);
+    expect(arcSpotHeatMult(state, 'hangar')).toBe(1);
+    expect(FERMIER_SPOTS).toEqual(['champ', 'foret']);
+    // et la heat monte bien moins vite au champ
+    const allied = createNight(state, 'champ', ['tonton'], 13);
+    startSet(state, allied, 'tonton');
+    const witnessState = newGame(42);
+    const witness = createNight(witnessState, 'champ', ['tonton'], 13);
+    startSet(witnessState, witness, 'tonton');
+    for (let t = 0; t < 5; t += 0.1) {
+      allied.floorPrompt = null;
+      witness.floorPrompt = null;
+      tickNight(state, allied, 0.1);
+      tickNight(witnessState, witness, 0.1);
+    }
+    expect(allied.heat).toBeLessThan(witness.heat);
+  });
+
+  it('le château exige rep 350 ET l’arc fermier (le rewire château)', () => {
+    const state = newGame(42);
+    state.rep = 400;
+    expect(isSpotAvailable(state, 'chateau')).toBe(false); // la rep ne suffit plus
+    state.arcsCompleted = ['fermier'];
+    expect(isSpotAvailable(state, 'chateau')).toBe(true);
+    state.rep = 300;
+    expect(isSpotAvailable(state, 'chateau')).toBe(false); // l'arc ne suffit pas non plus
   });
 });

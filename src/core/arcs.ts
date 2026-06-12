@@ -74,12 +74,100 @@ export const ARCS: ArcDef[] = [
       },
     ],
   },
+  {
+    // 📰 planté par le prompt « un type filme » saisi (prompts.ts)
+    id: 'journaliste',
+    stages: [
+      {
+        delay: [2, 2],
+        event: {
+          id: 'journaliste-stage-0',
+          titre: '📰 L’article est sorti',
+          texte:
+            'Le type qui filmait écrivait pour un canard régional. « La rave fantôme qui rend la jeunesse au plateau » — trois pages, photos pleine page. La presse attire tout le monde. Y compris les bleus.',
+          options: [
+            {
+              label: 'Encadrer l’article à la buvette',
+              outcome: 'Le canard tourne de main en main. Le nom du sound est sur toutes les lèvres — et tous les procès-verbaux.',
+              effects: { buzzMult: 1.6, tempHeat: { startHeatAdd: 0.1, nights: 3 }, arcComplete: 'journaliste' },
+            },
+            {
+              label: 'Nier en bloc',
+              outcome: '« Jamais entendu parler. » Le buzz monte quand même un peu — un démenti, c’est de la pub.',
+              effects: { buzzMult: 1.2, arcComplete: 'journaliste' },
+            },
+          ],
+          weight: () => 0,
+        },
+      },
+    ],
+  },
+  {
+    // 🚜 planté par « Un voisin au portail » résolu à la bière (events.ts)
+    id: 'fermier',
+    stages: [
+      {
+        delay: [1, 2],
+        event: {
+          id: 'fermier-stage-0',
+          titre: '🚜 Le fermier repasse',
+          texte:
+            'Le voisin de l’autre soir revient — sans la robe de chambre, avec un pack de sa propre prune. Il regarde le mur de son comme on regarde une moissonneuse neuve.',
+          options: [
+            {
+              label: 'L’inviter à la régie',
+              outcome: 'Il passe la nuit à hocher la tête sur le kick. En partant : « j’ai des champs, moi. Et des copains qui ont des bois. »',
+              effects: { vibe: 0.1, plantsArc: { arcId: 'fermier', stage: 1, chance: 1 } },
+            },
+            {
+              label: 'Rester entre nous',
+              outcome: 'Il repart avec sa prune. Dommage — il avait l’air d’en connaître, des coins.',
+              effects: {},
+            },
+          ],
+          weight: () => 0,
+        },
+      },
+      {
+        delay: [3, 3],
+        event: {
+          id: 'fermier-stage-1',
+          titre: '🚜 L’allié',
+          texte:
+            'Le fermier débarque avec son tracteur, deux bottes de paille et un plan cadastral. « Mes terres, celles du cousin, le bois communal. Et le castel du vieux comte — personne n’y va jamais. »',
+          options: [
+            {
+              label: 'Lui faire une place au feu',
+              outcome: 'La famille s’agrandit. Le champ et la forêt sont à vous — et les clés du château squatté aussi.',
+              effects: { vibe: 0.08, arcComplete: 'fermier' },
+            },
+            {
+              label: 'Trinquer et noter le plan',
+              outcome: 'Le plan cadastral rejoint la boîte à gants. Un allié pareil, ça ne se refuse pas.',
+              effects: { arcComplete: 'fermier' },
+            },
+          ],
+          weight: () => 0,
+        },
+      },
+    ],
+  },
 ];
 
 export function getArc(id: string): ArcDef {
   const arc = ARCS.find((a) => a.id === id);
   if (!arc) throw new Error(`unknown arc: ${id}`);
   return arc;
+}
+
+/** L'alliance du fermier : heat de base −20 % permanente sur ses terres. */
+export const FERMIER_HEAT_MULT = 0.8;
+export const FERMIER_SPOTS = ['champ', 'foret'];
+
+export function arcSpotHeatMult(state: GameState, spotId: string): number {
+  return state.arcsCompleted.includes('fermier') && FERMIER_SPOTS.includes(spotId)
+    ? FERMIER_HEAT_MULT
+    : 1;
 }
 
 /**

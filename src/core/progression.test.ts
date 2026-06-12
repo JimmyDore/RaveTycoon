@@ -3,7 +3,7 @@ import { getCrewMember, recruitDj, recruitableDjs } from './crew';
 import { DJS, GEAR, GEAR_CATEGORIES, SPOTS, getSpot } from './data';
 import { nearestIntensity } from './intensity';
 import { createNight, resolveEvent, setIntensity, startSet, tickNight } from './night';
-import { applyBust, buyGearUpgrade, settleNight } from './payout';
+import { applyBust, buyGearUpgrade, isSpotAvailable, settleNight } from './payout';
 import { raidEvacuer } from './raid';
 import { newGame } from './save';
 import type { GameState, NightResult } from './types';
@@ -68,7 +68,7 @@ describe('temps-vers-Teknival (politique autoplay)', () => {
     while (state.rep < teknivalRep && nights < 200) {
       for (const d of recruitableDjs(state)) recruitDj(state, d.id);
       const spot = [...SPOTS]
-        .filter((s) => s.id !== 'teknival' && state.rep >= s.repReq)
+        .filter((s) => s.id !== 'teknival' && isSpotAvailable(state, s.id))
         .at(-1)!;
       const present = state.crew.map((d) => d.id);
       const night = createNight(state, spot.id, present, 1000 + nights, {
@@ -110,7 +110,8 @@ describe('temps-vers-Teknival (politique autoplay)', () => {
     // mesuré 20 nuits après la descente (story C) : la politique gloutonne évacue
     // proprement à 0.85 (caisse conservée) au lieu de finir au bust — ça accélère
     // re-mesuré 20 nuits après le rewire Volt (story D) — inchangé, le pin tient
-    expect(nights).toBeGreaterThanOrEqual(18); // mesuré 20 − marge 2
+    // mesuré 18 nuits après requiresArc château + arcs injectés (story E)
+    expect(nights).toBeGreaterThanOrEqual(16); // mesuré 18 − marge 2
     expect(nights).toBeLessThan(200);
   });
 });

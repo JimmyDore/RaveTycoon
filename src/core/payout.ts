@@ -262,7 +262,9 @@ export function isSpotUnlocked(state: GameState, spotId: NightState['spotId']): 
 export function isSpotAvailable(state: GameState, spotId: NightState['spotId']): boolean {
   const rules = buildRegionRules(state.region);
   if (rules.bannedSpotIds.includes(spotId)) return false;
-  const req = rules.repReqOverride[spotId] ?? getSpot(spotId).repReq;
+  const spot = getSpot(spotId);
+  if (spot.requiresArc && !state.arcsCompleted.includes(spot.requiresArc)) return false;
+  const req = rules.repReqOverride[spotId] ?? spot.repReq;
   return state.rep >= req;
 }
 

@@ -1,4 +1,4 @@
-import { plantArc, takeDueArc, tempHeatBuildMult, tempStartHeat } from './arcs';
+import { arcSpotHeatMult, plantArc, takeDueArc, tempHeatBuildMult, tempStartHeat } from './arcs';
 import { applySetToll, effectiveTechnique, fatigueQualityMult, getCrewMember } from './crew';
 import { getDj, getGenre, getSpot, ownedGear } from './data';
 import { BAR_DRIP, BAR_STOCK_CAP, cautionCost, potentialBar, type BarStock } from './economy';
@@ -456,7 +456,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   // --- heat -----------------------------------------------------------------------
   const logistique = ownedGear(state, 'logistique').value;
   const riskMult = dj ? RISK_HEAT[dj.risk] : 1;
-  night.heat += spot.heatBuild * genre.heatMult * INTENSITY_HEAT[night.intensity] * riskMult * logistique * heatMod * phase.heatMult * branchHeatMult(state) * tempHeatBuildMult(state) * night.rules.heatMult * HEAT_BASE * (tooHard ? 1 + 2 * (gap - tol) : 1) * dt;
+  night.heat += spot.heatBuild * genre.heatMult * INTENSITY_HEAT[night.intensity] * riskMult * logistique * heatMod * phase.heatMult * branchHeatMult(state) * tempHeatBuildMult(state) * arcSpotHeatMult(state, night.spotId) * night.rules.heatMult * HEAT_BASE * (tooHard ? 1 + 2 * (gap - tol) : 1) * dt;
   if (night.intensity === 'chill') night.heat -= 0.01 * dt;
   night.heat = clamp(night.heat, 0, 1);
   night.peakHeat = Math.max(night.peakHeat, night.heat);

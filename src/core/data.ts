@@ -114,8 +114,7 @@ export const SPOTS: SpotDef[] = [
     donationMult: 1,
   },
   {
-    // RÉVISION CHANTIER 1 : déblocage = arc « le fermier » fini + rep 350.
-    // Fallback : rep 350 seul ; « descente retardée » → heatBuild bas pour sa taille.
+    // déblocage : arc « le fermier » mené à terme + rep 350 (story E — rewire fait)
     id: 'chateau',
     nom: 'Château squatté',
     description: 'Un castel oublié, un fermier complice. Prix libre généreux et les bleus loin derrière.',
@@ -123,6 +122,7 @@ export const SPOTS: SpotDef[] = [
     arrival: 2.4,
     heatBuild: 0.014,
     repReq: 350,
+    requiresArc: 'fermier',
     tier: 5,
     duration: 540,
     setCount: 5,
