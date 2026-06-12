@@ -2,7 +2,14 @@ import { SPOTS } from '../core/data';
 import type { GearBranch, GearCategory, SpotId } from '../core/types';
 import type { RaverSim, DanceFloor } from './ravers';
 import { buildRig, rigKey, type StageRig } from './rig';
-import { drawAnimatedFrame, drawRaverFrame, type PropName, type SpriteBank, type TerrainName } from './sprites';
+import {
+  drawAnimatedFrame,
+  drawRaverFrame,
+  type AnimatedName,
+  type PropName,
+  type SpriteBank,
+  type TerrainName,
+} from './sprites';
 
 /** Internal pixel resolution; scaled up with image-rendering: pixelated. */
 export const SCENE_W = 480;
@@ -35,6 +42,9 @@ export interface SceneParams {
 export function defaultFloor(): DanceFloor {
   return { x: 24, y: STAGE_BOTTOM + 12, w: SCENE_W - 48, h: SCENE_H - STAGE_BOTTOM - 40 };
 }
+
+/** Bas du floor (pieds des derniers rangs) — seuil de profondeur de la couche front. */
+const FLOOR_BOTTOM = defaultFloor().y + defaultFloor().h;
 
 interface PropPlacement {
   prop: PropName;
@@ -321,6 +331,9 @@ export class SceneRenderer {
   private dropUntil = 0;
   /** avancée de l'aube [0,1], calculée une fois par frame (partagée par toutes les couches) */
   private dawn = 0;
+  /** gradients des feux memoïsés par spot (positions fixes) : punch par pas de
+   * flicker quantifié + tint statique — évite 2 createRadialGradient/feu/frame */
+  private fireGradients: { spot: SpotId; punch: CanvasGradient[][]; tint: CanvasGradient[] } | null = null;
 
   constructor(private canvas: HTMLCanvasElement, private bank: SpriteBank) {
     this.ctx = canvas.getContext('2d')!;
@@ -345,7 +358,8 @@ export class SceneRenderer {
       this.halfW = halfW;
     }
     // le drop : la montée s'encaisse → ~0.8s de flash laser + bouffée de fumée
-    if (this.prevMontee - p.montee > 0.2 && this.prevMontee > 0.35) this.dropUntil = timeMs + 800;
+    // (pas sur coupure son : la montée remise à 0 hors set n'est pas un drop)
+    if (!p.soundCut && this.prevMontee - p.montee > 0.2 && this.prevMontee > 0.35) this.dropUntil = timeMs + 800;
     this.prevMontee = p.montee;
     this.dawn = Math.pow(Math.max(0, (p.progress - 0.55) / 0.45), 1.5);
     this.drawTerrain(c, p);
@@ -356,7 +370,7 @@ export class SceneRenderer {
     ravers.draw(c, this.bank, p.beatPhase, p.soundCut ? 0 : p.vibe, ravers.overflow(p.crowd), timeMs, dropPulse);
     this.drawGroundFog(c, p, timeMs);
     this.drawPropsFront(c, p);
-    this.drawRigFront(c);
+    this.drawRigFront(c, timeMs);
     this.drawDarkness(c, p, timeMs);
     if (!p.soundCut) this.drawGarlands(c, p, timeMs);
     if (!p.soundCut) this.drawLights(c, p, timeMs);
@@ -496,19 +510,20 @@ export class SceneRenderer {
       }
     }
 
-    // guetteurs logistique postés en lisière, l'œil sur les accès
+    // guetteurs logistique postés en lisière, l'œil sur les accès — les postes
+    // bas (pieds sous le floor) partent dans la passe post-foule (drawRigFront)
     for (const lk of this.rig?.lookouts ?? []) {
-      drawRaverFrame(c, this.bank, lk.character, 'idle', lk.facing, Math.floor(timeMs / 240) % 6, lk.x, lk.y);
+      if (!this.lookoutInFront(lk)) {
+        drawRaverFrame(c, this.bank, lk.character, 'idle', lk.facing, Math.floor(timeMs / 240) % 6, lk.x, lk.y);
+      }
     }
-    // voie B mobilité : le camion d'évac garé moteur tourné vers la sortie
-    if (this.rig?.evacCamper) this.prop(c, 'camper_left', this.rig.evacCamper.x, this.rig.evacCamper.y);
 
     // régie chirurgicale voie A : retours de scène posés autour de la cabine
     for (const m of this.rig?.monitors ?? []) this.prop(c, 'speaker_small', m.x, m.y);
     // voie B showmanship : spots modulaires qui clignotent de part et d'autre
     for (const s of this.rig?.blinkSpots ?? []) {
       const on = Math.floor(timeMs / 250) % 2 === 0;
-      this.prop(c, `spot_mod_${s.side}_${on ? 2 : 1}` as PropName, s.x, s.y);
+      this.prop(c, `spot_mod_${s.side}_${on ? 2 : 1}`, s.x, s.y);
     }
 
     // voie B showmanship : DJ animé du pack concert (cabine comprise)
@@ -530,7 +545,7 @@ export class SceneRenderer {
       );
     }
 
-    // booth: real turntable rig (fallback: the old black table) — le DJ animé embarque la sienne
+    // la régie : vraies platines (fallback : l'ancienne table noire) — le DJ animé embarque la sienne
     const djSet = this.bank.props.dj_set;
     if (!animDj) {
       if (djSet) {
@@ -577,6 +592,12 @@ export class SceneRenderer {
     this.prop(c, 'stage_stairs', cx + 124, STAGE_BOTTOM);
   }
 
+  /** Durée totale d'un sheet animé en ms (frames / fps du manifest), fallback si absent. */
+  private animMs(name: AnimatedName, fallback: number): number {
+    const m = this.bank.animated[name]?.meta;
+    return m ? (m.frames / m.fps) * 1000 : fallback;
+  }
+
   /** Machine à fumée au pied de scène — FSM on/loop/off pilotée par vibe et drop. */
   private drawFog(c: CanvasRenderingContext2D, p: SceneParams, timeMs: number): void {
     const fog = this.rig?.fog;
@@ -589,25 +610,31 @@ export class SceneRenderer {
       this.fogPhase = 'stopping';
       this.fogSince = timeMs;
     }
-    if (this.fogPhase === 'on' && timeMs - this.fogSince >= 500) this.fogPhase = 'loop';
-    if (this.fogPhase === 'stopping' && timeMs - this.fogSince >= 750) this.fogPhase = 'off';
-    if (this.fogPhase === 'off') return;
+    // durées des transitions dérivées du manifest — la FSM suit le pipeline d'assets
+    if (this.fogPhase === 'on' && timeMs - this.fogSince >= this.animMs('fog_on', 500)) this.fogPhase = 'loop';
+    if (this.fogPhase === 'stopping' && timeMs - this.fogSince >= this.animMs('fog_off', 750)) this.fogPhase = 'off';
+    // la fumée pâlit avec l'aube, comme la nappe au sol (la FSM tourne quand même)
+    const night = 1 - this.dawn;
+    if (this.fogPhase === 'off' || night <= 0.05) return;
+    c.save();
+    c.globalAlpha = night;
     if (this.fogPhase === 'loop') {
       drawAnimatedFrame(c, this.bank, 'fog_loop', fog.x, fog.y, timeMs);
       // voie A hypnose : nappe dense — une seconde couche de fumée détourée
       if (fog.dense || this.dropUntil > timeMs) {
-        c.save();
-        c.globalAlpha = 0.7;
+        c.globalAlpha = 0.7 * night;
         drawAnimatedFrame(c, this.bank, 'fog_only_loop', fog.x + 34, fog.y + 4, timeMs + 400);
-        c.restore();
       }
     } else {
-      // allumage/extinction : frame indexée sur l'âge de la transition
+      // allumage/extinction : frame indexée sur l'âge de la transition, à la cadence du manifest
       const sheet = this.fogPhase === 'on' ? 'fog_on' : 'fog_off';
-      const last = this.fogPhase === 'on' ? 3 : 5;
-      const frame = Math.min(last, Math.floor((timeMs - this.fogSince) / 125));
-      drawAnimatedFrame(c, this.bank, sheet, fog.x, fog.y, timeMs, { frame });
+      const m = this.bank.animated[sheet]?.meta;
+      if (m) {
+        const frame = Math.min(m.frames - 1, Math.floor(((timeMs - this.fogSince) / 1000) * m.fps));
+        drawAnimatedFrame(c, this.bank, sheet, fog.x, fog.y, timeMs, { frame });
+      }
     }
+    c.restore();
   }
 
   /** Nappe de fumée au sol : bande basse de fog_only_loop qui stagne au pied
@@ -648,9 +675,50 @@ export class SceneRenderer {
     c.restore();
   }
 
-  /** Éléments du rig devant la foule : le rail de barrières contre lequel le pit pousse. */
-  private drawRigFront(c: CanvasRenderingContext2D): void {
+  /** Un guetteur dont les pieds passent sous le bas du floor est toujours plus
+   * proche de la caméra que la foule : il se dessine après elle. */
+  private lookoutInFront(lk: { y: number }): boolean {
+    return lk.y + this.bank.meta.frameH > FLOOR_BOTTOM;
+  }
+
+  /** Éléments du rig devant la foule : le rail de barrières contre lequel le pit
+   * pousse, les guetteurs bas et le camion d'évac (leurs pieds sous le floor). */
+  private drawRigFront(c: CanvasRenderingContext2D, timeMs: number): void {
     for (const b of this.rig?.barriers ?? []) this.prop(c, b.prop, b.x, b.y);
+    for (const lk of this.rig?.lookouts ?? []) {
+      if (this.lookoutInFront(lk)) {
+        drawRaverFrame(c, this.bank, lk.character, 'idle', lk.facing, Math.floor(timeMs / 240) % 6, lk.x, lk.y);
+      }
+    }
+    // voie B mobilité : le camion d'évac garé moteur tourné vers la sortie
+    if (this.rig?.evacCamper) this.prop(c, 'camper_left', this.rig.evacCamper.x, this.rig.evacCamper.y);
+  }
+
+  /** Pas de flicker du rayon des feux : ±3px quantifiés pour réutiliser les gradients. */
+  private static readonly FIRE_FLICKER_STEPS = [-3, -1, 1, 3];
+
+  /** Gradients des halos de feu du spot courant, construits une fois par spot. */
+  private spotFireGradients(p: SceneParams): { punch: CanvasGradient[][]; tint: CanvasGradient[] } {
+    if (this.fireGradients?.spot !== p.spotId) {
+      const fires = RECIPES[p.spotId].fires;
+      const punch = fires.map((f) =>
+        SceneRenderer.FIRE_FLICKER_STEPS.map((dr) => {
+          const g = this.dctx.createRadialGradient(f.x, f.y, 2, f.x, f.y, f.r + dr);
+          g.addColorStop(0, 'rgba(0,0,0,0.85)');
+          g.addColorStop(1, 'rgba(0,0,0,0)');
+          return g;
+        }),
+      );
+      const tint = fires.map((f) => {
+        const g = this.bctx.createRadialGradient(f.x, f.y, 2, f.x, f.y, f.r);
+        const rgb = f.cold ? '110, 160, 255' : '255, 150, 60';
+        g.addColorStop(0, `rgba(${rgb}, ${f.cold ? 0.45 : 0.5})`);
+        g.addColorStop(1, `rgba(${rgb}, 0)`);
+        return g;
+      });
+      this.fireGradients = { spot: p.spotId, punch, tint };
+    }
+    return this.fireGradients;
   }
 
   /** Night darkness with warm light pools; fades out as sunrise approaches. */
@@ -675,25 +743,25 @@ export class SceneRenderer {
     stage.addColorStop(1, 'rgba(0,0,0,0)');
     d.fillStyle = stage;
     d.fillRect(0, 0, SCENE_W, SCENE_H);
-    for (const f of RECIPES[p.spotId].fires) {
-      const fire = d.createRadialGradient(f.x, f.y, 2, f.x, f.y, f.r + Math.sin(timeMs / 150) * 3);
-      fire.addColorStop(0, 'rgba(0,0,0,0.85)');
-      fire.addColorStop(1, 'rgba(0,0,0,0)');
-      d.fillStyle = fire;
+    const fires = RECIPES[p.spotId].fires;
+    const grads = this.spotFireGradients(p);
+    // flicker du rayon quantifié sur les pas memoïsés (≈ sin × 3 d'origine)
+    const steps = SceneRenderer.FIRE_FLICKER_STEPS.length;
+    const qi = Math.min(steps - 1, Math.floor(((Math.sin(timeMs / 150) + 1) / 2) * steps));
+    for (let i = 0; i < fires.length; i++) {
+      const f = fires[i];
+      d.fillStyle = grads.punch[i][qi];
       d.fillRect(f.x - f.r - 6, f.y - f.r - 6, (f.r + 6) * 2, (f.r + 6) * 2);
     }
     d.globalCompositeOperation = 'source-over';
     c.drawImage(this.dark, 0, 0);
 
-    // warm tint over the fire pools — froid bleuté pour les lampadaires industriels
+    // teinte chaude sur les halos de feu — froid bleuté pour les lampadaires industriels
     c.save();
     c.globalCompositeOperation = 'overlay';
-    for (const f of RECIPES[p.spotId].fires) {
-      const tint = c.createRadialGradient(f.x, f.y, 2, f.x, f.y, f.r);
-      const rgb = f.cold ? '110, 160, 255' : '255, 150, 60';
-      tint.addColorStop(0, `rgba(${rgb}, ${f.cold ? 0.45 : 0.5})`);
-      tint.addColorStop(1, `rgba(${rgb}, 0)`);
-      c.fillStyle = tint;
+    for (let i = 0; i < fires.length; i++) {
+      const f = fires[i];
+      c.fillStyle = grads.tint[i];
       c.fillRect(f.x - f.r, f.y - f.r, f.r * 2, f.r * 2);
     }
     c.restore();

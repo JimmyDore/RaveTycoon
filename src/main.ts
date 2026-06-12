@@ -113,6 +113,8 @@ async function startNight(): Promise<void> {
   });
   const scene = new SceneRenderer(screen.canvas, b);
   const ravers = new RaverSim(defaultFloor());
+  // toutes les teintes du sheet dès les premiers spawns (pas le fallback de 20)
+  ravers.setCharCount(b.meta.characters);
 
   active = {
     night,

@@ -43,7 +43,7 @@ export function deviceSpriteCap(): number {
 export class RaverSim {
   ravers: Raver[] = [];
   private rng: () => number;
-  /** nombre de personnages dans le sheet — appris du bank au premier draw */
+  /** nombre de personnages dans le sheet — fixé au boot via setCharCount */
   private charCount = 20;
 
   constructor(
@@ -52,6 +52,12 @@ export class RaverSim {
     rng: () => number = Math.random,
   ) {
     this.rng = rng;
+  }
+
+  /** Connu dès le boot (bank.meta.characters) : les premiers spawns d'une nuit
+   * piochent déjà parmi toutes les teintes du sheet, pas seulement le fallback. */
+  setCharCount(n: number): void {
+    this.charCount = Math.max(1, n);
   }
 
   overflow(crowd: number): number {
@@ -166,9 +172,6 @@ export class RaverSim {
     timeMs: number,
     dropPulse = 0,
   ): void {
-    // les recrues suivantes piochent parmi toutes les teintes du sheet
-    this.charCount = bank.meta.characters;
-
     // points de densité au-delà du cap : packés vers la scène, pulsés au beat,
     // teinte froide → chaude avec la vibe
     if (overflowCrowd > 0) {
@@ -192,10 +195,13 @@ export class RaverSim {
       }
     }
 
-    const sorted = [...this.ravers].sort((a, b) => a.y - b.y);
+    // tri en place par y (peinture du fond vers l'avant) : la foule est quasi
+    // triée d'une frame à l'autre et l'ordre du tableau n'a pas d'autre sémantique
+    // — pas de clone, zéro allocation par frame
+    this.ravers.sort((a, b) => a.y - b.y);
     const halfW = bank.meta.frameW / 2;
     const fullH = bank.meta.frameH;
-    for (const r of sorted) {
+    for (const r of this.ravers) {
       const phase = (beatPhase + r.phaseOffset) % 1;
       const x = Math.round(r.x - halfW);
       let y = Math.round(r.y - fullH);

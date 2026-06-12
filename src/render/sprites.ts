@@ -34,12 +34,13 @@ export type PropName = (typeof PROP_NAMES)[number];
 const TERRAIN_NAMES = ['grass_1', 'grass_2', 'grass_3', 'asphalt_1', 'asphalt_2', 'asphalt_3'] as const;
 export type TerrainName = (typeof TERRAIN_NAMES)[number];
 
-/** Sheets animés (frames côte à côte) — clés du manifest produit par `npm run assets`. */
+/** Sheets animés (frames côte à côte) — clés du manifest produit par `npm run assets`.
+ * Seuls les sheets réellement dessinés sont chargés ; le pipeline (build-assets)
+ * en produit d'autres (singers, fog_only_on/off…) gardés en réserve. */
 const ANIMATED_NAMES = [
-  'fog_loop', 'fog_on', 'fog_off', 'fog_only_loop', 'fog_only_on', 'fog_only_off',
+  'fog_loop', 'fog_on', 'fog_off', 'fog_only_loop',
   'laser_machine', 'laser_machine_2', 'laser_white', 'laser_white_2',
-  'spotlight', 'spotlight_light_only',
-  'concert_dj', 'singer_1', 'singer_2', 'singer_3', 'flame_3',
+  'spotlight', 'concert_dj', 'flame_3',
 ] as const;
 export type AnimatedName = (typeof ANIMATED_NAMES)[number];
 

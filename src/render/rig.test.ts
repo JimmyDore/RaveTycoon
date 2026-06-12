@@ -92,6 +92,11 @@ describe('buildRig — groupe, platines, mur, logistique', () => {
     const rig = buildRig(gear({ mur: 2 }), {}, true, CX, SB);
     expect(rig.wall.filter((w) => w.blown)).toHaveLength(1);
   });
+
+  it('murBlown voie B line array : exactement une tête suspendue grillée', () => {
+    const rig = buildRig(gear({ mur: 3 }), { mur: 'B' }, true, CX, SB);
+    expect(rig.wall.filter((w) => w.blown)).toHaveLength(1);
+  });
 });
 
 describe('buildRig — largeur de scène', () => {

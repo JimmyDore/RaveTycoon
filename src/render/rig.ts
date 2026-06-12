@@ -151,7 +151,13 @@ function buildWall(
       for (let ci = 0; ci < cols; ci++) {
         const x = cx + side * (34 + ci * 30) - 16;
         for (let ri = 0; ri < 3; ri++) {
-          wall.push({ prop: 'speaker_medium', x, y: 8 + ri * 24, blown: false });
+          wall.push({
+            prop: 'speaker_medium',
+            x,
+            y: 8 + ri * 24,
+            // mur grillé : la tête haute de la première colonne gauche penche et crame
+            blown: murBlown && side === -1 && ci === 0 && ri === 0,
+          });
         }
       }
     }
