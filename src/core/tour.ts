@@ -1,4 +1,6 @@
 import { getPerk } from './data';
+import { applyRegionLegende } from './regions';
+import type { RegionState } from './regions';
 import { newGame } from './save';
 import type { DjState, GameState } from './types';
 
@@ -47,12 +49,13 @@ export const LEGENDE_PER_TEKNIVAL = 3;
 export function computeLegende(state: GameState): number {
   const mursTenus = 0;
   const arcsTermines = 0;
-  return (
+  const base =
     Math.floor(state.rep / 100) +
     state.tour.teknivalWins * LEGENDE_PER_TEKNIVAL +
     mursTenus +
-    arcsTermines
-  );
+    arcsTermines;
+  // le multiplicateur de la région de la tournée écoulée — ×1 en tournée 1
+  return applyRegionLegende(base, state.region, state.tour.perks);
 }
 
 // --- le départ en tournée ---------------------------------------------------------
@@ -85,7 +88,11 @@ export function applyPerks(state: GameState): void {
  * vue sur GameState, ils sont remis à zéro ici (ils ne survivent pas — le
  * newGame frais s'en charge tant qu'ils ont des valeurs par défaut vides).
  */
-export function departOnTour(state: GameState, veteranIds: string[] = []): GameState {
+export function departOnTour(
+  state: GameState,
+  veteranIds: string[] = [],
+  region: RegionState | null = null,
+): GameState {
   const kept = [...new Set(veteranIds)]
     .filter((id) => id !== FOUNDER_ID && state.crew.some((d) => d.id === id))
     .slice(0, maxVeterans(state));
@@ -115,6 +122,10 @@ export function departOnTour(state: GameState, veteranIds: string[] = []): GameS
   fresh.nights = state.nights;
   fresh.bestCrowd = state.bestCrowd;
   fresh.bestPayout = state.bestPayout;
+
+  // la région choisie part sur la nouvelle tournée — le gain de ⭐ a déjà été
+  // calculé ci-dessus (computeLegende) sur la région de la tournée écoulée
+  fresh.region = region ?? undefined;
 
   applyPerks(fresh);
   return fresh;

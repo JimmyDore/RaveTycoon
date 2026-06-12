@@ -324,3 +324,35 @@ describe('mythes du son : le tier mythique', () => {
     expect(supply).toBeGreaterThan(0.35 + 0.5 + 0.22); // demande max (foule pleine + pousser)
   });
 });
+
+describe('le multiplicateur de région sur le gain de ⭐', () => {
+  it('multiplie le gain de la tournée écoulée et arrondit au floor', () => {
+    const state = newGame();
+    state.rep = 400;
+    state.wonTeknival = true;
+    const base = computeLegende(state); // sans région (tournée 1) : multiplicateur ×1
+    state.region = { nom: 'La Vallée grise', traits: ['zone-quadrillee', 'prefet-zele'] }; // somme 3 → ×1.75
+    expect(computeLegende(state)).toBe(Math.floor(base * 1.75));
+  });
+
+  it('le perk Tournée infernale amplifie les régions à somme ≥ 2', () => {
+    const state = newGame();
+    state.rep = 400;
+    state.wonTeknival = true;
+    state.region = { nom: 'La Vallée grise', traits: ['zone-quadrillee', 'prefet-zele'] };
+    const sansPerk = computeLegende(state);
+    state.tour.perks.push('tournee-infernale');
+    const basePure = Math.round(sansPerk / 1.75); // base entière avant multiplicateur
+    expect(computeLegende(state)).toBe(Math.floor(basePure * 1.75 * 1.5));
+  });
+
+  it('le départ enregistre la région choisie pour la nouvelle tournée', () => {
+    const state = newGame();
+    state.wonTeknival = true;
+    const region = { nom: 'Le Plateau noir', traits: ['terre-de-beton', 'economie-morose'] };
+    const next = departOnTour(state, [], region);
+    expect(next.region).toEqual(region);
+    const sansRegion = departOnTour(state, []);
+    expect(sansRegion.region).toBeUndefined();
+  });
+});
