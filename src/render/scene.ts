@@ -319,6 +319,8 @@ export class SceneRenderer {
   /** détection du drop : chute brutale de la montée d'une frame à l'autre */
   private prevMontee = 0;
   private dropUntil = 0;
+  /** avancée de l'aube [0,1], calculée une fois par frame (partagée par toutes les couches) */
+  private dawn = 0;
 
   constructor(private canvas: HTMLCanvasElement, private bank: SpriteBank) {
     this.ctx = canvas.getContext('2d')!;
@@ -345,12 +347,14 @@ export class SceneRenderer {
     // le drop : la montée s'encaisse → ~0.8s de flash laser + bouffée de fumée
     if (this.prevMontee - p.montee > 0.2 && this.prevMontee > 0.35) this.dropUntil = timeMs + 800;
     this.prevMontee = p.montee;
+    this.dawn = Math.pow(Math.max(0, (p.progress - 0.55) / 0.45), 1.5);
     this.drawTerrain(c, p);
     this.drawProps(c, p);
     this.drawStage(c, p, timeMs);
     // dropPulse 1→0 sur la fenêtre du drop : la foule lève les bras en vague
     const dropPulse = p.soundCut ? 0 : Math.max(0, Math.min(1, (this.dropUntil - timeMs) / 800));
     ravers.draw(c, this.bank, p.beatPhase, p.soundCut ? 0 : p.vibe, ravers.overflow(p.crowd), timeMs, dropPulse);
+    this.drawGroundFog(c, p, timeMs);
     this.drawPropsFront(c, p);
     this.drawRigFront(c);
     this.drawDarkness(c, p, timeMs);
@@ -440,11 +444,21 @@ export class SceneRenderer {
     this.prop(c, 'stage_spot_left', cx - 150, 8);
     this.prop(c, 'stage_spot_right', cx + 118, 8);
 
-    // spots animés pendus au truss — voie B strobe les fait battre plus vite
-    if (!p.soundCut && this.rig) {
-      const fpsScale = p.gearBranch.lumieres === 'B' ? 1.5 : 1;
-      for (const s of this.rig.spotlights) {
-        drawAnimatedFrame(c, this.bank, 'spotlight', s.x, s.y, timeMs, { fpsScale });
+    // spots animés pendus au truss — voie B strobe les fait battre plus vite ;
+    // sur coupure son le hardware reste accroché, figé et assombri (pas de trou)
+    if (this.rig) {
+      if (p.soundCut) {
+        c.save();
+        c.globalAlpha = 0.45;
+        for (const s of this.rig.spotlights) {
+          drawAnimatedFrame(c, this.bank, 'spotlight', s.x, s.y, 0, { frame: 0 });
+        }
+        c.restore();
+      } else {
+        const fpsScale = p.gearBranch.lumieres === 'B' ? 1.5 : 1;
+        for (const s of this.rig.spotlights) {
+          drawAnimatedFrame(c, this.bank, 'spotlight', s.x, s.y, timeMs, { fpsScale });
+        }
       }
     }
 
@@ -469,6 +483,14 @@ export class SceneRenderer {
         c.drawImage(img, -24, -48);
         c.restore();
         drawAnimatedFrame(c, this.bank, 'flame_3', w.x + 6, w.y - 8, timeMs);
+        // étincelles : 2-3 pixels clairs brefs, pseudo-aléatoires par fenêtre de 90ms
+        const seed = Math.floor(timeMs / 90);
+        for (let k = 0; k < 3; k++) {
+          const h = (seed * 73 + k * 131) % 97;
+          if (h % 3 === 0) continue;
+          c.fillStyle = h % 2 === 0 ? '#fff6c8' : '#ffd166';
+          c.fillRect(w.x + 4 + (h % 19), w.y - 4 + ((h * 7) % 15), 1, 1);
+        }
       } else {
         c.drawImage(img, Math.round(w.x), Math.round(w.y - (kick ? 1 : 0)));
       }
@@ -519,12 +541,15 @@ export class SceneRenderer {
       }
     }
     // status LEDs on the mixer: two blink with the kick, red tracks heat
-    c.fillStyle = kick ? '#3affa0' : '#1c5e42';
-    c.fillRect(cx - 3, STAGE_BOTTOM - 31, 2, 2);
-    c.fillStyle = kick ? '#ffd166' : '#6e5a26';
-    c.fillRect(cx + 1, STAGE_BOTTOM - 31, 2, 2);
-    c.fillStyle = p.heat > 0.6 ? '#ff3b4e' : '#5e1c24';
-    c.fillRect(cx - 1, STAGE_BOTTOM - 27, 2, 2);
+    // (masquées avec le DJ animé : sa cabine embarque déjà sa façade)
+    if (!animDj) {
+      c.fillStyle = kick ? '#3affa0' : '#1c5e42';
+      c.fillRect(cx - 3, STAGE_BOTTOM - 31, 2, 2);
+      c.fillStyle = kick ? '#ffd166' : '#6e5a26';
+      c.fillRect(cx + 1, STAGE_BOTTOM - 31, 2, 2);
+      c.fillStyle = p.heat > 0.6 ? '#ff3b4e' : '#5e1c24';
+      c.fillRect(cx - 1, STAGE_BOTTOM - 27, 2, 2);
+    }
 
     this.drawFog(c, p, timeMs);
     this.drawLasers(c, p, timeMs);
@@ -585,14 +610,42 @@ export class SceneRenderer {
     }
   }
 
-  /** Machines laser aux coins de scène — nerveuses en voie B, déchaînées au drop. */
+  /** Nappe de fumée au sol : bande basse de fog_only_loop qui stagne au pied
+   * de scène et dérive lentement. Densité ∝ vibe × tier lumières, bouffée au
+   * drop ; coupée sur soundCut et dissipée à l'aube. */
+  private drawGroundFog(c: CanvasRenderingContext2D, p: SceneParams, timeMs: number): void {
+    const sheet = this.bank.animated.fog_only_loop;
+    if (!sheet || p.soundCut || p.gear.lumieres <= 0) return;
+    const boost = this.dropUntil > timeMs ? 0.25 : 0;
+    const density = ((0.1 + 0.3 * p.vibe) * (p.gear.lumieres / 5) + boost) * (1 - this.dawn);
+    if (density <= 0.04) return;
+    const m = sheet.meta;
+    const cropH = 36; // on ne garde que le bas du frame : la nappe, pas le panache
+    const sy = m.frameH - cropH;
+    c.save();
+    for (let i = 0; i < 4; i++) {
+      // dérive sinusoïdale lente, déphasée par nappe — la fumée respire
+      const drift = Math.round(Math.sin(timeMs / 5200 + i * 2.1) * 10);
+      const x = SCENE_W / 2 - 188 + i * 94 + drift;
+      const idx = (Math.max(0, Math.floor((timeMs / 1000) * m.fps * 0.5)) + i * 2) % m.frames;
+      c.globalAlpha = density * (0.75 + 0.25 * Math.sin(timeMs / 1700 + i));
+      c.drawImage(sheet.img, idx * m.frameW, sy, m.frameW, cropH, x, STAGE_BOTTOM - 8 + (i % 2) * 6, m.frameW, cropH);
+    }
+    c.restore();
+  }
+
+  /** Machines laser aux coins de scène — nerveuses en voie B, déchaînées au drop.
+   * Les faisceaux pâlissent avec l'aube : pas de laser en plein jour. */
   private drawLasers(c: CanvasRenderingContext2D, p: SceneParams, timeMs: number): void {
-    if (!this.rig || p.soundCut || p.vibe < 0.15) return;
+    if (!this.rig || p.soundCut || p.vibe < 0.15 || this.dawn > 0.85) return;
     const drop = this.dropUntil > timeMs;
     const fpsScale = drop ? 2 : p.gearBranch.lumieres === 'B' ? 1.4 : 0.6;
+    c.save();
+    c.globalAlpha = 1 - this.dawn;
     for (const l of this.rig.lasers) {
       drawAnimatedFrame(c, this.bank, l.sheet, l.x, l.y, timeMs, { fpsScale });
     }
+    c.restore();
   }
 
   /** Éléments du rig devant la foule : le rail de barrières contre lequel le pit pousse. */
@@ -602,7 +655,7 @@ export class SceneRenderer {
 
   /** Night darkness with warm light pools; fades out as sunrise approaches. */
   private drawDarkness(c: CanvasRenderingContext2D, p: SceneParams, timeMs: number): void {
-    const dawn = Math.pow(Math.max(0, (p.progress - 0.55) / 0.45), 1.5);
+    const dawn = this.dawn;
     const alpha = 0.62 * (1 - dawn);
     if (alpha <= 0.02) {
       this.drawDawnTint(c, dawn);
@@ -652,7 +705,7 @@ export class SceneRenderer {
   private drawGarlands(c: CanvasRenderingContext2D, p: SceneParams, timeMs: number): void {
     const garlands = RECIPES[p.spotId].garlands;
     if (!garlands) return;
-    const dark = 1 - Math.pow(Math.max(0, (p.progress - 0.55) / 0.45), 1.5);
+    const dark = 1 - this.dawn;
     if (dark <= 0.05) return;
     c.save();
     c.globalCompositeOperation = 'lighter';
@@ -685,10 +738,11 @@ export class SceneRenderer {
     c.fillRect(0, 0, SCENE_W, SCENE_H);
   }
 
-  /** Light show scales with the lumières tier. */
+  /** Light show scales with the lumières tier. Tout pâlit quand l'aube monte. */
   private drawLights(c: CanvasRenderingContext2D, p: SceneParams, timeMs: number): void {
     const tier = p.gear.lumieres;
-    if (tier <= 0 || p.vibe < 0.15) return;
+    const night = 1 - this.dawn;
+    if (tier <= 0 || p.vibe < 0.15 || night <= 0.05) return;
     const cx = SCENE_W / 2;
     const beams = tier * 2;
     // voie A hypnose : balayages presque deux fois plus lents
@@ -698,27 +752,46 @@ export class SceneRenderer {
     for (let i = 0; i < beams; i++) {
       const sweep = Math.sin(timeMs / ((650 + i * 110) * slow) + i * 1.7);
       const hue = (timeMs / 25 + i * 55) % 360;
-      c.strokeStyle = `hsla(${hue}, 95%, 60%, ${0.08 + p.vibe * 0.1})`;
+      c.strokeStyle = `hsla(${hue}, 95%, 60%, ${(0.08 + p.vibe * 0.1) * night})`;
       c.lineWidth = 3;
       c.beginPath();
       c.moveTo(cx + (i - beams / 2) * 16, STAGE_BOTTOM - 30);
       c.lineTo(cx + sweep * 220, SCENE_H);
       c.stroke();
     }
+    // cônes des spots du truss : balayage angulaire lent propre à chaque machine,
+    // intensité ∝ vibe (proxy du PEAK/RINSE), surcroît pendant le drop
+    const punch = this.dropUntil > timeMs ? 0.06 : 0;
+    for (let i = 0; i < (this.rig?.spotlights.length ?? 0); i++) {
+      const s = this.rig!.spotlights[i];
+      const sx = s.x + 16;
+      const sy = s.y + 14;
+      const reach = STAGE_BOTTOM + 46 - sy;
+      // déport du pied du cône : chaque spot balaie à son propre rythme
+      const foot = sx + Math.sin(timeMs / ((2100 + i * 380) * slow) + i * 2.4) * 70;
+      const hue = (timeMs / 40 + i * 90) % 360;
+      c.fillStyle = `hsla(${hue}, 90%, 72%, ${(0.04 + p.vibe * 0.09 + punch) * night})`;
+      c.beginPath();
+      c.moveTo(sx, sy);
+      c.lineTo(foot - 16, sy + reach);
+      c.lineTo(foot + 16, sy + reach);
+      c.closePath();
+      c.fill();
+    }
     // strobe on the beat at tier 2+
     if (tier >= 2 && p.vibe > 0.5 && p.beatPhase < 0.06) {
-      c.fillStyle = 'rgba(255, 255, 255, 0.16)';
+      c.fillStyle = `rgba(255, 255, 255, ${0.16 * night})`;
       c.fillRect(0, 0, SCENE_W, SCENE_H);
     }
     // voie B strobe : bursts blancs calés sur le beat
     if (p.gearBranch.lumieres === 'B' && tier >= 3 && p.vibe > 0.4 && p.beatPhase < 0.05) {
-      c.fillStyle = 'rgba(255, 255, 255, 0.2)';
+      c.fillStyle = `rgba(255, 255, 255, ${0.2 * night})`;
       c.fillRect(0, 0, SCENE_W, SCENE_H);
     }
     // le drop : white-out qui s'éteint sur ~0.8s
     if (this.dropUntil > timeMs) {
       const t = (this.dropUntil - timeMs) / 800;
-      c.fillStyle = `rgba(255, 255, 255, ${0.3 * t})`;
+      c.fillStyle = `rgba(255, 255, 255, ${0.3 * t * night})`;
       c.fillRect(0, 0, SCENE_W, SCENE_H);
     }
     c.restore();
@@ -727,6 +800,11 @@ export class SceneRenderer {
   private drawGyro(c: CanvasRenderingContext2D, p: SceneParams, timeMs: number): void {
     const flash = Math.sin(timeMs / 110) > 0;
     const intensity = p.busted ? 0.5 : (p.heat - 0.85) * 3;
+    // la descente : projecteurs police posés aux accès, sous les flashs
+    if (p.busted) {
+      this.prop(c, 'police_spot', 8, 188);
+      this.prop(c, 'police_spot', SCENE_W - 34, 188);
+    }
     c.fillStyle = flash
       ? `rgba(40, 90, 255, ${0.22 * intensity + 0.08})`
       : `rgba(255, 40, 60, ${0.16 * intensity + 0.05})`;

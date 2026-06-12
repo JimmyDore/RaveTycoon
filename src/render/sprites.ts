@@ -127,7 +127,9 @@ export function drawAnimatedFrame(
   const sheet = bank.animated[name];
   if (!sheet) return;
   const m = sheet.meta;
-  const idx = opts?.frame ?? Math.floor((timeMs / 1000) * m.fps * (opts?.fpsScale ?? 1));
+  // clamp : un timeMs négatif produirait un index (et un sx) négatif
+  const t = Math.max(0, timeMs);
+  const idx = Math.max(0, opts?.frame ?? Math.floor((t / 1000) * m.fps * (opts?.fpsScale ?? 1)));
   ctx.drawImage(
     sheet.img,
     (idx % m.frames) * m.frameW,
