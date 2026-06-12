@@ -1081,3 +1081,8 @@ button {
   text-transform: uppercase;
   letter-spacing: 1.5px;
 }
+
+/* ---------- frais de nuit (prépa) ---------- */
+.night-fees { margin-top: 12px; }
+.night-fees .stock-row { display: flex; gap: 6px; margin: 6px 0; }
+.crew-sinks { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }

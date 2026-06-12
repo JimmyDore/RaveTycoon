@@ -2,6 +2,7 @@ import './style.css';
 import { AudioEngine } from './audio/engine';
 import { recruitDj } from './core/crew';
 import { getDj, getSpot } from './core/data';
+import { cautionCost } from './core/economy';
 import { applyIdleTime, rushRepair, startRepair } from './core/idle';
 import { changeBrief, createNight, dropMontee, resolveEvent, seizeFloorPrompt, startSet, tickNight } from './core/night';
 import { applyBust, buyGearUpgrade, settleNight } from './core/payout';
@@ -38,6 +39,8 @@ const bankReady = loadSprites().then((b) => {
 const selection: PrepareSelection = {
   spot: 'champ',
   present: new Set(state.crew.map((d) => d.id)),
+  barStock: 'normal',
+  caution: false,
 };
 
 // --- the night loop ---------------------------------------------------------
@@ -62,7 +65,10 @@ async function startNight(): Promise<void> {
   const present = [...selection.present].filter((id) => state.crew.some((d) => d.id === id));
   if (present.length === 0) return;
   const b = await bankReady;
-  const night = createNight(state, selection.spot, present, (Date.now() ^ 0x7e7) >>> 0);
+  const night = createNight(state, selection.spot, present, (Date.now() ^ 0x7e7) >>> 0, {
+    barStock: selection.barStock,
+    caution: selection.caution,
+  });
   const screen = renderNight(app, {
     onBrief: (brief) => {
       if (active && changeBrief(state, active.night, brief)) {
@@ -223,6 +229,7 @@ function showPrepare(): void {
   applyIdleTime(state, Date.now());
   saveGame(localStorage, state);
   if (state.rep < getSpot(selection.spot).repReq) selection.spot = 'champ';
+  if (selection.caution && state.cash < cautionCost(state, getSpot(selection.spot))) selection.caution = false;
   for (const id of selection.present) {
     if (!state.crew.some((d) => d.id === id)) selection.present.delete(id);
   }

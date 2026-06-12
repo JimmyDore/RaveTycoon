@@ -1,4 +1,5 @@
 import { DJS, GEAR, GEAR_CATEGORIES, SPOTS, getDj, getGenre, getSpot } from '../core/data';
+import { BAR_STOCK_COST, ESSENCE_RATE, cautionCost, potentialBar, type BarStock } from '../core/economy';
 import { djLevel, fatigueMalus, lockedDjs, recruitableDjs } from '../core/crew';
 import { rushCost } from '../core/idle';
 import { isSpotUnlocked } from '../core/payout';
@@ -65,6 +66,8 @@ function fatigueMalusLabel(fatigue: number): HTMLElement | null {
 export interface PrepareSelection {
   spot: SpotId;
   present: Set<string>;
+  barStock: BarStock;
+  caution: boolean;
 }
 
 export interface PrepareCallbacks {
@@ -126,6 +129,39 @@ export function renderPrepare(
     }
     where.append(card);
   }
+
+  // --- frais de nuit : stock du bar + caution
+  const fees = el('div', 'night-fees');
+  fees.append(el('h2', '', STR.nightCosts));
+  fees.append(el('div', 'card-meta', STR.barStockLabel));
+  const stockRow = el('div', 'stock-row');
+  for (const stock of ['leger', 'normal', 'large'] as BarStock[]) {
+    const b = el('button', `btn small${selection.barStock === stock ? ' selected' : ''}`, STR.barStock[stock]);
+    b.title = STR.barStockHint[stock];
+    b.addEventListener('click', () => {
+      selection.barStock = stock;
+      renderPrepare(root, state, selection, now, cb);
+    });
+    stockRow.append(b);
+  }
+  fees.append(stockRow);
+  const spotDef = getSpot(selection.spot);
+  if (spotDef.tier >= 3) {
+    const cost = cautionCost(state, spotDef);
+    const cBtn = el('button', `btn small${selection.caution ? ' selected' : ''}`, STR.cautionBtn(cost, selection.caution));
+    cBtn.title = STR.cautionHint;
+    cBtn.disabled = !selection.caution && state.cash < cost;
+    cBtn.addEventListener('click', () => {
+      selection.caution = !selection.caution;
+      renderPrepare(root, state, selection, now, cb);
+    });
+    fees.append(cBtn);
+  }
+  const estCap = Math.round(spotDef.cap * GEAR.mur[state.gear.mur].value);
+  const estRestock = Math.round(BAR_STOCK_COST[selection.barStock] * potentialBar(spotDef, estCap));
+  const estEssence = state.gear.groupe === 0 ? 0 : Math.round(ESSENCE_RATE * (spotDef.duration / 60) * 1);
+  fees.append(el('p', 'hint', STR.feesEstimate(estRestock + estEssence)));
+  where.append(fees);
   main.append(where);
 
   // --- crew column
@@ -638,6 +674,13 @@ export function renderRecap(
   const lines = el('div', 'recap-lines');
   lines.append(recapLine(STR.peakCrowd, `${result.peakCrowd} ${STR.crowdLabel}`));
   lines.append(recapLine(STR.barTotal, fmtCash(result.bank)));
+  if (result.essence > 0) lines.append(recapLine(`⛽ ${STR.essenceLine}`, `−${fmtCash(result.essence)}`));
+  if (result.restock > 0) lines.append(recapLine(`🍺 ${STR.restockLine}`, `−${fmtCash(result.restock)}`));
+  if (result.cautionReturned > 0) {
+    lines.append(recapLine(`🤝 ${STR.cautionReturnedLine}`, `+${fmtCash(result.cautionReturned)}`));
+  } else if (result.busted && result.cautionPaid > 0) {
+    lines.append(recapLine(`🤝 ${STR.cautionLostLine}`, `−${fmtCash(result.cautionPaid)}`));
+  }
   if (!result.busted) {
     lines.append(recapLine(STR.donations, STR.donationsMult(result.donationMult.toFixed(2))));
   } else {

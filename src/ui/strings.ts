@@ -47,6 +47,20 @@ export const STR = {
     logistique: 'Guetteurs et plans de repli — moins de chaleur',
   } as const,
 
+  // frais de nuit
+  nightCosts: 'Les frais de la nuit',
+  barStockLabel: 'Stock du bar',
+  barStock: { leger: 'Léger', normal: 'Normal', large: 'Large' } as const,
+  barStockHint: {
+    leger: 'Gratuit — la buvette sature à ~50 % de son potentiel',
+    normal: '15 % de la recette potentielle — couvre ~80 % de la jauge',
+    large: '30 % — large, pour les nuits de folie (110 %)',
+  } as const,
+  cautionBtn: (cost: number, on: boolean) =>
+    on ? `✓ Caution payée — ${cost} €` : `Payer la caution — ${cost} €`,
+  cautionHint: 'Rendue à l’aube si pas de bust, perdue sinon. Sans caution : les bleus partent avec une longueur d’avance.',
+  feesEstimate: (n: number) => `Frais estimés sur le brut : ~${n} €`,
+
   // crew
   technique: 'Technique',
   charisme: 'Charisme',
@@ -118,6 +132,10 @@ export const STR = {
   fine: 'Amende',
   seized: (gear: string) => `Matos saisi : ${gear}`,
   bustCut: 'Recette perdue dans la panique',
+  essenceLine: 'Essence du groupe',
+  restockLine: 'Stock du bar',
+  cautionReturnedLine: 'Caution rendue',
+  cautionLostLine: 'Caution perdue',
   repGained: (n: number) => `+${n} réputation`,
   nightJournal: 'Les histoires de la nuit',
   goalsRecapTitle: 'Objectifs tenus',
