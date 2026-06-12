@@ -21,6 +21,9 @@ const PROP_NAMES = [
   'camper_left', 'camper_right',
   'container_1', 'container_2', 'barrel_1', 'barrel_2', 'scrap_pile',
   'fence_work_1', 'fence_work_2', 'bunker', 'police_spot', 'barrier',
+  'speaker_cable_1', 'speaker_cable_2', 'generator',
+  'stage_barrier_1', 'stage_barrier_2', 'stage_barrier_3', 'stage_barrier_lat_1', 'stage_barrier_lat_2',
+  'spot_mod_left_1', 'spot_mod_left_2', 'spot_mod_right_1', 'spot_mod_right_2',
 ] as const;
 export type PropName = (typeof PROP_NAMES)[number];
 

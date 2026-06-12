@@ -234,6 +234,7 @@ export class SceneRenderer {
     this.drawProps(c, p);
     this.drawStage(c, p, timeMs);
     ravers.draw(c, this.bank, p.beatPhase, p.soundCut ? 0 : p.vibe, ravers.overflow(p.crowd), timeMs);
+    this.drawRigFront(c);
     this.drawDarkness(c, p, timeMs);
     if (!p.soundCut) this.drawLights(c, p, timeMs);
     if (p.busted || p.heat > 0.85) this.drawGyro(c, p, timeMs);
@@ -319,32 +320,53 @@ export class SceneRenderer {
       }
     }
 
-    // the mur de son — stacks of real loudspeakers, growing with the tier
-    const tier = p.gear.mur;
-    const big = this.bank.props.speaker_big;
-    const med = this.bank.props.speaker_medium;
-    for (const side of [-1, 1] as const) {
-      const baseX = cx + side * (96 + tier * 6) - 24;
-      let y = STAGE_BOTTOM - 12 - 48;
-      const columns = tier >= 2 ? 2 : 1;
-      const rows = 1 + Math.ceil(tier / 2);
-      for (let col = 0; col < columns; col++) {
-        y = STAGE_BOTTOM - 12 - 48;
-        for (let row = 0; row < rows; row++) {
-          const x = baseX + side * -1 * col * 30 + (kick && row === 0 ? side * 0 : 0);
-          if (big) {
-            const wobble = kick ? 1 : 0;
-            c.drawImage(big, Math.round(x), Math.round(y - wobble));
-          }
-          y -= 44;
-        }
-      }
-      // small tops
-      if (med && tier >= 1) c.drawImage(med, baseX + 8, y + 18);
+    // groupe électrogène — vacille d'1px et crache une flamme sur coupure
+    for (const g of this.rig?.generators ?? []) {
+      const img = this.bank.props.generator;
+      if (!img) break;
+      const jx = p.soundCut && Math.floor(timeMs / 90) % 2 === 0 ? 1 : 0;
+      c.drawImage(img, g.x + jx, g.y, img.width * g.scale, img.height * g.scale);
+      if (p.soundCut) drawAnimatedFrame(c, this.bank, 'flame_3', g.x + 8 * g.scale, g.y - 10, timeMs);
     }
 
-    // the DJ, facing the crowd, behind the decks
-    if (p.djCharacter !== null) {
+    // le mur de son — placements du rig (stacks câblés ou line array suspendu)
+    for (const w of this.rig?.wall ?? []) {
+      const img = this.bank.props[w.prop] ?? this.bank.props.speaker_big;
+      if (!img) continue;
+      if (w.blown) {
+        // stack grillé : penché, une flammèche au sommet
+        c.save();
+        c.translate(w.x + 24, w.y + 48);
+        c.rotate(-0.09);
+        c.drawImage(img, -24, -48);
+        c.restore();
+        drawAnimatedFrame(c, this.bank, 'flame_3', w.x + 6, w.y - 8, timeMs);
+      } else {
+        c.drawImage(img, Math.round(w.x), Math.round(w.y - (kick ? 1 : 0)));
+      }
+    }
+
+    // guetteurs logistique postés en lisière, l'œil sur les accès
+    for (const lk of this.rig?.lookouts ?? []) {
+      drawRaverFrame(c, this.bank, lk.character, 'idle', lk.facing, Math.floor(timeMs / 240) % 6, lk.x, lk.y);
+    }
+    // voie B mobilité : le camion d'évac garé moteur tourné vers la sortie
+    if (this.rig?.evacCamper) this.prop(c, 'camper_left', this.rig.evacCamper.x, this.rig.evacCamper.y);
+
+    // régie chirurgicale voie A : retours de scène posés autour de la cabine
+    for (const m of this.rig?.monitors ?? []) this.prop(c, 'speaker_small', m.x, m.y);
+    // voie B showmanship : spots modulaires qui clignotent de part et d'autre
+    for (const s of this.rig?.blinkSpots ?? []) {
+      const on = Math.floor(timeMs / 250) % 2 === 0;
+      this.prop(c, `spot_mod_${s.side}_${on ? 2 : 1}` as PropName, s.x, s.y);
+    }
+
+    // voie B showmanship : DJ animé du pack concert (cabine comprise)
+    const animDj = !!this.rig?.animatedDj && p.djCharacter !== null && !!this.bank.animated.concert_dj;
+    if (animDj) {
+      drawAnimatedFrame(c, this.bank, 'concert_dj', cx - 24, STAGE_BOTTOM - 54, timeMs);
+    } else if (p.djCharacter !== null) {
+      // the DJ, facing the crowd, behind the decks
       const bob = kick ? -1 : 0;
       drawRaverFrame(
         c,
@@ -358,13 +380,15 @@ export class SceneRenderer {
       );
     }
 
-    // booth: real turntable rig (fallback: the old black table)
+    // booth: real turntable rig (fallback: the old black table) — le DJ animé embarque la sienne
     const djSet = this.bank.props.dj_set;
-    if (djSet) {
-      c.drawImage(djSet, cx - 24, STAGE_BOTTOM - 38);
-    } else {
-      c.fillStyle = '#0c0914';
-      c.fillRect(cx - 30, STAGE_BOTTOM - 42, 60, 22);
+    if (!animDj) {
+      if (djSet) {
+        c.drawImage(djSet, cx - 24, STAGE_BOTTOM - 38);
+      } else {
+        c.fillStyle = '#0c0914';
+        c.fillRect(cx - 30, STAGE_BOTTOM - 42, 60, 22);
+      }
     }
     // status LEDs on the mixer: two blink with the kick, red tracks heat
     c.fillStyle = kick ? '#3affa0' : '#1c5e42';
@@ -419,6 +443,11 @@ export class SceneRenderer {
     for (const l of this.rig.lasers) {
       drawAnimatedFrame(c, this.bank, l.sheet, l.x, l.y, timeMs, { fpsScale });
     }
+  }
+
+  /** Éléments du rig devant la foule : le rail de barrières contre lequel le pit pousse. */
+  private drawRigFront(c: CanvasRenderingContext2D): void {
+    for (const b of this.rig?.barriers ?? []) this.prop(c, b.prop, b.x, b.y);
   }
 
   /** Night darkness with warm light pools; fades out as sunrise approaches. */
