@@ -5,6 +5,7 @@ import { drawEvent } from './events';
 import { drawGoal } from './goals';
 import { modifierProduct, modifierSum, rollModifiers } from './modifiers';
 import { drawPrompt } from './prompts';
+import { buildRegionRules } from './regions';
 import { mulberry32 } from './rng';
 import type {
   Brief,
@@ -87,6 +88,7 @@ export function createNight(
     }
   }
   const startHeat = spot.tier >= 3 && cautionPaid === 0 ? 0.1 : 0;
+  const rules = buildRegionRules(state.region);
   // modifs du soir (météo/foule) — flux RNG dédié, ne perturbe pas le flux des events
   const modifiers = rollModifiers(spot.tier, seed);
   const eventDelay = modifierSum(modifiers, 'eventDelay');
@@ -145,6 +147,7 @@ export function createNight(
     playedSets: [],
     journal: [],
     modifiers,
+    rules,
     busted: false,
     sunrise: false,
     rng: mulberry32(seed),
@@ -184,7 +187,8 @@ export function computeSetQuality(state: GameState, night: NightState, djId: str
   const tech = effectiveTechnique(def, member);
   const base = 0.18 + 0.16 * tech;
   return clamp(
-    base * platines * murQuality * spotQ * BRIEF_QUALITY[brief] * fatigueQualityMult(member),
+    base * platines * murQuality * spotQ * BRIEF_QUALITY[brief] * fatigueQualityMult(member) *
+      night.rules.setQualityMult,
     0.05,
     1.5,
   );
@@ -230,7 +234,7 @@ function eventContext(state: GameState, night: NightState): EventContext {
 
 /** Maximum events for the night, scaling with its length. */
 function maxEvents(night: NightState): number {
-  return Math.min(4, 1 + Math.floor(night.setCount / 2));
+  return Math.min(4, 1 + Math.floor(night.setCount / 2)) + night.rules.maxEventsBonus;
 }
 
 /**
@@ -298,8 +302,16 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   const lumieres = ownedGear(state, 'lumieres').value;
   const pull = soundOn ? 0.25 + 0.85 * quality + 0.06 * charisme : 0;
   const arrivalCut = night.arrivalCutT > 0 ? 0.5 : 1;
+  // terre de dub & co : la région booste/freine certaines familles de BPM
+  const genreRegionMult =
+    genre.bpm <= 140
+      ? night.rules.slowGenreArrivalMult
+      : genre.bpm > 170
+        ? night.rules.fastGenreArrivalMult
+        : 1;
   const arrival =
-    spot.arrival * genre.arrival * (1 + state.buzz) * (1 + state.rep * 0.002) * pull * arrivalCut * arrivalMod;
+    spot.arrival * genre.arrival * (1 + state.buzz) * (1 + state.rep * 0.002) * pull * arrivalCut *
+    arrivalMod * night.rules.arrivalMult * genreRegionMult;
   let leaveMult = 1;
   if (!soundOn) leaveMult += 3;
   if (night.murBlown) leaveMult += 0.8;
@@ -307,7 +319,8 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   // retention plus basse = on garde mieux le public ; le bonus du soir la réduit
   const retention = Math.max(0, 1 - 0.04 * charisme - retentionMod);
   const leaving =
-    night.crowd * genre.churn * spot.churnMult * churnMod * branchChurnMult(state) * retention * leaveMult;
+    night.crowd * genre.churn * spot.churnMult * churnMod * branchChurnMult(state) *
+    night.rules.churnMult * retention * leaveMult;
   night.crowd = clamp(night.crowd + (arrival - leaving) * dt, 0, night.cap);
   night.peakCrowd = Math.max(night.peakCrowd, night.crowd);
 
@@ -333,11 +346,11 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   // RÉVISION CHANTIER 1: l'insaisissable deviendra immunisé à la garde à vue ;
   // en attendant, son gimmick = moitié moins de heat (levier existant)
   const riskMult = dj ? RISK_HEAT[dj.risk] * (dj.gimmick === 'insaisissable' ? 0.5 : 1) : 1;
-  night.heat += spot.heatBuild * genre.heatMult * BRIEF_HEAT[night.brief] * riskMult * logistique * heatMod * branchHeatMult(state) * HEAT_BASE * dt;
+  night.heat += spot.heatBuild * genre.heatMult * BRIEF_HEAT[night.brief] * riskMult * logistique * heatMod * branchHeatMult(state) * night.rules.heatMult * HEAT_BASE * dt;
   if (night.brief === 'safe') night.heat -= 0.01 * dt;
   night.heat = clamp(night.heat, 0, 1);
   night.peakHeat = Math.max(night.peakHeat, night.heat);
-  if (night.heat >= 1) {
+  if (night.heat >= night.rules.bustThreshold) {
     endCurrentSet(state, night);
     night.phase = 'ended';
     night.busted = true;
@@ -346,7 +359,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   }
 
   // --- bar drip — plafonné par le stock embarqué -------------------------------------
-  const drip = night.crowd * BAR_DRIP * spot.priceMult * priceMod * dt;
+  const drip = night.crowd * BAR_DRIP * spot.priceMult * priceMod * night.rules.barMult * dt;
   const sold = Math.min(drip, Math.max(0, night.barCap - night.barSales));
   night.barSales += sold;
   night.bank += sold;
@@ -424,7 +437,7 @@ function endCurrentSet(state: GameState, night: NightState): void {
       heat: night.heat,
     };
     if (night.setGoal.met(stats)) {
-      night.repBonus += night.setGoal.reward.rep ?? 0;
+      night.repBonus += (night.setGoal.reward.rep ?? 0) * night.rules.goalRepMult;
       night.bank += night.setGoal.reward.cash ?? 0;
       night.goalsMet.push(night.setGoal.label);
     }
@@ -436,7 +449,9 @@ function endCurrentSet(state: GameState, night: NightState): void {
  * modaux, les flash-prompts et la montée.
  */
 export function applyEffects(state: GameState, night: NightState, fx: EventEffects): void {
-  if (fx.heat) night.heat = clamp(night.heat + fx.heat, 0, 0.99);
+  // les events restent incapables de franchir le seuil de descente : le clamp
+  // historique à 0.99 devient « seuil − 0.01 » (identique quand le seuil vaut 1)
+  if (fx.heat) night.heat = clamp(night.heat + fx.heat, 0, night.rules.bustThreshold - 0.01);
   if (fx.vibe) night.vibe = clamp(night.vibe + fx.vibe, 0, 1);
   if (fx.crowdFrac) night.crowd = clamp(night.crowd * (1 + fx.crowdFrac), 0, night.cap);
   if (fx.cash) night.bank = Math.max(0, night.bank + fx.cash);
@@ -506,7 +521,7 @@ export function dropMontee(state: GameState, night: NightState): boolean {
   const payoff = ownedGear(state, 'lumieres').effects?.dropMult ?? 1;
   night.vibe = clamp(night.vibe + (0.1 + 0.25 * m) * payoff, 0, 1);
   night.crowd = clamp(night.crowd + night.cap * 0.05 * m * payoff, 0, night.cap);
-  night.heat = clamp(night.heat + 0.02 + 0.06 * m, 0, 0.99);
+  night.heat = clamp(night.heat + 0.02 + 0.06 * m, 0, night.rules.bustThreshold - 0.01);
   night.bestDropThisSet = Math.max(night.bestDropThisSet, m);
   night.montee = 0;
   return true;

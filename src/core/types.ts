@@ -1,5 +1,5 @@
 import type { NightModifierDef } from './modifiers';
-import type { RegionState } from './regions';
+import type { RegionRules, RegionState } from './regions';
 
 export type SpotId =
   | 'champ'
@@ -381,6 +381,8 @@ export interface NightState {
   journal: JournalEntry[];
   /** modificateurs passifs du soir (météo/foule), révélés au lancement */
   modifiers: NightModifierDef[];
+  /** règles de la région de tournée (identité en tournée 1), figées au lancement */
+  rules: RegionRules;
   busted: boolean;
   sunrise: boolean;
   rng: () => number;

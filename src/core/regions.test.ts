@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { applyEffects, createNight, startSet, tickNight } from './night';
+import { newGame } from './save';
+import type { GameState } from './types';
 import {
   REGION_TRAITS,
   type RegionRules,
@@ -149,5 +152,108 @@ describe('toRegionState', () => {
       nom: choice.nom,
       traits: choice.traits.map((t) => t.id),
     });
+  });
+});
+
+describe('les règles de région dans la nuit', () => {
+  function playingNight(traits: string[], seed = 1) {
+    const state = newGame(42);
+    if (traits.length > 0) state.region = { nom: 'Région test', traits };
+    const night = createNight(state, 'champ', ['tonton'], seed);
+    startSet(state, night, 'tonton', 'normal');
+    return { state, night };
+  }
+
+  it('Terre d’accueil : la chaleur monte moins vite sur un tick', () => {
+    const base = playingNight([]);
+    base.night.heat = 0;
+    tickNight(base.state, base.night, 0.1);
+    const accueil = playingNight(['terre-daccueil']);
+    accueil.night.heat = 0;
+    tickNight(accueil.state, accueil.night, 0.1);
+    expect(accueil.night.heat).toBeLessThan(base.night.heat);
+    expect(accueil.night.heat).toBeGreaterThan(0);
+  });
+
+  it('Zone quadrillée : le bust tombe dès 85 % de chaleur', () => {
+    const base = playingNight([]);
+    base.night.heat = 0.86;
+    expect(tickNight(base.state, base.night, 0.1).some((e) => e.type === 'bust')).toBe(false);
+    const quad = playingNight(['zone-quadrillee']);
+    quad.night.heat = 0.86;
+    const events = tickNight(quad.state, quad.night, 0.1);
+    expect(events.some((e) => e.type === 'bust')).toBe(true);
+    expect(quad.night.busted).toBe(true);
+  });
+
+  it('les events ne franchissent jamais le seuil de descente (clamp sous le seuil)', () => {
+    const quad = playingNight(['zone-quadrillee']);
+    applyEffects(quad.state, quad.night, { heat: 1 });
+    expect(quad.night.heat).toBeCloseTo(0.84, 5);
+    const base = playingNight([]);
+    applyEffects(base.state, base.night, { heat: 1 });
+    expect(base.night.heat).toBeCloseTo(0.99, 5); // comportement actuel conservé
+  });
+
+  it('Public exigeant : la qualité de set prend −5 %', () => {
+    const base = playingNight([]);
+    const exigeant = playingNight(['public-exigeant']);
+    expect(exigeant.night.setQuality).toBeCloseTo(base.night.setQuality * 0.95, 5);
+  });
+
+  it('Grands axes : la foule afflue plus vite', () => {
+    const base = playingNight([]);
+    base.night.crowd = 0;
+    tickNight(base.state, base.night, 0.1);
+    const axes = playingNight(['grands-axes']);
+    axes.night.crowd = 0;
+    tickNight(axes.state, axes.night, 0.1);
+    expect(axes.night.crowd).toBeGreaterThan(base.night.crowd);
+  });
+
+  it('Terre de dub : le dub (75 BPM) attire plus, la frenchcore (200 BPM) moins', () => {
+    function arrivalOneTick(traits: string[], djId: string): number {
+      const state: GameState = newGame(42);
+      if (traits.length > 0) state.region = { nom: 'Région test', traits };
+      state.crew.push({ id: djId, xp: 0, fatigue: 0, setsPlayed: 0, gifted: false, studioBonus: 0 });
+      const night = createNight(state, 'champ', [djId], 1);
+      startSet(state, night, djId, 'normal');
+      night.crowd = 0;
+      tickNight(state, night, 0.1);
+      return night.crowd;
+    }
+    expect(arrivalOneTick(['terre-de-dub'], 'boblepine')).toBeGreaterThan(
+      arrivalOneTick([], 'boblepine'),
+    );
+    expect(arrivalOneTick(['terre-de-dub'], 'kilowatt')).toBeLessThan(
+      arrivalOneTick([], 'kilowatt'),
+    );
+  });
+
+  it('Économie morose : la buvette rapporte ×0.8 sur un tick', () => {
+    const base = playingNight([]);
+    base.night.crowd = 20;
+    base.night.bank = 0;
+    tickNight(base.state, base.night, 0.1);
+    const morose = playingNight(['economie-morose']);
+    morose.night.crowd = 20;
+    morose.night.bank = 0;
+    tickNight(morose.state, morose.night, 0.1);
+    expect(morose.night.bank).toBeCloseTo(base.night.bank * 0.8, 5);
+  });
+
+  it('Pays des fêtes votives : la rep des objectifs ×0.8', () => {
+    function repAfterForcedGoal(traits: string[]): number {
+      const state = newGame(42);
+      if (traits.length > 0) state.region = { nom: 'Région test', traits };
+      const night = createNight(state, 'champ', ['tonton'], 1);
+      startSet(state, night, 'tonton', 'normal');
+      night.setGoal = { id: 'test', label: 'test', reward: { rep: 10 }, met: () => true, weight: () => 1 };
+      night.setElapsed = night.setLen - 0.05; // le tick suivant clôt le set
+      tickNight(state, night, 0.1);
+      return night.repBonus;
+    }
+    expect(repAfterForcedGoal([])).toBe(10);
+    expect(repAfterForcedGoal(['fetes-votives'])).toBe(8);
   });
 });
