@@ -3,7 +3,7 @@ import { essenceCost, restockCost } from './economy';
 import { applyNightRest, effectiveCut, getCrewMember } from './crew';
 import { buzzAfterNight } from './idle';
 import { buildRegionRules } from './regions';
-import { BREACH_REFUND } from './specials';
+import { BREACH_REFUND, CLASH_LOSS_BUZZ_MULT, CLASH_WIN_REP_MULT, resolveSoundclash } from './specials';
 import { hasPerk } from './tour';
 import type { GameState, GearBranch, GearCategory, GearItem, NightResult, NightState } from './types';
 
@@ -71,9 +71,12 @@ export function settleNight(state: GameState, night: NightState): NightResult {
   // L'évacuation propre conserve la caisse, mais la légende en prend un coup (×0.4).
   const evacMult = night.evacuated ? 0.4 : 1;
   const specialRepMult = special?.rewards.repMult ?? 1;
+  // soundclash : la victoire paie ×1.5 (résolu avant repGained)
+  const clash = special?.id === 'soundclash' ? resolveSoundclash(night) : null;
+  if (clash?.won) state.soundclashWon = true;
   const repGained = Math.round(
     (SUNRISE_REP + night.peakCrowd / 10 + (survivedHighHeat ? 15 : 0) + night.repBonus + night.lastAubeDropRep) *
-      evacMult * specialRepMult,
+      evacMult * specialRepMult * (clash?.won ? CLASH_WIN_REP_MULT : 1),
   );
   // garde-fou : évacuer le Teknival n'est pas le gagner
   const won = night.spotId === 'teknival' && !night.evacuated;
@@ -93,6 +96,8 @@ export function settleNight(state: GameState, night: NightState): NightResult {
   const softFrac = night.t > 0 ? Math.min(1, night.softT / night.t) : 0;
   const quality = Math.min(1, (0.6 * vibe + 0.5 * (night.peakCrowd / night.cap)) * (1 - 0.3 * softFrac));
   buzzAfterNight(state, quality, night.evacuated ? 0.8 : 1);
+  // soundclash perdu : la moitié du buzz — APRÈS buzzAfterNight (dernier toucher du buzz)
+  if (clash && !clash.won) state.buzz *= CLASH_LOSS_BUZZ_MULT;
 
   // rupture de contrat : 60 % de l'avance repart (jamais en dessous de 0 en caisse)
   const contractRefund = special?.breached ? Math.round((special.rewards.cashUpfront ?? 0) * BREACH_REFUND) : 0;
@@ -126,6 +131,8 @@ export function settleNight(state: GameState, night: NightState): NightResult {
     modifiers: night.modifiers,
     specialId: special?.id ?? null,
     contractRefund,
+    clashPhasesWon: clash?.phasesWon ?? null,
+    clashWon: clash?.won ?? false,
   };
   trackRecords(state, result);
   return result;
@@ -194,6 +201,13 @@ export function applyBust(state: GameState, night: NightState): NightResult {
   carryDamage(state, night);
   applyNightRest(state, playedDjs(night));
 
+  // soundclash : un bust est toujours une défaite — le rival a tenu, pas toi
+  const clash =
+    special?.id === 'soundclash'
+      ? { phasesWon: resolveSoundclash(night).phasesWon, won: false }
+      : null;
+  if (clash) state.buzz *= CLASH_LOSS_BUZZ_MULT;
+
   // rupture de contrat : 60 % de l'avance repart (jamais en dessous de 0 en caisse)
   const contractRefund = special?.breached ? Math.round((special.rewards.cashUpfront ?? 0) * BREACH_REFUND) : 0;
   if (contractRefund > 0) state.cash = Math.max(0, state.cash - contractRefund);
@@ -226,6 +240,8 @@ export function applyBust(state: GameState, night: NightState): NightResult {
     modifiers: night.modifiers,
     specialId: special?.id ?? null,
     contractRefund,
+    clashPhasesWon: clash?.phasesWon ?? null,
+    clashWon: clash?.won ?? false,
   };
   trackRecords(state, result);
   return result;

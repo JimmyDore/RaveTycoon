@@ -57,11 +57,13 @@ export function isEnGardeAVue(state: GameState, djId: string): boolean {
 export const CARNET_THRESHOLD = 0.7;
 
 export function djRepThreshold(state: GameState, def: DjDef): number {
+  if (def.gated === 'soundclash') return 0;
   return hasPerk(state, 'carnet-adresses') ? Math.ceil(def.repReq * CARNET_THRESHOLD) : def.repReq;
 }
 
-/** Les Têtes d'affiche n'existent pas tant que leur perk n'est pas acheté. */
+/** Les Têtes d'affiche n'existent pas sans leur perk ; Volt, pas sans victoire au clash. */
 export function djAvailable(state: GameState, def: DjDef): boolean {
+  if (def.gated === 'soundclash' && !state.soundclashWon) return false;
   return def.perk === undefined || hasPerk(state, def.perk);
 }
 
@@ -118,9 +120,15 @@ export function dayOffCost(member: DjState): number {
   return DAYOFF_BASE * Math.max(1, djLevel(member));
 }
 
+/** Cut affiché/pris d'un DJ du pool : le headliner battu fait le tarif des vainqueurs (−30 %). */
+export function poolCut(def: DjDef): number {
+  return def.gated === 'soundclash' ? def.cut * 0.7 : def.cut;
+}
+
 /** Cut réel d'un DJ du crew : le cadeau le fait baisser de 2 points (plancher 3 %). */
 export function effectiveCut(def: DjDef, member: DjState): number {
-  return member.gifted ? Math.max(GIFT_CUT_FLOOR, def.cut - GIFT_CUT_REDUCTION) : def.cut;
+  const base = poolCut(def);
+  return member.gifted ? Math.max(GIFT_CUT_FLOOR, base - GIFT_CUT_REDUCTION) : base;
 }
 
 /** 🎁 Cadeau : rend les gros cuts négociables — une fois par DJ. */

@@ -138,6 +138,8 @@ export interface DjDef {
   perk?: string;
   /** gimmick unique des DJs légendaires */
   gimmick?: DjGimmick;
+  /** déblocage par le gameplay : invisible tant que la condition n'est pas remplie */
+  gated?: 'soundclash';
 }
 
 /** Mutable per-save state of a crew member. */
@@ -371,6 +373,10 @@ export interface NightState {
   /** accumulateurs waveScore du set courant (objectif « surfer la vague ») */
   setWaveSum: number;
   setWaveSamples: number;
+  /** ∑ waveScore × dt par phase de nuit (soundclash : score comparé au rival) */
+  phaseWaveSum: Record<NightPhaseId, number>;
+  /** secondes jouées par phase de nuit */
+  phaseWaveT: Record<NightPhaseId, number>;
   /** current set quality in ~[0.2, 1.4] */
   setQuality: number;
   crowd: number;
@@ -498,4 +504,8 @@ export interface NightResult {
   specialId: string | null;
   /** remboursement de rupture de contrat (0 sinon) */
   contractRefund: number;
+  /** soundclash : phases gagnées (null hors clash) */
+  clashPhasesWon: number | null;
+  /** soundclash gagné ce soir */
+  clashWon: boolean;
 }

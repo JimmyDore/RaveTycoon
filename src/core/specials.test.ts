@@ -8,10 +8,13 @@ import {
   drawSpecialOffer,
   ensureSpecialOffer,
   getSpecial,
+  resolveSoundclash,
   teufPriveeCash,
 } from './specials';
+import { recruitableDjs, poolCut } from './crew';
 import { getDj, getSpot } from './data';
 import { createNight, currentWave, dropMontee, setIntensity, startSet, tickNight } from './night';
+import { NIGHT_PHASES } from './phases';
 import { applyBust, settleNight } from './payout';
 import { newGame } from './save';
 import type { SpecialOfferState } from './specials';
@@ -266,5 +269,87 @@ describe('le contrat appliqué à la nuit', () => {
     const result = applyBust(state, night);
     expect(result.contractRefund).toBe(108);
     expect(result.repGained).toBe(0); // repMult 0 vaut aussi sur le bust
+  });
+});
+
+describe('le soundclash', () => {
+  function clashNight(seed = 7) {
+    return contractNight({ id: 'soundclash' }, seed);
+  }
+
+  it('tire un rival déterministe par phase, calibré sur le tier du spot', () => {
+    const a = clashNight(9);
+    const b = clashNight(9);
+    expect(a.night.special?.rival).toBeDefined();
+    expect(a.night.special?.rival).toEqual(b.night.special?.rival);
+    for (const p of NIGHT_PHASES) {
+      const r = a.night.special!.rival![p.id];
+      expect(r).toBeGreaterThan(0.3); // champ tier 1 : 0.37–0.57
+      expect(r).toBeLessThan(0.6);
+    }
+  });
+
+  it('accumule le score de vague par phase pendant le tick', () => {
+    const { state, night } = clashNight();
+    night.waveScore = 0.8;
+    tickNight(state, night, 0.1);
+    expect(night.phaseWaveT.ouverture).toBeCloseTo(0.1, 5);
+    expect(night.phaseWaveSum.ouverture).toBeGreaterThan(0);
+  });
+
+  it('victoire ≥ 2 phases : rep ×1.5, soundclashWon, Volt rejoint le pool à −30 % de cut', () => {
+    const { state, night } = clashNight();
+    // 3 phases dominées, 1 perdue — le rival du champ plafonne sous 0.6
+    for (const p of NIGHT_PHASES) {
+      night.phaseWaveT[p.id] = 10;
+      night.phaseWaveSum[p.id] = p.id === 'creux' ? 0 : 9; // moyenne 0.9
+    }
+    const clash = resolveSoundclash(night);
+    expect(clash).toEqual({ phasesWon: 3, won: true });
+    Object.assign(night, { phase: 'ended', sunrise: true, t: 180, bank: 0, peakCrowd: 30, vibeSamples: 1 });
+    const result = settleNight(state, night);
+    expect(result.clashWon).toBe(true);
+    expect(result.clashPhasesWon).toBe(3);
+    expect(state.soundclashWon).toBe(true);
+    // le témoin sans clash gagne 1/1.5 de la rep
+    const witnessState = newGame(42);
+    const witness = createNight(witnessState, 'champ', ['tonton'], 7);
+    startSet(witnessState, witness, 'tonton');
+    Object.assign(witness, { phase: 'ended', sunrise: true, t: 180, bank: 0, peakCrowd: 30, vibeSamples: 1 });
+    expect(result.repGained).toBe(Math.round(settleNight(witnessState, witness).repGained * 1.5));
+    // LE rewire Volt : gated par le clash, seuil mort, cut −30 %
+    const volt = recruitableDjs(state).find((d) => d.id === 'volt');
+    expect(volt).toBeDefined();
+    expect(poolCut(volt!)).toBeCloseTo(0.24 * 0.7, 5);
+  });
+
+  it('défaite : buzz ×0.5 après le bouche-à-oreille de la nuit, Volt reste invisible', () => {
+    const { state, night } = clashNight();
+    state.buzz = 0.8;
+    state.rep = 1000; // même à rep max, Volt ne sort pas sans victoire
+    // aucune phase jouée : tout au rival
+    Object.assign(night, { phase: 'ended', sunrise: true, t: 180, bank: 0, peakCrowd: 30, vibeSamples: 1 });
+    const result = settleNight(state, night);
+    // témoin sans clash : settleNight AJOUTE du buzz (buzzAfterNight) — la défaite
+    // divise le buzz FINAL par 2, pas le buzz de départ
+    const witnessState = newGame(42);
+    witnessState.buzz = 0.8;
+    const witness = createNight(witnessState, 'champ', ['tonton'], 7);
+    startSet(witnessState, witness, 'tonton');
+    Object.assign(witness, { phase: 'ended', sunrise: true, t: 180, bank: 0, peakCrowd: 30, vibeSamples: 1 });
+    settleNight(witnessState, witness);
+    expect(result.clashWon).toBe(false);
+    expect(state.buzz).toBeCloseTo(witnessState.buzz * 0.5, 5);
+    expect(state.soundclashWon).toBe(false);
+    expect(recruitableDjs(state).some((d) => d.id === 'volt')).toBe(false);
+  });
+
+  it('un bust pendant le clash est une défaite (phases non jouées perdues)', () => {
+    const { state, night } = clashNight();
+    state.buzz = 0.8;
+    Object.assign(night, { phase: 'ended', busted: true, t: 60, bank: 0 });
+    const result = applyBust(state, night);
+    expect(result.clashWon).toBe(false);
+    expect(state.buzz).toBeCloseTo(0.4, 5);
   });
 });

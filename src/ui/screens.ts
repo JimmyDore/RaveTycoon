@@ -1,6 +1,6 @@
 import { DJS, GEAR_CATEGORIES, PERKS, SPOTS, getDj, getGenre, getSpot, nextGearOptions, ownedGear, switchBranchItem } from '../core/data';
 import { BAR_STOCK_COST, ESSENCE_RATE, cautionCost, potentialBar, type BarStock } from '../core/economy';
-import { STUDIO_COST, STUDIO_MAX, dayOffCost, djLevel, djRepThreshold, effectiveCut, fatigueMalus, gardeAVueNights, giftCost, isEnGardeAVue, lockedDjs, recruitableDjs } from '../core/crew';
+import { STUDIO_COST, STUDIO_MAX, dayOffCost, djLevel, djRepThreshold, effectiveCut, fatigueMalus, gardeAVueNights, giftCost, isEnGardeAVue, lockedDjs, poolCut, recruitableDjs } from '../core/crew';
 import { rushCost } from '../core/idle';
 import { isSpotAvailable } from '../core/payout';
 import { buildRegionRules, regionTraits, type RegionChoice } from '../core/regions';
@@ -278,7 +278,7 @@ export function renderPrepare(
     const info = el('div', 'dj-info');
     info.append(el('div', 'card-title', `✨ ${def.nom}`));
     info.append(el('div', 'card-desc', def.description));
-    info.append(el('div', 'dj-risk', `${STR.risk[def.risk]} · ${STR.cut(def.cut)}`));
+    info.append(el('div', 'dj-risk', `${STR.risk[def.risk]} · ${STR.cut(poolCut(def))}`));
     const btn = el('button', 'btn small accent', STR.recruit);
     btn.addEventListener('click', () => cb.onRecruit(def.id));
     info.append(btn);

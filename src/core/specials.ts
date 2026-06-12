@@ -2,9 +2,10 @@ import { getDj, SPOTS } from './data';
 import { isEnGardeAVue } from './crew';
 import { isSpotAvailable } from './payout';
 import { buildRegionRules } from './regions';
+import { NIGHT_PHASES, type NightPhaseId } from './phases';
 import { mulberry32 } from './rng';
 import type { Intensity } from './intensity';
-import type { GameState, GenreId, SpotDef, SpotId } from './types';
+import type { GameState, GenreId, NightState, SpotDef, SpotId } from './types';
 
 /**
  * Les nuits spéciales (story D) : à la prépa, ~1 nuit sur 3 dès rep ≥ 12, une
@@ -215,6 +216,38 @@ export interface ActiveSpecial {
   rewards: SpecialRewards;
   /** clause cassée (descente déclenchée sous noDescente) */
   breached: boolean;
+  /** soundclash : score du rival par phase (tiré au lancement) */
+  rival?: Record<NightPhaseId, number>;
+}
+
+/** victoire = battre le rival sur ≥ 2 phases sur 4 */
+export const CLASH_PHASES_TO_WIN = 2;
+export const CLASH_WIN_REP_MULT = 1.5;
+export const CLASH_LOSS_BUZZ_MULT = 0.5;
+
+/**
+ * Tire le rival du soir : un score de vague par phase, calibré sur le tier du
+ * spot (tier 1 : 0.37–0.57, tier 6 : 0.72–0.92). rng = flux dédié de la nuit.
+ */
+export function drawRival(spotTier: number, rng: () => number): Record<NightPhaseId, number> {
+  const rival = {} as Record<NightPhaseId, number>;
+  for (const p of NIGHT_PHASES) {
+    rival[p.id] = Math.min(0.95, 0.3 + 0.07 * spotTier + rng() * 0.2);
+  }
+  return rival;
+}
+
+/** Compare le waveScore moyen de chaque phase au rival. Phase non jouée = perdue. */
+export function resolveSoundclash(night: NightState): { phasesWon: number; won: boolean } {
+  const rival = night.special?.rival;
+  if (!rival) return { phasesWon: 0, won: false };
+  let phasesWon = 0;
+  for (const p of NIGHT_PHASES) {
+    const t = night.phaseWaveT[p.id];
+    const avg = t > 0 ? night.phaseWaveSum[p.id] / t : 0;
+    if (avg > rival[p.id]) phasesWon += 1;
+  }
+  return { phasesWon, won: phasesWon >= CLASH_PHASES_TO_WIN };
 }
 
 /** Construit le contrat de la nuit depuis l'offre acceptée (null sinon). */

@@ -109,6 +109,7 @@ describe('temps-vers-Teknival (politique autoplay)', () => {
     // mesuré 34 nuits après les phases (story B) — la borne ≥ 3× baseline reste tenue
     // mesuré 20 nuits après la descente (story C) : la politique gloutonne évacue
     // proprement à 0.85 (caisse conservée) au lieu de finir au bust — ça accélère
+    // re-mesuré 20 nuits après le rewire Volt (story D) — inchangé, le pin tient
     expect(nights).toBeGreaterThanOrEqual(18); // mesuré 20 − marge 2
     expect(nights).toBeLessThan(200);
   });

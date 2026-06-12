@@ -553,8 +553,9 @@ export const DJS: DjDef[] = [
   {
     id: 'volt',
     nom: 'Volt',
-    // RÉVISION CHANTIER 1 : Volt se débloque en gagnant le soundclash (Story D),
-    // premier DJ débloqué par le gameplay. Fallback : seuil de rep 420.
+    // premier DJ débloqué par le gameplay : gagner le soundclash (story D).
+    // repReq garde sa place dans l'ordre d'affichage mais le seuil est mort —
+    // une fois battu, Volt rejoint le crew vainqueur direct, à −30 % de cut.
     description: 'Le headliner rival. Electro carrée, ego carré — il ne joue que pour les crews qui l’ont battu.',
     technique: 4,
     charisme: 4,
@@ -563,6 +564,7 @@ export const DJS: DjDef[] = [
     cut: 0.24,
     repReq: 420,
     sprite: 1,
+    gated: 'soundclash',
   },
   {
     id: 'sirene',

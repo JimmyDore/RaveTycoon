@@ -26,7 +26,7 @@ describe('recruitment', () => {
     const state = newGame();
     state.cash = 999999;
     expect(recruitableDjs(state)).toHaveLength(0);
-    expect(lockedDjs(state)).toHaveLength(11);
+    expect(lockedDjs(state)).toHaveLength(10); // Volt est gated par le soundclash : invisible sans victoire
     state.rep = 40;
     const available = recruitableDjs(state).map((d) => d.id);
     expect(available).toContain('gamine');

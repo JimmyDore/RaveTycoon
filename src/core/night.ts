@@ -10,7 +10,7 @@ import { drawPrompt } from './prompts';
 import { startDescente, tickRaid } from './raid';
 import { buildRegionRules } from './regions';
 import { mulberry32 } from './rng';
-import { activeSpecial } from './specials';
+import { activeSpecial, drawRival } from './specials';
 import type {
   DjDef,
   EventContext,
@@ -110,6 +110,10 @@ export function createNight(
   const eventDelay = modifierSum(modifiers, 'eventDelay');
   // contrat de nuit spéciale (story D) : l'offre acceptée pour CETTE nuit
   const special = activeSpecial(state);
+  // soundclash : le rival du soir, tiré d'un flux RNG dédié (déterministe au seed)
+  if (special && special.id === 'soundclash') {
+    special.rival = drawRival(spot.tier, mulberry32((seed ^ 0x7a11) >>> 0));
+  }
   const capped = special?.constraints.crowdCap ? Math.round(cap * special.constraints.crowdCap) : cap;
   return {
     spotId,
@@ -162,6 +166,8 @@ export function createNight(
     softT: 0,
     setWaveSum: 0,
     setWaveSamples: 0,
+    phaseWaveSum: { ouverture: 0, rush: 0, creux: 0, aube: 0 },
+    phaseWaveT: { ouverture: 0, rush: 0, creux: 0, aube: 0 },
     montee: 0,
     bestDropThisSet: 0,
     setGoal: null,
@@ -354,6 +360,9 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   // waveScore : moyenne glissante ~WAVE_WINDOW s de « dans la vague »
   night.waveScore += ((inWave ? 1 : 0) - night.waveScore) * Math.min(1, dt / WAVE_WINDOW);
   night.bestWaveScore = Math.max(night.bestWaveScore, night.waveScore);
+  // score de vague par phase de nuit (soundclash, story D)
+  night.phaseWaveSum[night.nightPhase] += night.waveScore * dt;
+  night.phaseWaveT[night.nightPhase] += dt;
   night.setWaveSum += night.waveScore * dt;
   night.setWaveSamples += dt;
   if (tooSoft) night.softT += dt;
