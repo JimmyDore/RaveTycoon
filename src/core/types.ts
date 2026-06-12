@@ -79,7 +79,7 @@ export type GearBranch = 'A' | 'B';
 export interface GearEffects {
   /** platines B — charisme effectif +1 pour tous les DJs */
   charismeBonus?: number;
-  /** mur A / lumières A — la foule reste (multiplie le churn) */
+  /** mur A — la foule reste (multiplie le churn) */
   churnMult?: number;
   /** mur B / groupe A — le son porte moins loin (multiplie la heat) */
   heatMult?: number;
@@ -91,6 +91,12 @@ export interface GearEffects {
   dropMult?: number;
   /** logistique B — cautions multipliées (< 1 = réduction) */
   cautionMult?: number;
+  /** lumières A — le burnout de foule charge moins vite (rewire chantier 1 fait) */
+  burnoutMult?: number;
+  /** logistique A — bonus plat sur la proba de négociation de descente */
+  negoBonus?: number;
+  /** logistique B (tiers 4+) — l'évacuation propre ne coûte plus de rep */
+  evacRepFree?: boolean;
 }
 
 export interface GearItem {

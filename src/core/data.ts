@@ -340,11 +340,10 @@ export const GEAR: Record<GearCategory, GearItem[]> = {
     { category: 'lumieres', tier: 0, nom: 'Trois ampoules', price: 0, value: 0, seizable: false },
     { category: 'lumieres', tier: 1, nom: 'Barre de LEDs', price: 300, value: 0.06, seizable: true },
     { category: 'lumieres', tier: 2, nom: 'Lasers + stroboscope', price: 2000, value: 0.12, seizable: true },
-    // voie A — Hypnose : vibe +, la foule décroche moins
-    // RÉVISION CHANTIER 1 : « burnout de foule ralenti » → fallback churnMult
-    { category: 'lumieres', tier: 3, branch: 'A', nom: 'Show hypnose', price: 5500, value: 0.24, seizable: true, effects: { churnMult: 0.9 } },
-    { category: 'lumieres', tier: 4, branch: 'A', nom: 'Spirale de lasers', price: 4000, value: 0.28, seizable: true, effects: { churnMult: 0.85 } },
-    { category: 'lumieres', tier: 5, branch: 'A', nom: 'Aurore artificielle', price: 10000, value: 0.32, seizable: true, effects: { churnMult: 0.8 } },
+    // voie A — Hypnose : vibe +, le burnout de foule charge moins vite (rewire fait)
+    { category: 'lumieres', tier: 3, branch: 'A', nom: 'Show hypnose', price: 5500, value: 0.24, seizable: true, effects: { burnoutMult: 0.8 } },
+    { category: 'lumieres', tier: 4, branch: 'A', nom: 'Spirale de lasers', price: 4000, value: 0.28, seizable: true, effects: { burnoutMult: 0.7 } },
+    { category: 'lumieres', tier: 5, branch: 'A', nom: 'Aurore artificielle', price: 10000, value: 0.32, seizable: true, effects: { burnoutMult: 0.6 } },
     // voie B — Stroboscopique : le drop paie plus
     { category: 'lumieres', tier: 3, branch: 'B', nom: 'Mur de strobes', price: 5500, value: 0.2, seizable: true, effects: { dropMult: 1.25 } },
     { category: 'lumieres', tier: 4, branch: 'B', nom: 'Tempête blanche', price: 4000, value: 0.22, seizable: true, effects: { dropMult: 1.5 } },
@@ -356,16 +355,14 @@ export const GEAR: Record<GearCategory, GearItem[]> = {
     { category: 'logistique', tier: 0, nom: 'Personne au portail', price: 0, value: 1.0, seizable: false },
     { category: 'logistique', tier: 1, nom: 'Deux guetteurs', price: 450, value: 0.85, seizable: true },
     { category: 'logistique', tier: 2, nom: 'Talkies + spots de repli', price: 2250, value: 0.7, seizable: true },
-    // voie A — Réseau : la chaleur monte encore moins
-    // RÉVISION CHANTIER 1 : « descente retardée, négo + » → fallback value (heat) plus bas
-    { category: 'logistique', tier: 3, branch: 'A', nom: 'Réseau de la scène', price: 6000, value: 0.55, seizable: true },
-    { category: 'logistique', tier: 4, branch: 'A', nom: 'Toile d’indics', price: 4000, value: 0.48, seizable: true },
-    { category: 'logistique', tier: 5, branch: 'A', nom: 'La scène entière', price: 10000, value: 0.4, seizable: true },
-    // voie B — Mobilité : cautions −50 %
-    // RÉVISION CHANTIER 1 : « évacuation sans malus de rep » à brancher sur la descente
+    // voie A — Réseau : la chaleur monte moins ET la négo de descente s'arrange (rewire fait)
+    { category: 'logistique', tier: 3, branch: 'A', nom: 'Réseau de la scène', price: 6000, value: 0.55, seizable: true, effects: { negoBonus: 0.05 } },
+    { category: 'logistique', tier: 4, branch: 'A', nom: 'Toile d’indics', price: 4000, value: 0.48, seizable: true, effects: { negoBonus: 0.08 } },
+    { category: 'logistique', tier: 5, branch: 'A', nom: 'La scène entière', price: 10000, value: 0.4, seizable: true, effects: { negoBonus: 0.12 } },
+    // voie B — Mobilité : cautions −50 %, et dès le tier 4 l'évacuation sans malus de rep (rewire fait)
     { category: 'logistique', tier: 3, branch: 'B', nom: 'Convoi mobile', price: 6000, value: 0.6, seizable: true, effects: { cautionMult: 0.5 } },
-    { category: 'logistique', tier: 4, branch: 'B', nom: 'Caravane éclair', price: 4000, value: 0.55, seizable: true, effects: { cautionMult: 0.5 } },
-    { category: 'logistique', tier: 5, branch: 'B', nom: 'Flotte insaisissable', price: 10000, value: 0.48, seizable: true, effects: { cautionMult: 0.35 } },
+    { category: 'logistique', tier: 4, branch: 'B', nom: 'Caravane éclair', price: 4000, value: 0.55, seizable: true, effects: { cautionMult: 0.5, evacRepFree: true } },
+    { category: 'logistique', tier: 5, branch: 'B', nom: 'Flotte insaisissable', price: 10000, value: 0.48, seizable: true, effects: { cautionMult: 0.35, evacRepFree: true } },
     // mythique — signature : les bleus cherchent encore l'entrée (heat ×0.3)
     { category: 'logistique', tier: 6, nom: 'La Toile invisible', price: 26000, value: 0.3, seizable: true, mythic: true },
   ],

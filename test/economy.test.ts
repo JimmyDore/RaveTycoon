@@ -252,14 +252,14 @@ describe('les voies dans la sim', () => {
     expect(effectiveCharisme(state, getDj('tonton'))).toBe(2);
   });
 
-  it('mur A + lumières A : le churn se multiplie', () => {
+  it('mur A : le churn baisse — les lumières A jouent sur le burnout, pas le churn', () => {
     const state = newGame();
     expect(branchChurnMult(state)).toBe(1);
     state.gear.mur = 3;
     state.gearBranch.mur = 'A';
     state.gear.lumieres = 3;
-    state.gearBranch.lumieres = 'A';
-    expect(branchChurnMult(state)).toBeCloseTo(0.88 * 0.9, 5);
+    state.gearBranch.lumieres = 'A'; // rewire chantier 1 : burnoutMult, plus de churnMult
+    expect(branchChurnMult(state)).toBeCloseTo(0.88, 5);
   });
 
   it('mur B + groupe A : la heat se multiplie', () => {

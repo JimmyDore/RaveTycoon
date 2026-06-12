@@ -1,4 +1,4 @@
-import { getDj } from './data';
+import { getDj, ownedGear } from './data';
 import { INTENSITY_LEVEL } from './intensity';
 import { closeCurrentSet } from './night';
 import type { GameState, NightState, NightTickEvent } from './types';
@@ -124,6 +124,7 @@ export function negoCost(night: NightState): number {
 export function negoChance(state: GameState, night: NightState): number {
   const dj = night.currentDj ? getDj(night.currentDj) : null;
   let p = 0.25 + 0.15 * logTier(state);
+  p += ownedGear(state, 'logistique').effects?.negoBonus ?? 0; // voie Réseau
   if (dj?.risk === 'discret') p += 0.15;
   if (INTENSITY_LEVEL[night.intensity] <= INTENSITY_LEVEL.groove) p += 0.2;
   return Math.min(0.9, p);

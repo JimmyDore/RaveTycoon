@@ -242,12 +242,9 @@ export function currentWave(state: GameState, night: NightState): WaveState {
   return { attente, tol: tolEff, level, gap, inWave: Math.abs(gap) <= tolEff };
 }
 
-/** Produit des churnMult de voie (mur Infrabasses, lumières Hypnose). */
+/** churnMult de voie (mur Infrabasses) — les lumières Hypnose jouent sur le burnout. */
 export function branchChurnMult(state: GameState): number {
-  return (
-    (ownedGear(state, 'mur').effects?.churnMult ?? 1) *
-    (ownedGear(state, 'lumieres').effects?.churnMult ?? 1)
-  );
+  return ownedGear(state, 'mur').effects?.churnMult ?? 1;
 }
 
 /** Produit des heatMult de voie (mur Line array, groupe Silencieux). */
@@ -360,8 +357,9 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   const { tol, gap, inWave } = wave;
   const tooSoft = gap < -tol;
   const tooHard = gap > tol;
-  // burnout : charge à PEAK/RINSE, décharge à CHILL/GROOVE
-  const burnoutRate = BURNOUT_CHARGE[night.intensity] ?? -(BURNOUT_DECAY[night.intensity] ?? 0);
+  // burnout : charge à PEAK/RINSE (les lumières Hypnose la ralentissent), décharge sinon
+  const burnoutCharge = (BURNOUT_CHARGE[night.intensity] ?? 0) * (ownedGear(state, 'lumieres').effects?.burnoutMult ?? 1);
+  const burnoutRate = burnoutCharge > 0 ? burnoutCharge : -(BURNOUT_DECAY[night.intensity] ?? 0);
   night.burnout = clamp(night.burnout + burnoutRate * dt, 0, 1);
   // waveScore : moyenne glissante ~WAVE_WINDOW s de « dans la vague »
   night.waveScore += ((inWave ? 1 : 0) - night.waveScore) * Math.min(1, dt / WAVE_WINDOW);

@@ -82,6 +82,26 @@ describe('évacuer', () => {
     expect(evac.repGained).toBeLessThan(full.repGained); // rep ×0.4
     expect(state.busts).toBe(0);
   });
+
+  it('logistique voie B tier 4+ : l’évacuation ne coûte plus de rep (evacRepFree)', () => {
+    function evacRep(withConvoi: boolean): number {
+      const state = newGame(42);
+      if (withConvoi) {
+        state.gear.logistique = 4; // Caravane éclair
+        state.gearBranch.logistique = 'B';
+      }
+      const night = createNight(state, 'champ', ['tonton'], 7);
+      startSet(state, night, 'tonton');
+      night.heat = 0.86;
+      tickNight(state, night, 0.1);
+      raidEvacuer(state, night);
+      Object.assign(night, { t: 100, bank: 0, peakCrowd: 30, vibeSum: 80, vibeSamples: 100 });
+      return settleNight(state, night).repGained;
+    }
+    // sans le convoi : rep ×0.4 ; avec : plein tarif
+    expect(evacRep(true)).toBeGreaterThan(evacRep(false));
+    expect(evacRep(false)).toBe(Math.round(evacRep(true) * 0.4));
+  });
 });
 
 describe('négocier', () => {
@@ -106,6 +126,18 @@ describe('négocier', () => {
     expect(negoChance(state, night)).toBeCloseTo(0.25, 5);
     state.gear.logistique = 6; // plafonné à 3 → +0.45
     expect(negoChance(state, night)).toBeCloseTo(0.7, 5);
+  });
+
+  it('logistique voie A : le réseau de la scène améliore la négo (negoBonus)', () => {
+    const { state, night } = playing();
+    setIntensity(night, 'rinse'); // retire le +0.2 « ≤ GROOVE » pour lire le bonus sous le cap
+    state.gear.logistique = 3;
+    state.gearBranch.logistique = 'B'; // Mobilité : pas de bonus de négo
+    expect(negoChance(state, night)).toBeCloseTo(0.25 + 0.15 * 3, 5); // 0.7
+    state.gearBranch.logistique = 'A'; // Réseau de la scène : +0.05
+    expect(negoChance(state, night)).toBeCloseTo(0.75, 5);
+    state.gear.logistique = 5; // La scène entière : +0.12 (logTier plafonné à 3)
+    expect(negoChance(state, night)).toBeCloseTo(0.82, 5);
   });
 
   it('succès : heat → 0.45, la nuit continue ; échec : bust immédiat', () => {

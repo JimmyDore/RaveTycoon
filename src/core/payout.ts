@@ -69,8 +69,12 @@ export function settleNight(state: GameState, night: NightState): NightResult {
   const payout = Math.round(gross * (1 - cuts));
   const survivedHighHeat = night.peakHeat >= 0.8;
   // le dernier drop de l'aube compte double encore : re-crédité au règlement.
-  // L'évacuation propre conserve la caisse, mais la légende en prend un coup (×0.4).
-  const evacMult = night.evacuated ? 0.4 : 1;
+  // l'évacuation coûte ×0.4 de rep — sauf convoi voie Mobilité tier 4+ (rewire fait)
+  const evacMult = night.evacuated
+    ? ownedGear(state, 'logistique').effects?.evacRepFree
+      ? 1
+      : 0.4
+    : 1;
   const specialRepMult = special?.rewards.repMult ?? 1;
   // soundclash : la victoire paie ×1.5 (résolu avant repGained)
   const clash = special?.id === 'soundclash' ? resolveSoundclash(night) : null;

@@ -171,6 +171,18 @@ describe('la vague : attente, tolérance, burnout', () => {
     expect(b.night.burnout).toBeCloseTo(0.6, 5); // ×= DROP_BURNOUT_RESET
   });
 
+  it('lumières voie A : le burnout de foule charge moins vite (rewire fait)', () => {
+    const plain = playingNight(9);
+    setIntensity(plain.night, 'rinse');
+    tickFor(plain.state, plain.night, 8);
+    const hypnose = playingNight(9);
+    hypnose.state.gear.lumieres = 4;
+    hypnose.state.gearBranch.lumieres = 'A'; // Spirale de lasers : burnout ×0.7
+    setIntensity(hypnose.night, 'rinse');
+    tickFor(hypnose.state, hypnose.night, 8);
+    expect(hypnose.night.burnout).toBeCloseTo(plain.night.burnout * 0.7, 2);
+  });
+
   it('waveScore lisse « dans la vague » et bestWaveScore remonte au résultat', () => {
     const { state, night } = playingNight();
     // politique « suivre l'attente » : toujours dans la vague → l'EMA monte
