@@ -3,6 +3,7 @@ import { essenceCost, restockCost } from './economy';
 import { applyNightRest, effectiveCut, getCrewMember } from './crew';
 import { buzzAfterNight } from './idle';
 import { buildRegionRules } from './regions';
+import { BREACH_REFUND } from './specials';
 import { hasPerk } from './tour';
 import type { GameState, GearBranch, GearCategory, GearItem, NightResult, NightState } from './types';
 
@@ -51,6 +52,7 @@ const SUNRISE_REP = 3;
 
 /** Sunrise reached: bank × prix libre, minus the crew's cuts. */
 export function settleNight(state: GameState, night: NightState): NightResult {
+  const special = night.special;
   const vibe = avgVibe(night);
   const spot = getSpot(night.spotId);
   const donationMult =
@@ -68,9 +70,10 @@ export function settleNight(state: GameState, night: NightState): NightResult {
   // le dernier drop de l'aube compte double encore : re-crédité au règlement.
   // L'évacuation propre conserve la caisse, mais la légende en prend un coup (×0.4).
   const evacMult = night.evacuated ? 0.4 : 1;
+  const specialRepMult = special?.rewards.repMult ?? 1;
   const repGained = Math.round(
     (SUNRISE_REP + night.peakCrowd / 10 + (survivedHighHeat ? 15 : 0) + night.repBonus + night.lastAubeDropRep) *
-      evacMult,
+      evacMult * specialRepMult,
   );
   // garde-fou : évacuer le Teknival n'est pas le gagner
   const won = night.spotId === 'teknival' && !night.evacuated;
@@ -90,6 +93,10 @@ export function settleNight(state: GameState, night: NightState): NightResult {
   const softFrac = night.t > 0 ? Math.min(1, night.softT / night.t) : 0;
   const quality = Math.min(1, (0.6 * vibe + 0.5 * (night.peakCrowd / night.cap)) * (1 - 0.3 * softFrac));
   buzzAfterNight(state, quality, night.evacuated ? 0.8 : 1);
+
+  // rupture de contrat : 60 % de l'avance repart (jamais en dessous de 0 en caisse)
+  const contractRefund = special?.breached ? Math.round((special.rewards.cashUpfront ?? 0) * BREACH_REFUND) : 0;
+  if (contractRefund > 0) state.cash = Math.max(0, state.cash - contractRefund);
 
   const result: NightResult = {
     spotId: night.spotId,
@@ -117,6 +124,8 @@ export function settleNight(state: GameState, night: NightState): NightResult {
     journal: night.journal,
     goalsMet: night.goalsMet,
     modifiers: night.modifiers,
+    specialId: special?.id ?? null,
+    contractRefund,
   };
   trackRecords(state, result);
   return result;
@@ -142,6 +151,7 @@ function bestSeizable(state: GameState): GearCategory | null {
  * Logistique softens the blow by one step the first time it would seize.
  */
 export function applyBust(state: GameState, night: NightState): NightResult {
+  const special = night.special;
   const spot = getSpot(night.spotId);
   state.busts += 1;
   const offense = state.busts;
@@ -175,7 +185,7 @@ export function applyBust(state: GameState, night: NightState): NightResult {
   const cuts = cutsTotal(state, night);
   const payout = Math.round(gross * (1 - cuts));
   state.cash = Math.max(0, state.cash + payout - fine);
-  const repGained = Math.round(night.peakCrowd / 20 + night.repBonus);
+  const repGained = Math.round((night.peakCrowd / 20 + night.repBonus) * (special?.rewards.repMult ?? 1));
   state.rep += repGained;
   state.nights += 1;
   // PAS de tickGardeAVue ici (voir son doc-comment) : une garde à vue
@@ -183,6 +193,10 @@ export function applyBust(state: GameState, night: NightState): NightResult {
   state.casier += 1;
   carryDamage(state, night);
   applyNightRest(state, playedDjs(night));
+
+  // rupture de contrat : 60 % de l'avance repart (jamais en dessous de 0 en caisse)
+  const contractRefund = special?.breached ? Math.round((special.rewards.cashUpfront ?? 0) * BREACH_REFUND) : 0;
+  if (contractRefund > 0) state.cash = Math.max(0, state.cash - contractRefund);
 
   const result: NightResult = {
     spotId: night.spotId,
@@ -210,6 +224,8 @@ export function applyBust(state: GameState, night: NightState): NightResult {
     journal: night.journal,
     goalsMet: night.goalsMet,
     modifiers: night.modifiers,
+    specialId: special?.id ?? null,
+    contractRefund,
   };
   trackRecords(state, result);
   return result;

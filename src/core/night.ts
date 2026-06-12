@@ -10,6 +10,7 @@ import { drawPrompt } from './prompts';
 import { startDescente, tickRaid } from './raid';
 import { buildRegionRules } from './regions';
 import { mulberry32 } from './rng';
+import { activeSpecial } from './specials';
 import type {
   DjDef,
   EventContext,
@@ -107,6 +108,9 @@ export function createNight(
   // modifs du soir (météo/foule) — flux RNG dédié, ne perturbe pas le flux des events
   const modifiers = rollModifiers(spot.tier, seed, rules.negativeModifierWeightMult);
   const eventDelay = modifierSum(modifiers, 'eventDelay');
+  // contrat de nuit spéciale (story D) : l'offre acceptée pour CETTE nuit
+  const special = activeSpecial(state);
+  const capped = special?.constraints.crowdCap ? Math.round(cap * special.constraints.crowdCap) : cap;
   return {
     spotId,
     // genre du set courant — initialisé au genre du 1er DJ (sert la phase transition
@@ -125,7 +129,7 @@ export function createNight(
     setQuality: 0,
     crowd: 0,
     peakCrowd: 0,
-    cap,
+    cap: capped,
     vibe: 0.4,
     vibeSum: 0,
     vibeSamples: 0,
@@ -133,7 +137,7 @@ export function createNight(
     peakHeat: startHeat,
     bank: 0,
     barStock,
-    barCap: BAR_STOCK_CAP[barStock] * potentialBar(spot, cap),
+    barCap: BAR_STOCK_CAP[barStock] * potentialBar(spot, capped),
     barSales: 0,
     cautionPaid,
     murStress: 0,
@@ -178,6 +182,7 @@ export function createNight(
     raid: null,
     evacuated: false,
     negoCorruption: false,
+    special,
     rng: mulberry32(seed),
     // flux dédié, décalé du seed pour ne pas perturber le flux des events
     goalRng: mulberry32((seed ^ 0x9e3779b9) >>> 0),
@@ -209,16 +214,20 @@ export function currentWave(state: GameState, night: NightState): WaveState {
   const tech = dj && member ? effectiveTechnique(dj, member) : 1;
   // baseline d'attente phasée : l'arc de la nuit (ouverture→rush→creux→aube)
   const baseline = phaseAttente(night.duration > 0 ? night.t / night.duration : 0);
+  // contrat : « anniversaire » relève l'attente, les puristes pardonnent moins
+  const mode = night.special?.rewards.attenteMode;
+  const baselineEff = mode === 'haute' ? baseline + 0.15 : baseline;
   const attente = clamp(
-    baseline * ATTENTE_GENRE[night.genreId] - BURNOUT_ATTENTE_MALUS * night.burnout,
+    baselineEff * ATTENTE_GENRE[night.genreId] - BURNOUT_ATTENTE_MALUS * night.burnout,
     0,
     1,
   );
   const level = INTENSITY_LEVEL[night.intensity];
   const tol = Math.max(0.02, TOL_BASE + TOL_PER_TECH * tech + night.rules.attenteTolBonus);
+  const tolEff = Math.max(0.02, tol - (mode === 'haute' ? 0.05 : mode === 'puriste' ? 0.08 : 0));
   const attenteEff = attente + (level - attente) * Math.min(1, CHARISME_PULL * effectiveCharisme(state, dj));
   const gap = level - attenteEff;
-  return { attente, tol, level, gap, inWave: Math.abs(gap) <= tol };
+  return { attente, tol: tolEff, level, gap, inWave: Math.abs(gap) <= tolEff };
 }
 
 /** Produit des churnMult de voie (mur Infrabasses, lumières Hypnose). */
@@ -440,12 +449,17 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   if (!night.raid && night.heat >= night.rules.descenteThreshold) {
     startDescente(state, night);
     events.push({ type: 'descente' });
+    // clause « pas de descente » : les bleus se moquent du contrat, mais le client non
+    if (night.special?.constraints.noDescente && !night.special.breached) {
+      night.special.breached = true;
+      night.journal.push({ t: night.t, titre: 'Le contrat', outcome: 'La descente a tout gâché. Le client veut 60 % de son avance.' });
+    }
   }
   tickRaid(state, night, dt, events);
   if (night.phase !== 'playing') return events; // bust par timer (ou siège, task 9)
 
   // --- bar drip — plafonné par le stock embarqué -------------------------------------
-  const drip = night.crowd * BAR_DRIP * spot.priceMult * priceMod * phase.barMult * night.rules.barMult * dt;
+  const drip = night.crowd * BAR_DRIP * spot.priceMult * priceMod * phase.barMult * night.rules.barMult * (night.special?.rewards.barMult ?? 1) * dt;
   const sold = Math.min(drip, Math.max(0, night.barCap - night.barSales));
   night.barSales += sold;
   night.bank += sold;
@@ -542,7 +556,11 @@ export function applyEffects(state: GameState, night: NightState, fx: EventEffec
   if (fx.vibe) night.vibe = clamp(night.vibe + fx.vibe, 0, 1);
   if (fx.crowdFrac) night.crowd = clamp(night.crowd * (1 + fx.crowdFrac), 0, night.cap);
   if (fx.cash) night.bank = Math.max(0, night.bank + fx.cash);
-  if (fx.forceIntensity) night.intensity = fx.forceIntensity;
+  if (fx.forceIntensity) {
+    const maxI = night.special?.constraints.maxIntensity;
+    night.intensity =
+      maxI && INTENSITY_LEVEL[fx.forceIntensity] > INTENSITY_LEVEL[maxI] ? maxI : fx.forceIntensity;
+  }
   if (fx.qualityMult) night.qualityMultRestOfSet *= fx.qualityMult;
   if (fx.soundCut) night.soundCutT = Math.max(night.soundCutT, fx.soundCut);
   if (fx.rep) night.repBonus += fx.rep * getPhase(night.nightPhase).repMult;
@@ -585,6 +603,8 @@ export function seizeFloorPrompt(state: GameState, night: NightState): FloorProm
  */
 export function setIntensity(night: NightState, i: Intensity): boolean {
   if (night.phase !== 'playing' || night.intensity === i) return false;
+  const maxI = night.special?.constraints.maxIntensity;
+  if (maxI && INTENSITY_LEVEL[i] > INTENSITY_LEVEL[maxI]) return false; // contrat : jamais RINSE
   night.intensity = i;
   return true;
 }
@@ -596,8 +616,10 @@ export function setIntensity(night: NightState, i: Intensity): boolean {
 export function dropMontee(state: GameState, night: NightState): boolean {
   if (night.phase !== 'playing' || night.montee < MONTEE_MIN_DROP) return false;
   const m = night.montee;
-  // lumières voie Stroboscopique : le payoff du drop est multiplié
-  const payoff = ownedGear(state, 'lumieres').effects?.dropMult ?? 1;
+  // lumières voie Stroboscopique : le payoff du drop est multiplié ; la nuit à
+  // thème (contrat) paie ses drops ×1.4 en plus
+  const payoff =
+    (ownedGear(state, 'lumieres').effects?.dropMult ?? 1) * (night.special?.rewards.dropPayoffMult ?? 1);
   // la vague paie, la foule cramée plafonne : ~1.5× au sommet, ~0.4× spammé
   const waveMult = (0.5 + night.waveScore) * (1 - BURNOUT_DROP_MALUS * night.burnout);
   // l'aube paie : le drop crédite de la rep (×2 d'aube intégré au barème de 6),

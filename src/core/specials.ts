@@ -205,3 +205,29 @@ export function declineSpecialOffer(state: GameState): boolean {
   offer.declined = true;
   return true;
 }
+
+/** Le contrat actif d'une nuit : la def résolue (ids concrets), plus l'état de rupture. */
+export interface ActiveSpecial {
+  id: string;
+  nom: string;
+  icon: string;
+  constraints: SpecialConstraints;
+  rewards: SpecialRewards;
+  /** clause cassée (descente déclenchée sous noDescente) */
+  breached: boolean;
+}
+
+/** Construit le contrat de la nuit depuis l'offre acceptée (null sinon). */
+export function activeSpecial(state: GameState): ActiveSpecial | null {
+  const offer = state.specialOffer;
+  if (!offer || !offer.accepted || offer.night !== state.nights) return null;
+  const def = getSpecial(offer.id);
+  return {
+    id: def.id,
+    nom: def.nom,
+    icon: def.icon,
+    constraints: { ...def.constraints, genreImpose: offer.genreId, spotImpose: offer.spotId },
+    rewards: { ...def.rewards, cashUpfront: offer.cashUpfront },
+    breached: false,
+  };
+}

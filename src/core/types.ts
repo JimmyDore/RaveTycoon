@@ -2,7 +2,7 @@ import type { Intensity } from './intensity';
 import type { NightModifierDef } from './modifiers';
 import type { NightPhaseId } from './phases';
 import type { RegionRules, RegionState } from './regions';
-import type { SpecialOfferState } from './specials';
+import type { ActiveSpecial, SpecialOfferState } from './specials';
 
 export type SpotId =
   | 'champ'
@@ -434,6 +434,8 @@ export interface NightState {
   evacuated: boolean;
   /** négo réussie : 50 % de chance d'avoir planté l'arc « flic corrompu » (partie 2) */
   negoCorruption: boolean;
+  /** contrat de nuit spéciale accepté à la prépa, ou null */
+  special: ActiveSpecial | null;
   rng: () => number;
   /** flux RNG dédié au tirage des objectifs — isolé du flux des events */
   goalRng: () => number;
@@ -492,4 +494,8 @@ export interface NightResult {
   goalsMet: string[];
   /** modificateurs passifs du soir (météo/foule), pour rappel au recap */
   modifiers: NightModifierDef[];
+  /** id de la nuit spéciale jouée (null sinon) */
+  specialId: string | null;
+  /** remboursement de rupture de contrat (0 sinon) */
+  contractRefund: number;
 }

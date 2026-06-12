@@ -11,7 +11,10 @@ import {
   teufPriveeCash,
 } from './specials';
 import { getDj, getSpot } from './data';
+import { createNight, currentWave, dropMontee, setIntensity, startSet, tickNight } from './night';
+import { applyBust, settleNight } from './payout';
 import { newGame } from './save';
+import type { SpecialOfferState } from './specials';
 import type { GameState } from './types';
 
 function readyState(rep = 50): GameState {
@@ -153,5 +156,115 @@ describe("l'offre persistée", () => {
     state.nights = 5;
     state.specialOffer = { id: 'anniversaire', night: 3, accepted: false, declined: false };
     expect(acceptSpecialOffer(state)).toBe(false);
+  });
+});
+
+/** Pose une offre acceptée et lance la nuit dessus. */
+function contractNight(offer: Omit<SpecialOfferState, 'night' | 'accepted' | 'declined'>, seed = 7) {
+  const state = newGame(42);
+  state.rep = 50;
+  state.specialOffer = { ...offer, night: state.nights, accepted: true, declined: false };
+  const night = createNight(state, offer.spotId ?? 'champ', ['tonton'], seed);
+  startSet(state, night, 'tonton');
+  return { state, night };
+}
+
+describe('le contrat appliqué à la nuit', () => {
+  it('la teuf privée plafonne la foule à 60 % et refuse RINSE', () => {
+    const { night } = contractNight({ id: 'teuf-privee', genreId: 'hardtek', spotId: 'champ', cashUpfront: 180 });
+    expect(night.special?.id).toBe('teuf-privee');
+    const witness = createNight(newGame(42), 'champ', ['tonton'], 7);
+    expect(night.cap).toBe(Math.round(witness.cap * 0.6));
+    expect(setIntensity(night, 'rinse')).toBe(false); // jamais RINSE sous contrat
+    expect(setIntensity(night, 'peak')).toBe(true);
+  });
+
+  it("une offre refusée ou périmée ne s'applique pas", () => {
+    const state = newGame(42);
+    state.specialOffer = { id: 'anniversaire', night: 99, accepted: true, declined: false };
+    const night = createNight(state, 'champ', ['tonton'], 7);
+    expect(night.special).toBeNull();
+  });
+
+  it("attenteMode haute : attente +0.15, tolérance −0.05 ; puriste : tolérance −0.08", () => {
+    const base = contractNight({ id: 'nuit-a-theme', genreId: 'hardtek' });
+    const witnessState = newGame(42);
+    const witness = createNight(witnessState, 'champ', ['tonton'], 7);
+    startSet(witnessState, witness, 'tonton');
+    const w = currentWave(witnessState, witness);
+    const puriste = currentWave(base.state, base.night);
+    expect(puriste.tol).toBeCloseTo(w.tol - 0.08, 5);
+    const haute = contractNight({ id: 'anniversaire' });
+    const h = currentWave(haute.state, haute.night);
+    expect(h.tol).toBeCloseTo(w.tol - 0.05, 5);
+    expect(h.attente).toBeGreaterThan(w.attente); // baseline +0.15 (clampée à 1)
+  });
+
+  it('nuit à thème : le drop paie ×1.4, la buvette tourne ×1.3', () => {
+    const theme = contractNight({ id: 'nuit-a-theme', genreId: 'hardtek' }, 13);
+    const plain = (() => {
+      const state = newGame(42);
+      state.rep = 50; // même rep que contractNight — l'arrivée dépend de la rep
+      const night = createNight(state, 'champ', ['tonton'], 13);
+      startSet(state, night, 'tonton');
+      return { state, night };
+    })();
+    for (const { night } of [theme, plain]) {
+      Object.assign(night, { montee: 1, burnout: 0, waveScore: 0.5, vibe: 0.3, crowd: 20 });
+    }
+    dropMontee(theme.state, theme.night);
+    dropMontee(plain.state, plain.night);
+    expect(theme.night.vibe).toBeGreaterThan(plain.night.vibe);
+    // buvette ×1.3 sur un tick identique
+    theme.night.bank = 0;
+    plain.night.bank = 0;
+    theme.night.crowd = 20;
+    plain.night.crowd = 20;
+    tickNight(theme.state, theme.night, 0.1);
+    tickNight(plain.state, plain.night, 0.1);
+    expect(theme.night.bank).toBeCloseTo(plain.night.bank * 1.3, 5);
+  });
+
+  it('anniversaire : rep ×2 au règlement ; teuf privée : zéro rep', () => {
+    const settle = (id: string, genreId?: 'hardtek') => {
+      const { state, night } = contractNight({ id, genreId });
+      Object.assign(night, { phase: 'ended', sunrise: true, t: 180, bank: 0, peakCrowd: 30, vibeSamples: 1 });
+      return { rep: settleNight(state, night).repGained, state };
+    };
+    const plain = (() => {
+      const state = newGame(42);
+      const night = createNight(state, 'champ', ['tonton'], 7);
+      startSet(state, night, 'tonton');
+      Object.assign(night, { phase: 'ended', sunrise: true, t: 180, bank: 0, peakCrowd: 30, vibeSamples: 1 });
+      return settleNight(state, night).repGained;
+    })();
+    expect(settle('anniversaire').rep).toBe(plain * 2);
+    expect(settle('teuf-privee', 'hardtek').rep).toBe(0);
+  });
+
+  it('le seuil de descente atteint sous noDescente rompt le contrat : remboursement 60 %', () => {
+    const { state, night } = contractNight({ id: 'teuf-privee', genreId: 'hardtek', spotId: 'champ', cashUpfront: 180 });
+    state.cash = 500;
+    night.heat = 0.86;
+    const events = tickNight(state, night, 0.1);
+    expect(events.some((e) => e.type === 'descente')).toBe(true); // la descente se joue quand même
+    expect(night.special?.breached).toBe(true);
+    Object.assign(night, { phase: 'ended', sunrise: true, t: 180, bank: 0, vibeSamples: 1 });
+    night.raid!.status = 'done';
+    night.raid!.outcome = 'nego-ok';
+    const result = settleNight(state, night);
+    expect(result.contractRefund).toBe(Math.round(180 * 0.6));
+    expect(state.cash).toBe(500 - 108);
+  });
+
+  it('le bust sous contrat rembourse aussi (la descente a forcément eu lieu)', () => {
+    const { state, night } = contractNight({ id: 'teuf-privee', genreId: 'hardtek', spotId: 'champ', cashUpfront: 180 });
+    state.cash = 500;
+    night.heat = 0.86;
+    tickNight(state, night, 0.1);
+    Object.assign(night, { phase: 'ended', busted: true, t: 100, bank: 0 });
+    const result = applyBust(state, night);
+    expect(result.contractRefund).toBe(108);
+    expect(result.repGained).toBe(0); // repMult 0 vaut aussi sur le bust
   });
 });
