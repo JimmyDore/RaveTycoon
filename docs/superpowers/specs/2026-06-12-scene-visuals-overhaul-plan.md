@@ -1,6 +1,7 @@
 # Rave Tycoon — Refonte du rendu de scène (in-game) : plan d'implémentation
 
-**Status**: Plan prêt à exécuter — issu d'une exploration code + dogfood navigateur (2026-06-12)
+**Status**: ✅ Implémenté (2026-06-12) — phases 0–4 livrées en 7 commits (a63c610…ff732cc),
+vérifiées par gates indépendants + review adversariale 4 lentilles + QA visuelle headless
 **Auteur**: Jimmy + Claude
 **Périmètre**: uniquement la **scène de jeu** (`src/render/*`), pas les menus.
 **Pilier directeur**: on garde le style pixel-art LimeZu tel quel. On ne dessine quasi rien à la
