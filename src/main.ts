@@ -7,6 +7,7 @@ import { applyIdleTime, rushRepair, startRepair } from './core/idle';
 import { changeBrief, createNight, dropMontee, resolveEvent, seizeFloorPrompt, startSet, tickNight } from './core/night';
 import { applyBust, buyGearUpgrade, settleNight, switchGearBranch } from './core/payout';
 import { exportCode, importCode, loadGame, newGame, saveGame } from './core/save';
+import { buyPerk } from './core/tour';
 import type { Brief, GameState, NightResult, NightState } from './core/types';
 import { RaverSim } from './render/ravers';
 import { SceneRenderer, defaultFloor } from './render/scene';
@@ -14,6 +15,7 @@ import { loadSprites, type SpriteBank } from './render/sprites';
 import { fetchBoard, submitScore } from './ui/api';
 import { shareRecapCard } from './ui/recap-card';
 import {
+  renderHeritage,
   renderLeaderboard,
   renderNight,
   renderPrepare,
@@ -225,6 +227,18 @@ function showRecap(result: NightResult): void {
   });
 }
 
+function showHeritage(): void {
+  renderHeritage(app, state, {
+    onBuyPerk: (perkId) => {
+      if (buyPerk(state, perkId)) {
+        saveGame(localStorage, state);
+        showHeritage();
+      }
+    },
+    onBack: () => showPrepare(),
+  });
+}
+
 function showPrepare(): void {
   applyIdleTime(state, Date.now());
   saveGame(localStorage, state);
@@ -323,6 +337,7 @@ function showPrepare(): void {
     onLeaderboard: () => {
       renderLeaderboard(app, fetchBoard, () => showPrepare());
     },
+    onHeritage: () => showHeritage(),
   });
 }
 

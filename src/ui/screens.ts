@@ -1,9 +1,9 @@
-import { DJS, GEAR_CATEGORIES, SPOTS, getDj, getGenre, getSpot, nextGearOptions, ownedGear, switchBranchItem } from '../core/data';
+import { DJS, GEAR_CATEGORIES, PERKS, SPOTS, getDj, getGenre, getSpot, nextGearOptions, ownedGear, switchBranchItem } from '../core/data';
 import { BAR_STOCK_COST, ESSENCE_RATE, cautionCost, potentialBar, type BarStock } from '../core/economy';
 import { STUDIO_COST, STUDIO_MAX, dayOffCost, djLevel, djRepThreshold, effectiveCut, fatigueMalus, giftCost, lockedDjs, recruitableDjs } from '../core/crew';
 import { rushCost } from '../core/idle';
 import { isSpotUnlocked } from '../core/payout';
-import { hasPerk } from '../core/tour';
+import { canBuyPerk, hasPerk, perkCount } from '../core/tour';
 import { MONTEE_MIN_DROP, computeSetQuality } from '../core/night';
 import type { NightModifierDef } from '../core/modifiers';
 import type {
@@ -86,6 +86,7 @@ export interface PrepareCallbacks {
   onImport(): void;
   onNewGame(): void;
   onLeaderboard(): void;
+  onHeritage(): void;
 }
 
 export function renderPrepare(
@@ -327,6 +328,8 @@ export function renderPrepare(
   footer.append(launch);
 
   const meta = el('div', 'meta-actions');
+  const herBtn = el('button', 'btn ghost', `⭐ ${STR.heritage} (${state.tour.legende})`);
+  herBtn.addEventListener('click', () => cb.onHeritage());
   const lbBtn = el('button', 'btn ghost', `🏅 ${STR.leaderboard}`);
   lbBtn.addEventListener('click', () => cb.onLeaderboard());
   const expBtn = el('button', 'btn ghost', STR.exportSave);
@@ -335,7 +338,7 @@ export function renderPrepare(
   impBtn.addEventListener('click', () => cb.onImport());
   const resetBtn = el('button', 'btn ghost danger', STR.newGameBtn);
   resetBtn.addEventListener('click', () => cb.onNewGame());
-  meta.append(lbBtn, expBtn, impBtn, resetBtn);
+  meta.append(herBtn, lbBtn, expBtn, impBtn, resetBtn);
   footer.append(meta);
   root.append(footer);
 
@@ -873,6 +876,48 @@ export function renderLeaderboard(
   panel.append(back);
   root.append(panel);
   void show('crowd');
+}
+
+// --- héritage (boutique permanente) -------------------------------------------
+
+export interface HeritageCallbacks {
+  onBuyPerk(perkId: string): void;
+  onBack(): void;
+}
+
+export function renderHeritage(root: HTMLElement, state: GameState, cb: HeritageCallbacks): void {
+  root.innerHTML = '';
+  root.className = 'screen screen-heritage';
+  const panel = el('div', 'lb-panel heritage-panel');
+  panel.append(el('h1', '', STR.heritageTitle));
+  panel.append(
+    el('div', 'heritage-balance', `${STR.heritageBalance(state.tour.legende)} · ${STR.tourLabel(state.tour.number)}`),
+  );
+
+  const list = el('div', 'heritage-list');
+  for (const perk of PERKS) {
+    const owned = perkCount(state, perk.id);
+    const maxed = owned >= perk.max;
+    const row = el('div', `card perk-card${maxed ? ' owned' : ''}`);
+    const title = perk.max > 1 ? `${perk.nom} · ${STR.perkStack(owned, perk.max)}` : perk.nom;
+    row.append(el('div', 'card-title', owned > 0 ? `✓ ${title}` : title));
+    row.append(el('div', 'card-desc', perk.description));
+    if (maxed) {
+      row.append(el('div', 'perk-owned', STR.perkOwned));
+    } else {
+      const btn = el('button', 'btn small accent', STR.perkBuy(perk.cost));
+      btn.disabled = !canBuyPerk(state, perk.id);
+      btn.addEventListener('click', () => cb.onBuyPerk(perk.id));
+      row.append(btn);
+    }
+    list.append(row);
+  }
+  panel.append(list);
+
+  const back = el('button', 'btn launch', STR.back);
+  back.addEventListener('click', () => cb.onBack());
+  panel.append(back);
+  root.append(panel);
 }
 
 /** Used by main.ts to celebrate fresh recruits on the prepare screen. */

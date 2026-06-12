@@ -180,6 +180,15 @@ export const STR = {
   newGameBtn: 'Nouvelle partie',
   newGameConfirm: 'Tout effacer et repartir de zéro ?',
 
+  // héritage (la boutique permanente)
+  heritage: 'Héritage',
+  heritageTitle: '⭐ L’Héritage',
+  heritageBalance: (n: number) => `${n} ⭐ Légende en banque`,
+  tourLabel: (n: number) => `Tournée ${n}`,
+  perkOwned: 'Acquis — pour toujours',
+  perkBuy: (cost: number) => `Débloquer — ${cost} ⭐`,
+  perkStack: (owned: number, max: number) => `${owned}/${max}`,
+
   // misc
   firstTimeHint:
     'Choisis ton spot et embarque ton crew — chaque DJ amène son propre son. Enchaîne les bons sets pendant la nuit : pousser le son remplit le champ… et la jauge des bleus.',
