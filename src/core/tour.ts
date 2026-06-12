@@ -1,5 +1,6 @@
 import { getPerk } from './data';
-import type { GameState } from './types';
+import { newGame } from './save';
+import type { DjState, GameState } from './types';
 
 // --- l'Héritage : perks permanents ---------------------------------------------
 
@@ -52,4 +53,69 @@ export function computeLegende(state: GameState): number {
     mursTenus +
     arcsTermines
   );
+}
+
+// --- le départ en tournée ---------------------------------------------------------
+
+const FOUNDER_ID = 'tonton';
+
+/**
+ * Applique les perks « état initial » sur une partie fraîche. LE point unique :
+ * aucun `if perk` ailleurs dans la sim — les perks modifient l'état de départ
+ * ou des lookups de données (crew.ts, payout.ts), jamais le tick.
+ */
+export function applyPerks(state: GameState): void {
+  if (hasPerk(state, 'camion-amenage')) state.cash = 1500;
+  if (hasPerk(state, 'reputation-precede')) state.rep = 30;
+  if (hasPerk(state, 'matos-planque')) {
+    state.gear = { platines: 1, mur: 1, groupe: 1, lumieres: 1, logistique: 1 };
+  }
+}
+
+/**
+ * Partir en tournée : retourne l'état de la tournée suivante.
+ *
+ * Reset : caisse, matos (→ starter, sauf perk — voies de gear comprises), rep,
+ * buzz, casier (busts), dégâts, réparations, roster (sauf fondateur + vétérans),
+ * wonTeknival.
+ * Conservé : ⭐ Légende (cumulée avec le gain du départ), perks, n° de
+ * tournée, pseudo, nights et records all-time (le leaderboard track des maxima).
+ *
+ * RÉVISION CHANTIER 1: quand le chantier 1 ajoutera arcs en cours / garde à
+ * vue sur GameState, ils sont remis à zéro ici (ils ne survivent pas — le
+ * newGame frais s'en charge tant qu'ils ont des valeurs par défaut vides).
+ */
+export function departOnTour(state: GameState, veteranIds: string[] = []): GameState {
+  const kept = [...new Set(veteranIds)]
+    .filter((id) => id !== FOUNDER_ID && state.crew.some((d) => d.id === id))
+    .slice(0, maxVeterans(state));
+
+  const fresh = newGame(state.lastSeen);
+  fresh.tour = {
+    number: state.tour.number + 1,
+    legende: state.tour.legende + computeLegende(state),
+    perks: [...state.tour.perks],
+    veteranIds: kept,
+    teknivalWins: 0,
+  };
+
+  // le fondateur vient toujours — et garde son niveau ; les vétérans aussi,
+  // fatigue rincée (la route repose tout le monde)
+  const founder = state.crew.find((d) => d.id === FOUNDER_ID);
+  const veterans: DjState[] = [];
+  for (const id of kept) {
+    const member = state.crew.find((d) => d.id === id);
+    if (member) veterans.push({ ...member, fatigue: 0 });
+  }
+  fresh.crew = founder ? [{ ...founder, fatigue: 0 }] : fresh.crew;
+  fresh.crew.push(...veterans);
+
+  // stats all-time conservées — le leaderboard est inchangé
+  fresh.pseudo = state.pseudo;
+  fresh.nights = state.nights;
+  fresh.bestCrowd = state.bestCrowd;
+  fresh.bestPayout = state.bestPayout;
+
+  applyPerks(fresh);
+  return fresh;
 }

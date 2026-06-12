@@ -1,16 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { PERKS } from '../src/core/data';
+import { GEAR, GEAR_CATEGORIES, PERKS } from '../src/core/data';
 import { createNight } from '../src/core/night';
 import { settleNight } from '../src/core/payout';
 import { deserialize, newGame, serialize } from '../src/core/save';
 import {
+  applyPerks,
   buyPerk,
   canBuyPerk,
   computeLegende,
+  departOnTour,
   hasPerk,
   maxVeterans,
   perkCount,
 } from '../src/core/tour';
+import type { GameState } from '../src/core/types';
 
 describe('le bloc tour', () => {
   it('newGame démarre en tournée 1, 0 ⭐, sans perks ni vétérans', () => {
@@ -128,5 +131,105 @@ describe('le compteur de victoires Teknival', () => {
     settleNight(state, night);
     expect(state.tour.teknivalWins).toBe(1);
     expect(state.wonTeknival).toBe(true);
+  });
+});
+
+function richState(): GameState {
+  const state = newGame(1000);
+  state.cash = 40000;
+  state.rep = 800;
+  state.buzz = 1.2;
+  state.busts = 2;
+  state.nights = 30;
+  state.gear = { platines: 3, mur: 3, groupe: 2, lumieres: 2, logistique: 3 };
+  state.gearBranch = { platines: 'A', mur: 'B', logistique: 'A' };
+  state.damaged.mur = true;
+  state.repairs.push({ category: 'mur', readyAt: 99999 });
+  state.pseudo = 'DJ Bagarre';
+  state.bestCrowd = 1500;
+  state.bestPayout = 9000;
+  state.wonTeknival = true;
+  state.tour.legende = 4;
+  state.tour.teknivalWins = 1;
+  state.crew[0].xp = 600; // tonton a grandi
+  state.crew.push({ id: 'gamine', xp: 750, fatigue: 0.7, setsPlayed: 12, gifted: true, studioBonus: 0.5 });
+  state.crew.push({ id: 'kilowatt', xp: 100, fatigue: 0.2, setsPlayed: 3, gifted: false, studioBonus: 0 });
+  return state;
+}
+
+describe('departOnTour : le reset', () => {
+  it('réinitialise exactement caisse, matos, rep, buzz, casier, dégâts, réparations, victoire', () => {
+    const next = departOnTour(richState(), ['gamine']);
+    expect(next.cash).toBe(0);
+    expect(next.rep).toBe(0);
+    expect(next.buzz).toBe(0);
+    expect(next.busts).toBe(0);
+    expect(next.gear).toEqual({ platines: 0, mur: 0, groupe: 0, lumieres: 0, logistique: 0 });
+    expect(next.gearBranch).toEqual({});
+    expect(next.damaged).toEqual({});
+    expect(next.repairs).toEqual([]);
+    expect(next.wonTeknival).toBe(false);
+    expect(next.tour.teknivalWins).toBe(0);
+  });
+
+  it('conserve la ⭐ cumulée, les perks, le n° de tournée, le pseudo et les records all-time', () => {
+    const state = richState();
+    state.tour.perks = ['tournee-infernale'];
+    const next = departOnTour(state, []);
+    expect(next.tour.number).toBe(2);
+    expect(next.tour.legende).toBe(4 + 11); // 4 en banque + floor(800/100) + 3×1
+    expect(next.tour.perks).toEqual(['tournee-infernale']);
+    expect(next.pseudo).toBe('DJ Bagarre');
+    expect(next.nights).toBe(30);
+    expect(next.bestCrowd).toBe(1500);
+    expect(next.bestPayout).toBe(9000);
+  });
+});
+
+describe('departOnTour : le crew', () => {
+  it('le fondateur vient toujours avec son niveau ; le vétéran garde le sien, fatigue rincée', () => {
+    const next = departOnTour(richState(), ['gamine']);
+    expect(next.crew.map((d) => d.id)).toEqual(['tonton', 'gamine']);
+    expect(next.crew[0].xp).toBe(600);
+    expect(next.crew[0].fatigue).toBe(0);
+    expect(next.crew[1].xp).toBe(750);
+    expect(next.crew[1].fatigue).toBe(0);
+    expect(next.tour.veteranIds).toEqual(['gamine']);
+  });
+
+  it('plafonne les vétérans à maxVeterans et ignore le fondateur en doublon', () => {
+    const next = departOnTour(richState(), ['tonton', 'gamine', 'kilowatt']);
+    expect(next.crew.map((d) => d.id)).toEqual(['tonton', 'gamine']); // 1 seul slot sans « famille »
+    const state2 = richState();
+    state2.tour.perks = ['famille'];
+    const next2 = departOnTour(state2, ['gamine', 'kilowatt']);
+    expect(next2.crew.map((d) => d.id)).toEqual(['tonton', 'gamine', 'kilowatt']);
+  });
+});
+
+describe('departOnTour : les perks de départ (applyPerks, le point unique)', () => {
+  it('camion 1 500 €, réputation 30, matos tier 1 partout', () => {
+    const state = richState();
+    state.tour.perks = ['camion-amenage', 'reputation-precede', 'matos-planque'];
+    const next = departOnTour(state, []);
+    expect(next.cash).toBe(1500);
+    expect(next.rep).toBe(30);
+    expect(next.gear).toEqual({ platines: 1, mur: 1, groupe: 1, lumieres: 1, logistique: 1 });
+  });
+
+  it('applyPerks est inoffensif sans perk', () => {
+    const state = newGame();
+    applyPerks(state);
+    expect(state.cash).toBe(0);
+    expect(state.rep).toBe(0);
+    expect(state.gear.platines).toBe(0);
+  });
+
+  it('no-softlock : sans perk matos, le starter de la tournée N reste insaisissable', () => {
+    const next = departOnTour(richState(), []);
+    for (const cat of GEAR_CATEGORIES) {
+      expect(GEAR[cat][next.gear[cat]].seizable).toBe(false);
+      expect(GEAR[cat][next.gear[cat]].price).toBe(0);
+    }
   });
 });
