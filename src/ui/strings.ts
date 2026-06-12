@@ -46,6 +46,15 @@ export const STR = {
     lumieres: 'Plus d’ambiance, plus de spectacle',
     logistique: 'Guetteurs et plans de repli — moins de chaleur',
   } as const,
+  gearBranchNames: {
+    platines: { A: 'Précision', B: 'Showmanship' },
+    mur: { A: 'Infrabasses', B: 'Line array' },
+    groupe: { A: 'Silencieux', B: 'Monstre' },
+    lumieres: { A: 'Hypnose', B: 'Stroboscopique' },
+    logistique: { A: 'Réseau', B: 'Mobilité' },
+  } as const,
+  gearBranchTag: (name: string) => `voie ${name}`,
+  switchBranch: (name: string, cost: number) => `Changer pour la voie ${name} — ${cost} €`,
 
   // frais de nuit
   nightCosts: 'Les frais de la nuit',

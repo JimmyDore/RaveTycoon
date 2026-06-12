@@ -1,4 +1,4 @@
-import { DJS, GEAR_CATEGORIES, SPOTS, getDj, getGenre, getSpot, nextGearOptions, ownedGear } from '../core/data';
+import { DJS, GEAR_CATEGORIES, SPOTS, getDj, getGenre, getSpot, nextGearOptions, ownedGear, switchBranchItem } from '../core/data';
 import { BAR_STOCK_COST, ESSENCE_RATE, cautionCost, potentialBar, type BarStock } from '../core/economy';
 import { djLevel, fatigueMalus, lockedDjs, recruitableDjs } from '../core/crew';
 import { rushCost } from '../core/idle';
@@ -9,6 +9,7 @@ import type {
   Brief,
   DjDef,
   GameState,
+  GearBranch,
   GearCategory,
   NightResult,
   NightState,
@@ -73,7 +74,8 @@ export interface PrepareSelection {
 export interface PrepareCallbacks {
   onLaunch(): void;
   onRecruit(djId: string): void;
-  onBuy(cat: GearCategory): void;
+  onBuy(cat: GearCategory, branch?: GearBranch): void;
+  onSwitchBranch(cat: GearCategory): void;
   onRepairStart(cat: GearCategory): void;
   onRepairRush(cat: GearCategory): void;
   onExport(): void;
@@ -225,13 +227,12 @@ export function renderPrepare(
   const shopSec = el('section', 'panel');
   shopSec.append(el('h2', '', STR.shop));
   for (const cat of GEAR_CATEGORIES) {
-    // RÉVISION TASK 5 : bouton mono-option temporaire — la vraie UI de voies arrive en Task 5
     const current = ownedGear(state, cat);
-    const next = nextGearOptions(state, cat)[0];
     const row = el('div', 'gear-row');
     const info = el('div', 'gear-info');
     info.append(el('div', 'gear-cat', STR.gearCats[cat]));
     const nameLine = el('div', 'gear-name', current.nom);
+    if (current.branch) nameLine.append(el('span', 'gear-branch-tag', ` · ${STR.gearBranchTag(STR.gearBranchNames[cat][current.branch])}`));
     if (state.damaged[cat]) nameLine.append(el('span', 'gear-damaged', ` ${STR.damaged}`));
     info.append(nameLine);
     info.append(el('div', 'gear-effect', STR.gearEffect[cat]));
@@ -252,13 +253,25 @@ export function renderPrepare(
       rushBtn.disabled = state.cash < cost;
       rushBtn.addEventListener('click', () => cb.onRepairRush(cat));
       actions.append(rushBtn);
-    } else if (next) {
-      const buyBtn = el('button', 'btn small', `${STR.buy} ${next.nom} — ${fmtCash(next.price)}`);
-      buyBtn.disabled = state.cash < next.price;
-      buyBtn.addEventListener('click', () => cb.onBuy(cat));
-      actions.append(buyBtn);
     } else {
-      actions.append(el('div', 'gear-maxed', STR.maxed));
+      const options = nextGearOptions(state, cat);
+      if (options.length === 0) {
+        actions.append(el('div', 'gear-maxed', STR.maxed));
+      }
+      for (const next of options) {
+        const voie = next.branch ? ` (${STR.gearBranchNames[cat][next.branch]})` : '';
+        const buyBtn = el('button', 'btn small', `${STR.buy} ${next.nom}${voie} — ${fmtCash(next.price)}`);
+        buyBtn.disabled = state.cash < next.price;
+        buyBtn.addEventListener('click', () => cb.onBuy(cat, next.branch));
+        actions.append(buyBtn);
+      }
+      const other = switchBranchItem(state, cat);
+      if (other?.branch) {
+        const sw = el('button', 'btn small ghost', STR.switchBranch(STR.gearBranchNames[cat][other.branch], other.price));
+        sw.disabled = state.cash < other.price;
+        sw.addEventListener('click', () => cb.onSwitchBranch(cat));
+        actions.append(sw);
+      }
     }
     row.append(actions);
     shopSec.append(row);

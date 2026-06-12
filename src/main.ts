@@ -5,7 +5,7 @@ import { getDj, getSpot } from './core/data';
 import { cautionCost } from './core/economy';
 import { applyIdleTime, rushRepair, startRepair } from './core/idle';
 import { changeBrief, createNight, dropMontee, resolveEvent, seizeFloorPrompt, startSet, tickNight } from './core/night';
-import { applyBust, buyGearUpgrade, settleNight } from './core/payout';
+import { applyBust, buyGearUpgrade, settleNight, switchGearBranch } from './core/payout';
 import { exportCode, importCode, loadGame, newGame, saveGame } from './core/save';
 import type { Brief, GameState, NightResult, NightState } from './core/types';
 import { RaverSim } from './render/ravers';
@@ -245,8 +245,14 @@ function showPrepare(): void {
         showPrepare();
       }
     },
-    onBuy: (cat) => {
-      if (buyGearUpgrade(state, cat)) {
+    onBuy: (cat, branch) => {
+      if (buyGearUpgrade(state, cat, branch)) {
+        saveGame(localStorage, state);
+        showPrepare();
+      }
+    },
+    onSwitchBranch: (cat) => {
+      if (switchGearBranch(state, cat)) {
         saveGame(localStorage, state);
         showPrepare();
       }
