@@ -1,4 +1,5 @@
 import type { NightModifierDef } from './modifiers';
+import type { RegionState } from './regions';
 
 export type SpotId =
   | 'champ'
@@ -192,6 +193,8 @@ export interface GameState {
   bestCrowd: number;
   bestPayout: number;
   wonTeknival: boolean;
+  /** région de la tournée courante (chantier 4) — absente en tournée 1 */
+  region?: RegionState;
   tour: TourState;
 }
 
