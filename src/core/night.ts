@@ -7,6 +7,7 @@ import { ATTENTE_GENRE, INTENSITY_HEAT, INTENSITY_LEVEL, INTENSITY_POWER, INTENS
 import { modifierProduct, modifierSum, rollModifiers } from './modifiers';
 import { getPhase, phaseAt, phaseAttente } from './phases';
 import { drawPrompt } from './prompts';
+import { startDescente, tickRaid } from './raid';
 import { buildRegionRules } from './regions';
 import { mulberry32 } from './rng';
 import type {
@@ -172,6 +173,9 @@ export function createNight(
     rules,
     busted: false,
     sunrise: false,
+    raid: null,
+    evacuated: false,
+    negoCorruption: false,
     rng: mulberry32(seed),
     // flux dédié, décalé du seed pour ne pas perturber le flux des events
     goalRng: mulberry32((seed ^ 0x9e3779b9) >>> 0),
@@ -432,13 +436,13 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   if (night.intensity === 'chill') night.heat -= 0.01 * dt;
   night.heat = clamp(night.heat, 0, 1);
   night.peakHeat = Math.max(night.peakHeat, night.heat);
-  if (night.heat >= night.rules.bustThreshold) {
-    endCurrentSet(state, night);
-    night.phase = 'ended';
-    night.busted = true;
-    events.push({ type: 'bust' });
-    return events;
+  // --- la descente (story C) : le seuil ouvre une séquence jouable, pas un bust --
+  if (!night.raid && night.heat >= night.rules.descenteThreshold) {
+    startDescente(state, night);
+    events.push({ type: 'descente' });
   }
+  tickRaid(state, night, dt, events);
+  if (night.phase !== 'playing') return events; // bust par timer (ou siège, task 9)
 
   // --- bar drip — plafonné par le stock embarqué -------------------------------------
   const drip = night.crowd * BAR_DRIP * spot.priceMult * priceMod * phase.barMult * night.rules.barMult * dt;
@@ -489,7 +493,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   night.t += dt;
   night.setElapsed += dt;
   if (night.setElapsed >= night.setLen) {
-    endCurrentSet(state, night);
+    closeCurrentSet(state, night);
     night.setIndex += 1;
     if (night.setIndex >= night.setCount) {
       night.phase = 'ended';
@@ -503,7 +507,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   return events;
 }
 
-function endCurrentSet(state: GameState, night: NightState): void {
+export function closeCurrentSet(state: GameState, night: NightState): void {
   if (!night.currentDj) return;
   const member = getCrewMember(state, night.currentDj);
   const fracPeakRinse = night.setElapsed > 0 ? Math.min(1, night.setPeakRinseT / night.setElapsed) : 0;
@@ -533,9 +537,8 @@ function endCurrentSet(state: GameState, night: NightState): void {
  * modaux, les flash-prompts et la montée.
  */
 export function applyEffects(state: GameState, night: NightState, fx: EventEffects): void {
-  // les events restent incapables de franchir le seuil de descente : le clamp
-  // historique à 0.99 devient « seuil − 0.01 » (identique quand le seuil vaut 1)
-  if (fx.heat) night.heat = clamp(night.heat + fx.heat, 0, night.rules.bustThreshold - 0.01);
+  // les events peuvent déclencher la descente (elle se joue) — seul 1.0 est interdit
+  if (fx.heat) night.heat = clamp(night.heat + fx.heat, 0, 0.99);
   if (fx.vibe) night.vibe = clamp(night.vibe + fx.vibe, 0, 1);
   if (fx.crowdFrac) night.crowd = clamp(night.crowd * (1 + fx.crowdFrac), 0, night.cap);
   if (fx.cash) night.bank = Math.max(0, night.bank + fx.cash);
@@ -606,7 +609,7 @@ export function dropMontee(state: GameState, night: NightState): boolean {
   }
   night.vibe = clamp(night.vibe + (0.1 + 0.25 * m) * payoff * waveMult, 0, 1);
   night.crowd = clamp(night.crowd + night.cap * 0.05 * m * payoff * waveMult, 0, night.cap);
-  night.heat = clamp(night.heat + 0.02 + 0.06 * m, 0, night.rules.bustThreshold - 0.01);
+  night.heat = clamp(night.heat + 0.02 + 0.06 * m, 0, 0.99);
   night.burnout *= DROP_BURNOUT_RESET;
   // l'objectif « gros drop » lit le payoff post-multiplicateurs (spec story A)
   night.bestDropThisSet = Math.max(night.bestDropThisSet, m * waveMult);

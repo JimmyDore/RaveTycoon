@@ -311,6 +311,19 @@ export interface JournalEntry {
   outcome: string;
 }
 
+export type RaidOutcome = 'evacue' | 'nego-ok' | 'nego-rate' | 'mur-tenu' | 'mur-casse' | 'bust-timer';
+
+export interface RaidState {
+  status: 'countdown' | 'siege' | 'done';
+  /** échéance du compte à rebours, en secondes de nuit */
+  deadline: number;
+  outcome: RaidOutcome | null;
+  /** fin du siège (s de nuit) — 0 hors siège */
+  siegeEndAt: number;
+  /** secondes cumulées sous le seuil de vibe pendant le siège */
+  siegeLowT: number;
+}
+
 export interface NightState {
   spotId: SpotId;
   genreId: GenreId;
@@ -405,6 +418,12 @@ export interface NightState {
   rules: RegionRules;
   busted: boolean;
   sunrise: boolean;
+  /** la descente du soir (1 max par nuit), ou null */
+  raid: RaidState | null;
+  /** nuit terminée par une évacuation propre */
+  evacuated: boolean;
+  /** négo réussie : 50 % de chance d'avoir planté l'arc « flic corrompu » (partie 2) */
+  negoCorruption: boolean;
   rng: () => number;
   /** flux RNG dédié au tirage des objectifs — isolé du flux des events */
   goalRng: () => number;
@@ -417,7 +436,8 @@ export type NightTickEventType =
   | 'sunrise'
   | 'set-ended'
   | 'prompt-missed'
-  | 'phase-change';
+  | 'phase-change'
+  | 'descente';
 
 export interface NightTickEvent {
   type: NightTickEventType;
@@ -427,6 +447,10 @@ export interface NightResult {
   spotId: SpotId;
   busted: boolean;
   won: boolean;
+  /** issue de la descente du soir (null si aucune) */
+  raidOutcome: RaidOutcome | null;
+  /** nuit évacuée proprement */
+  evacuated: boolean;
   bank: number;
   donationMult: number;
   /** gross takings before DJ cuts (after bust losses) */

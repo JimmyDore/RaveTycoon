@@ -17,12 +17,8 @@ export interface RegionState {
 export interface RegionRules {
   /** × sur la montée de chaleur (tickNight) */
   heatMult: number;
-  /**
-   * Seuil de heat qui termine la nuit en bust (tickNight) — 1 de base.
-   * RÉVISION CHANTIER 1 : remplacera le seuil de descente (0.85 de base, 0.70
-   * pour Zone quadrillée).
-   */
-  bustThreshold: number;
+  /** Seuil de heat qui déclenche la descente (raid.ts) — 0.85 de base. */
+  descenteThreshold: number;
   /**
    * Le casier ne décroît pas. Dormant : aucune décroissance de casier n'existe.
    * RÉVISION CHANTIER 1 : brancher sur la décroissance du casier.
@@ -67,7 +63,7 @@ export interface RegionRules {
 export function defaultRegionRules(): RegionRules {
   return {
     heatMult: 1,
-    bustThreshold: 1,
+    descenteThreshold: 0.85,
     casierGele: false,
     prixLibreMult: 1,
     barMult: 1,
@@ -105,11 +101,11 @@ export const REGION_TRAITS: RegionTraitDef[] = [
   {
     id: 'zone-quadrillee',
     nom: 'Zone quadrillée',
-    desc: 'Les bleus patrouillent serré : la teuf tombe dès 85 % de chaleur.',
+    desc: 'Les bleus patrouillent serré : la descente tombe dès 70 % de chaleur.',
     icon: '🚔',
     difficulty: 2,
     apply: (r) => {
-      r.bustThreshold = 0.85;
+      r.descenteThreshold = 0.7;
     },
     weight: 1,
   },

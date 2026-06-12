@@ -75,7 +75,9 @@ export const FLOOR_PROMPTS: FloorPromptDef[] = [
     label: 'Le guetteur fait signe — RAS',
     window: 4,
     seize: { heat: -0.05 },
-    weight: (ctx) => (ctx.heat > 0.4 ? 1.3 : 0.4),
+    // signes avant-coureurs de la descente : surpondéré au-delà du warning
+    // (0.6 = DESCENTE_WARNING — pas d'import de raid.ts depuis un module feuille)
+    weight: (ctx) => (ctx.heat >= 0.6 ? 1.8 : ctx.heat > 0.4 ? 1.3 : 0.4),
   },
 ];
 

@@ -134,6 +134,7 @@ export const STR = {
     'set-ended': '🎚 Fin du set — à qui le tour ?',
     'prompt-missed': '🙈 Trop tard — tu as laissé passer le moment.',
     'phase-change': '🌒 La nuit bascule…',
+    descente: '🚨 LES BLEUS ARRIVENT — décide vite.',
     heatWarning: '👮 Ça sent le roussi… calme le jeu.',
   },
   phaseToast: {

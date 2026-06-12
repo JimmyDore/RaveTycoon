@@ -51,11 +51,15 @@ export function settleNight(state: GameState, night: NightState): NightResult {
   const cuts = cutsTotal(state, night);
   const payout = Math.round(gross * (1 - cuts));
   const survivedHighHeat = night.peakHeat >= 0.8;
-  // le dernier drop de l'aube compte double encore : re-crédité au règlement
+  // le dernier drop de l'aube compte double encore : re-crédité au règlement.
+  // L'évacuation propre conserve la caisse, mais la légende en prend un coup (×0.4).
+  const evacMult = night.evacuated ? 0.4 : 1;
   const repGained = Math.round(
-    SUNRISE_REP + night.peakCrowd / 10 + (survivedHighHeat ? 15 : 0) + night.repBonus + night.lastAubeDropRep,
+    (SUNRISE_REP + night.peakCrowd / 10 + (survivedHighHeat ? 15 : 0) + night.repBonus + night.lastAubeDropRep) *
+      evacMult,
   );
-  const won = night.spotId === 'teknival';
+  // garde-fou : évacuer le Teknival n'est pas le gagner
+  const won = night.spotId === 'teknival' && !night.evacuated;
 
   state.cash += payout + night.cautionPaid; // caution rendue à l'aube
   state.rep += repGained;
@@ -69,12 +73,14 @@ export function settleNight(state: GameState, night: NightState): NightResult {
   // jouer trop mou réduit le buzz de fin de nuit (spec story A)
   const softFrac = night.t > 0 ? Math.min(1, night.softT / night.t) : 0;
   const quality = Math.min(1, (0.6 * vibe + 0.5 * (night.peakCrowd / night.cap)) * (1 - 0.3 * softFrac));
-  buzzAfterNight(state, quality);
+  buzzAfterNight(state, quality, night.evacuated ? 0.8 : 1);
 
   const result: NightResult = {
     spotId: night.spotId,
     busted: false,
     won,
+    raidOutcome: night.raid?.outcome ?? null,
+    evacuated: night.evacuated,
     bank: Math.round(night.bank),
     donationMult,
     gross,
@@ -156,6 +162,8 @@ export function applyBust(state: GameState, night: NightState): NightResult {
     spotId: night.spotId,
     busted: true,
     won: false,
+    raidOutcome: night.raid?.outcome ?? null,
+    evacuated: night.evacuated,
     bank: Math.round(night.bank),
     donationMult: 0,
     gross,

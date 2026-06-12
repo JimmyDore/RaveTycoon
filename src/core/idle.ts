@@ -26,9 +26,9 @@ export function applyIdleTime(state: GameState, nowMs: number): void {
   state.lastSeen = nowMs;
 }
 
-/** Word of mouth after a night; quality in [0, 1]. */
-export function buzzAfterNight(state: GameState, quality: number): void {
-  state.buzz = Math.min(BUZZ_CAP, state.buzz + 0.1 + 0.5 * Math.max(0, quality));
+/** Word of mouth after a night; quality in [0, 1]. L'évacuation propre paie ×0.8. */
+export function buzzAfterNight(state: GameState, quality: number, mult = 1): void {
+  state.buzz = Math.min(BUZZ_CAP, state.buzz + (0.1 + 0.5 * Math.max(0, quality)) * mult);
 }
 
 export function repairDurationMs(state: GameState, cat: GearCategory): number {

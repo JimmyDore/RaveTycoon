@@ -48,7 +48,7 @@ describe('le pool de traits', () => {
       getRegionTrait(id).apply(rules);
       return rules;
     };
-    expect(applied('zone-quadrillee').bustThreshold).toBe(0.85);
+    expect(applied('zone-quadrillee').descenteThreshold).toBe(0.7);
     expect(applied('prefet-zele').heatMult).toBeCloseTo(1.3, 5);
     expect(applied('prefet-zele').casierGele).toBe(true);
     expect(applied('economie-morose').prixLibreMult).toBeCloseTo(0.75, 5);
@@ -184,24 +184,25 @@ describe('les règles de région dans la nuit', () => {
     expect(accueil.night.heat).toBeGreaterThan(0);
   });
 
-  it('Zone quadrillée : le bust tombe dès 85 % de chaleur', () => {
+  it('Zone quadrillée : la descente se déclenche dès 70 % de chaleur', () => {
     const base = playingNight([]);
-    base.night.heat = 0.86;
-    expect(tickNight(base.state, base.night, 0.1).some((e) => e.type === 'bust')).toBe(false);
+    base.night.heat = 0.71;
+    expect(tickNight(base.state, base.night, 0.1).some((e) => e.type === 'descente')).toBe(false);
     const quad = playingNight(['zone-quadrillee']);
-    quad.night.heat = 0.86;
+    quad.night.heat = 0.71;
     const events = tickNight(quad.state, quad.night, 0.1);
-    expect(events.some((e) => e.type === 'bust')).toBe(true);
-    expect(quad.night.busted).toBe(true);
+    expect(events.some((e) => e.type === 'descente')).toBe(true);
+    expect(quad.night.raid?.status).toBe('countdown');
+    expect(quad.night.busted).toBe(false); // la descente se joue, elle ne bust pas
   });
 
-  it('les events ne franchissent jamais le seuil de descente (clamp sous le seuil)', () => {
+  it('les events plafonnent la heat à 0.99 — ils peuvent déclencher la descente (jouable)', () => {
     const quad = playingNight(['zone-quadrillee']);
     applyEffects(quad.state, quad.night, { heat: 1 });
-    expect(quad.night.heat).toBeCloseTo(0.84, 5);
+    expect(quad.night.heat).toBeCloseTo(0.99, 5);
     const base = playingNight([]);
     applyEffects(base.state, base.night, { heat: 1 });
-    expect(base.night.heat).toBeCloseTo(0.99, 5); // comportement actuel conservé
+    expect(base.night.heat).toBeCloseTo(0.99, 5);
   });
 
   it('Public exigeant : la tolérance de la foule est plus étroite (−0.05)', () => {

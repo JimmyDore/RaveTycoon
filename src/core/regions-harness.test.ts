@@ -28,6 +28,7 @@ function playNight(state: GameState, spot: SpotId, prudent: boolean, seed: numbe
   }
   expect(night.phase).toBe('ended');
   expect(night.sunrise).toBe(true); // l'archétype joué prudemment ne doit jamais bust
+  expect(night.raid).toBeNull(); // une nuit prudente ne déclenche jamais la descente (tiers 1–3 du harnais)
   return settleNight(state, night);
 }
 
