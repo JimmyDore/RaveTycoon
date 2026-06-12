@@ -189,6 +189,33 @@ export const STR = {
   perkBuy: (cost: number) => `Débloquer — ${cost} ⭐`,
   perkStack: (owned: number, max: number) => `${owned}/${max}`,
 
+  // départ en tournée
+  departCard: '🚐 Partir en tournée',
+  departHint: 'Tout laisser derrière soi, sauf la légende. Le camion repart vers une autre région.',
+  departPreview: (n: number) => `+${n} ⭐ Légende au départ`,
+  departTitle: 'Partir en tournée ?',
+  departLostTitle: 'Tu laisses derrière toi',
+  departLost: [
+    'La caisse',
+    'Le matos (retour au starter, sauf perks)',
+    'La réputation et le buzz',
+    'Les spots débloqués',
+    'Le crew et ses niveaux (sauf fondateur + vétérans)',
+    'Le casier — les bleus t’oublient',
+  ],
+  departKeptTitle: 'Tu emportes',
+  departKept: [
+    'La ⭐ Légende cumulée',
+    'Les perks de l’Héritage',
+    'Le compteur de tournées',
+    'Tes records all-time (classement intact)',
+    'Tonton Madère — il était là avant tout le monde',
+    'Le·s vétéran·s choisi·s, niveau compris',
+  ],
+  departVeteranTitle: (n: number) => `Choisis jusqu’à ${n} vétéran·s — le fondateur vient toujours`,
+  departConfirm: '🚐 En route',
+  departCancel: 'Rester encore une nuit',
+
   // misc
   firstTimeHint:
     'Choisis ton spot et embarque ton crew — chaque DJ amène son propre son. Enchaîne les bons sets pendant la nuit : pousser le son remplit le champ… et la jauge des bleus.',

@@ -3,7 +3,7 @@ import { BAR_STOCK_COST, ESSENCE_RATE, cautionCost, potentialBar, type BarStock 
 import { STUDIO_COST, STUDIO_MAX, dayOffCost, djLevel, djRepThreshold, effectiveCut, fatigueMalus, giftCost, lockedDjs, recruitableDjs } from '../core/crew';
 import { rushCost } from '../core/idle';
 import { isSpotUnlocked } from '../core/payout';
-import { canBuyPerk, hasPerk, perkCount } from '../core/tour';
+import { canBuyPerk, computeLegende, hasPerk, maxVeterans, perkCount } from '../core/tour';
 import { MONTEE_MIN_DROP, computeSetQuality } from '../core/night';
 import type { NightModifierDef } from '../core/modifiers';
 import type {
@@ -87,6 +87,7 @@ export interface PrepareCallbacks {
   onNewGame(): void;
   onLeaderboard(): void;
   onHeritage(): void;
+  onDepart(veteranIds: string[]): void;
 }
 
 export function renderPrepare(
@@ -112,6 +113,12 @@ export function renderPrepare(
 
   if (state.wonTeknival) {
     root.append(el('div', 'won-banner', `🏆 ${STR.wonTitle}`));
+    const depart = el('button', 'card depart-card');
+    depart.append(el('div', 'card-title', STR.departCard));
+    depart.append(el('div', 'card-meta', STR.departPreview(computeLegende(state))));
+    depart.append(el('div', 'card-desc', STR.departHint));
+    depart.addEventListener('click', () => showDepartModal(root, state, cb));
+    root.append(depart);
   }
 
   const main = el('div', 'prepare-grid');
@@ -345,6 +352,64 @@ export function renderPrepare(
   if (state.nights === 0) {
     root.append(el('div', 'first-hint', STR.firstTimeHint));
   }
+}
+
+/** Confirmation du départ : la liste exacte du perdu/gardé, le choix des vétérans. */
+function showDepartModal(root: HTMLElement, state: GameState, cb: PrepareCallbacks): void {
+  const overlay = el('div', 'night-modal');
+  const panel = el('div', 'modal-panel depart-panel');
+  panel.append(el('h2', '', STR.departTitle));
+  panel.append(el('div', 'depart-preview', STR.departPreview(computeLegende(state))));
+
+  const cols = el('div', 'depart-cols');
+  const lost = el('div', 'depart-col');
+  lost.append(el('h3', '', STR.departLostTitle));
+  for (const line of STR.departLost) lost.append(el('div', 'depart-line', `✗ ${line}`));
+  const kept = el('div', 'depart-col');
+  kept.append(el('h3', '', STR.departKeptTitle));
+  for (const line of STR.departKept) kept.append(el('div', 'depart-line', `✓ ${line}`));
+  cols.append(lost, kept);
+  panel.append(cols);
+
+  const slots = maxVeterans(state);
+  const candidates = state.crew.filter((d) => d.id !== 'tonton');
+  const chosen = new Set<string>();
+  if (candidates.length > 0) {
+    panel.append(el('h3', '', STR.departVeteranTitle(slots)));
+    const list = el('div', 'pick-dj-list');
+    for (const member of candidates) {
+      const def = getDj(member.id);
+      const lvl = djLevel(member);
+      const card = el('button', 'card dj-pick');
+      card.dataset.dj = member.id;
+      const row = el('div', 'dj-row');
+      row.append(portrait(member.id, 'dj-portrait small'));
+      const info = el('div', 'dj-info');
+      info.append(el('div', 'card-title', `${def.nom}${lvl > 0 ? ` · ${STR.level(lvl)}` : ''}`));
+      row.append(info);
+      card.append(row);
+      card.addEventListener('click', () => {
+        if (chosen.has(member.id)) chosen.delete(member.id);
+        else if (chosen.size < slots) chosen.add(member.id);
+        for (const c of Array.from(list.children) as HTMLElement[]) {
+          c.classList.toggle('selected', chosen.has(c.dataset.dj ?? ''));
+        }
+      });
+      list.append(card);
+    }
+    panel.append(list);
+  }
+
+  const actions = el('div', 'recap-actions');
+  const cancel = el('button', 'btn ghost', STR.departCancel);
+  cancel.addEventListener('click', () => overlay.remove());
+  const go = el('button', 'btn launch', STR.departConfirm);
+  go.addEventListener('click', () => cb.onDepart([...chosen]));
+  actions.append(cancel, go);
+  panel.append(actions);
+
+  overlay.append(panel);
+  root.append(overlay);
 }
 
 function stat(icon: string, value: string, label: string): HTMLElement {

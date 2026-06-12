@@ -7,7 +7,7 @@ import { applyIdleTime, rushRepair, startRepair } from './core/idle';
 import { changeBrief, createNight, dropMontee, resolveEvent, seizeFloorPrompt, startSet, tickNight } from './core/night';
 import { applyBust, buyGearUpgrade, settleNight, switchGearBranch } from './core/payout';
 import { exportCode, importCode, loadGame, newGame, saveGame } from './core/save';
-import { buyPerk } from './core/tour';
+import { buyPerk, departOnTour } from './core/tour';
 import type { Brief, GameState, NightResult, NightState } from './core/types';
 import { RaverSim } from './render/ravers';
 import { SceneRenderer, defaultFloor } from './render/scene';
@@ -338,6 +338,14 @@ function showPrepare(): void {
       renderLeaderboard(app, fetchBoard, () => showPrepare());
     },
     onHeritage: () => showHeritage(),
+    onDepart: (veteranIds) => {
+      state = departOnTour(state, veteranIds);
+      saveGame(localStorage, state);
+      selection.present.clear();
+      for (const d of state.crew) selection.present.add(d.id);
+      selection.spot = 'champ';
+      showPrepare();
+    },
   });
 }
 
