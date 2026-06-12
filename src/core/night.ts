@@ -3,7 +3,7 @@ import { getDj, getGenre, getSpot, ownedGear } from './data';
 import { BAR_DRIP, BAR_STOCK_CAP, cautionCost, potentialBar, type BarStock } from './economy';
 import { drawEvent } from './events';
 import { drawGoal } from './goals';
-import { INTENSITY_HEAT, INTENSITY_LEVEL, INTENSITY_POWER, INTENSITY_QUALITY, isHighIntensity, type Intensity } from './intensity';
+import { ATTENTE_GENRE, INTENSITY_HEAT, INTENSITY_LEVEL, INTENSITY_POWER, INTENSITY_QUALITY, isHighIntensity, type Intensity } from './intensity';
 import { modifierProduct, modifierSum, rollModifiers } from './modifiers';
 import { drawPrompt } from './prompts';
 import { buildRegionRules } from './regions';
@@ -53,6 +53,20 @@ const MONTEE_BROWNOUT_DRAIN = 0.4;
 export const MONTEE_MIN_DROP = 0.1;
 /** espacement de base (s) entre deux flash-prompts du dancefloor */
 const PROMPT_SPACING = 12;
+
+// --- la vague (story A) ---------------------------------------------------------
+export const TOL_BASE = 0.10;
+export const TOL_PER_TECH = 0.03;
+export const CHARISME_PULL = 0.06;
+const BURNOUT_CHARGE: Partial<Record<Intensity, number>> = { peak: 0.02, rinse: 0.04 };
+const BURNOUT_DECAY: Partial<Record<Intensity, number>> = { chill: 0.03, groove: 0.01 };
+export const BURNOUT_ATTENTE_MALUS = 0.3;
+export const BURNOUT_DROP_MALUS = 0.5;
+const DROP_BURNOUT_RESET = 0.6;
+const WAVE_WINDOW = 20;
+/** bonus/malus de cible de vibe quand on est dans/sous la vague */
+const WAVE_VIBE_BONUS = 0.08;
+const SOFT_VIBE_MALUS = 0.1;
 
 function clamp(x: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, x));
@@ -131,6 +145,13 @@ export function createNight(
     repBonus: 0,
     setPeakRinseT: 0,
     intensitySum: 0,
+    attente: 0.35,
+    burnout: 0,
+    waveScore: 0,
+    bestWaveScore: 0,
+    softT: 0,
+    setWaveSum: 0,
+    setWaveSamples: 0,
     montee: 0,
     bestDropThisSet: 0,
     setGoal: null,
@@ -158,6 +179,37 @@ export function createNight(
 export function effectiveCharisme(state: GameState, dj: DjDef | null): number {
   const base = dj ? dj.charisme : 2;
   return base + (ownedGear(state, 'platines').effects?.charismeBonus ?? 0);
+}
+
+export interface WaveState {
+  attente: number;
+  tol: number;
+  level: number;
+  gap: number;
+  inWave: boolean;
+}
+
+/**
+ * L'état de la vague à cet instant : attente (baseline × genre − burnout),
+ * tolérance (technique + région), attraction du charisme, écart. Partagé par
+ * tickNight et la jauge de vague de l'UI.
+ */
+export function currentWave(state: GameState, night: NightState): WaveState {
+  const dj = night.currentDj ? getDj(night.currentDj) : null;
+  const member = night.currentDj ? getCrewMember(state, night.currentDj) : null;
+  const tech = dj && member ? effectiveTechnique(dj, member) : 1;
+  // baseline provisoire story A : montée linéaire 0.35 → 0.8 sur la nuit
+  const baseline = 0.35 + 0.45 * Math.min(1, night.duration > 0 ? night.t / night.duration : 0);
+  const attente = clamp(
+    baseline * ATTENTE_GENRE[night.genreId] - BURNOUT_ATTENTE_MALUS * night.burnout,
+    0,
+    1,
+  );
+  const level = INTENSITY_LEVEL[night.intensity];
+  const tol = Math.max(0.02, TOL_BASE + TOL_PER_TECH * tech + night.rules.attenteTolBonus);
+  const attenteEff = attente + (level - attente) * Math.min(1, CHARISME_PULL * effectiveCharisme(state, dj));
+  const gap = level - attenteEff;
+  return { attente, tol, level, gap, inWave: Math.abs(gap) <= tol };
 }
 
 /** Produit des churnMult de voie (mur Infrabasses, lumières Hypnose). */
@@ -211,6 +263,9 @@ export function startSet(state: GameState, night: NightState, djId: string): voi
   night.setGoal = drawGoal(eventContext(state, night), night.goalRng);
   night.setVibeSum = 0;
   night.setVibeSamples = 0;
+  // le burnout et le waveScore, eux, persistent — la foule n'oublie pas entre deux sets
+  night.setWaveSum = 0;
+  night.setWaveSamples = 0;
   night.setBrownouts = 0;
   night.setCrowdStart = night.crowd;
   night.phase = 'playing';
@@ -259,6 +314,25 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   const quality =
     night.setQuality * INTENSITY_QUALITY[night.intensity] * night.qualityMultRestOfSet *
     (night.murBlown ? 0.6 : 1);
+  const charisme = effectiveCharisme(state, dj);
+
+  // --- la vague : l'écart entre ce qu'on joue et ce que la foule attend ----------
+  const wave = currentWave(state, night);
+  night.attente = wave.attente;
+  const { tol, gap, inWave } = wave;
+  const tooSoft = gap < -tol;
+  const tooHard = gap > tol;
+  // burnout : charge à PEAK/RINSE, décharge à CHILL/GROOVE
+  const burnoutRate = BURNOUT_CHARGE[night.intensity] ?? -(BURNOUT_DECAY[night.intensity] ?? 0);
+  night.burnout = clamp(night.burnout + burnoutRate * dt, 0, 1);
+  // waveScore : moyenne glissante ~WAVE_WINDOW s de « dans la vague »
+  night.waveScore += ((inWave ? 1 : 0) - night.waveScore) * Math.min(1, dt / WAVE_WINDOW);
+  night.bestWaveScore = Math.max(night.bestWaveScore, night.waveScore);
+  night.setWaveSum += night.waveScore * dt;
+  night.setWaveSamples += dt;
+  if (tooSoft) night.softT += dt;
+  // trop fort : le DJ s'épuise ×1.5 sur ces secondes (compte dans fracPeakRinse)
+  if (tooHard) night.setPeakRinseT += 0.5 * dt;
 
   // --- power: demand grows with the crowd, supply is the generator ------------
   const groupeItem = ownedGear(state, 'groupe');
@@ -280,7 +354,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   }
 
   // --- mur de son stress when pushing ------------------------------------------
-  if (night.intensity === 'rinse' && !night.murBlown) {
+  if ((night.intensity === 'rinse' || (night.intensity === 'peak' && tooHard)) && !night.murBlown) {
     const resilience = 1 + state.gear.mur * 0.5;
     night.murStress += (dt / 60) * (0.5 / resilience) * (state.damaged.mur ? 2 : 1);
     if (night.murStress >= 1 || (night.murStress > 0.6 && night.rng() < 0.01 * dt)) {
@@ -294,7 +368,6 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   }
 
   // --- crowd ---------------------------------------------------------------------
-  const charisme = effectiveCharisme(state, dj);
   const lumieres = ownedGear(state, 'lumieres').value;
   const pull = soundOn ? 0.25 + 0.85 * quality + 0.06 * charisme : 0;
   const arrivalCut = night.arrivalCutT > 0 ? 0.5 : 1;
@@ -316,12 +389,12 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   const retention = Math.max(0, 1 - 0.04 * charisme - retentionMod);
   const leaving =
     night.crowd * genre.churn * spot.churnMult * churnMod * branchChurnMult(state) *
-    night.rules.churnMult * retention * leaveMult;
+    night.rules.churnMult * retention * leaveMult * (tooSoft ? 1 + 2 * (-gap - tol) : 1);
   night.crowd = clamp(night.crowd + (arrival - leaving) * dt, 0, night.cap);
   night.peakCrowd = Math.max(night.peakCrowd, night.crowd);
 
   // --- vibe ------------------------------------------------------------------------
-  let vibeTarget = soundOn ? clamp(0.15 + 0.62 * quality + lumieres, 0, 1) : 0;
+  let vibeTarget = soundOn ? clamp(0.15 + 0.62 * quality + lumieres + (inWave ? WAVE_VIBE_BONUS : 0) - (tooSoft ? SOFT_VIBE_MALUS : 0), 0, 1) : 0;
   if (night.murBlown) vibeTarget = Math.max(0, vibeTarget - 0.12);
   const rate = vibeTarget > night.vibe ? 0.25 : 0.6;
   night.vibe = clamp(night.vibe + (vibeTarget - night.vibe) * rate * dt, 0, 1);
@@ -335,7 +408,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   night.intensitySum += INTENSITY_LEVEL[night.intensity] * dt;
 
   // --- la montée : se charge en faisant vibrer le floor ----------------------------
-  const monteeGain = dt * MONTEE_RATE * night.vibe * MONTEE_GENRE[night.genreId];
+  const monteeGain = dt * MONTEE_RATE * night.vibe * (inWave ? 1.5 : 1) * MONTEE_GENRE[night.genreId];
   night.montee = clamp(night.montee + monteeGain, 0, 1);
   if (night.vibe < 0.3) night.montee = Math.max(0, night.montee - dt * MONTEE_DECAY);
 
@@ -344,7 +417,7 @@ export function tickNight(state: GameState, night: NightState, dt: number): Nigh
   // RÉVISION CHANTIER 1: l'insaisissable deviendra immunisé à la garde à vue ;
   // en attendant, son gimmick = moitié moins de heat (levier existant)
   const riskMult = dj ? RISK_HEAT[dj.risk] * (dj.gimmick === 'insaisissable' ? 0.5 : 1) : 1;
-  night.heat += spot.heatBuild * genre.heatMult * INTENSITY_HEAT[night.intensity] * riskMult * logistique * heatMod * branchHeatMult(state) * night.rules.heatMult * HEAT_BASE * dt;
+  night.heat += spot.heatBuild * genre.heatMult * INTENSITY_HEAT[night.intensity] * riskMult * logistique * heatMod * branchHeatMult(state) * night.rules.heatMult * HEAT_BASE * (tooHard ? 1 + 2 * (gap - tol) : 1) * dt;
   if (night.intensity === 'chill') night.heat -= 0.01 * dt;
   night.heat = clamp(night.heat, 0, 1);
   night.peakHeat = Math.max(night.peakHeat, night.heat);
@@ -434,6 +507,7 @@ function endCurrentSet(state: GameState, night: NightState): void {
       brownouts: night.setBrownouts,
       bestDrop: night.bestDropThisSet,
       heat: night.heat,
+      avgWave: night.setWaveSamples > 0 ? night.setWaveSum / night.setWaveSamples : 0,
     };
     if (night.setGoal.met(stats)) {
       night.repBonus += (night.setGoal.reward.rep ?? 0) * night.rules.goalRepMult;
@@ -510,10 +584,14 @@ export function dropMontee(state: GameState, night: NightState): boolean {
   const m = night.montee;
   // lumières voie Stroboscopique : le payoff du drop est multiplié
   const payoff = ownedGear(state, 'lumieres').effects?.dropMult ?? 1;
-  night.vibe = clamp(night.vibe + (0.1 + 0.25 * m) * payoff, 0, 1);
-  night.crowd = clamp(night.crowd + night.cap * 0.05 * m * payoff, 0, night.cap);
+  // la vague paie, la foule cramée plafonne : ~1.5× au sommet, ~0.4× spammé
+  const waveMult = (0.5 + night.waveScore) * (1 - BURNOUT_DROP_MALUS * night.burnout);
+  night.vibe = clamp(night.vibe + (0.1 + 0.25 * m) * payoff * waveMult, 0, 1);
+  night.crowd = clamp(night.crowd + night.cap * 0.05 * m * payoff * waveMult, 0, night.cap);
   night.heat = clamp(night.heat + 0.02 + 0.06 * m, 0, night.rules.bustThreshold - 0.01);
-  night.bestDropThisSet = Math.max(night.bestDropThisSet, m);
+  night.burnout *= DROP_BURNOUT_RESET;
+  // l'objectif « gros drop » lit le payoff post-multiplicateurs (spec story A)
+  night.bestDropThisSet = Math.max(night.bestDropThisSet, m * waveMult);
   night.montee = 0;
   return true;
 }

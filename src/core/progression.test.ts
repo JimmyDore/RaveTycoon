@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { getCrewMember, recruitDj, recruitableDjs } from './crew';
 import { DJS, GEAR, GEAR_CATEGORIES, SPOTS, getSpot } from './data';
-import { createNight, resolveEvent, startSet, tickNight } from './night';
+import { nearestIntensity } from './intensity';
+import { createNight, resolveEvent, setIntensity, startSet, tickNight } from './night';
 import { applyBust, buyGearUpgrade, settleNight } from './payout';
 import { newGame } from './save';
 import type { GameState, NightResult } from './types';
@@ -13,6 +14,7 @@ function playNight(state: GameState, seed: number): NightResult {
   for (let guard = 0; guard < 100_000 && night.phase !== 'ended'; guard++) {
     if (night.phase === 'transition') startSet(state, night, 'tonton');
     if (night.phase === 'event') resolveEvent(state, night, 0);
+    if (night.phase === 'playing') setIntensity(night, nearestIntensity(night.attente));
     tickNight(state, night, 0.1);
   }
   expect(night.phase).toBe('ended');
@@ -25,7 +27,7 @@ describe('early-game progression curve', () => {
     const state = newGame(42);
     playNight(state, 1);
     playNight(state, 2);
-    // cheapest tier-1 = Barre de LEDs 300 € ; mesuré ≈ 492 € après 2 nuits
+    // cheapest tier-1 = Barre de LEDs 300 € ; mesuré ≈ 493 € après task 2 (la vague)
     const cheapest = Math.min(
       ...Object.values(GEAR).map((items) => items[1].price),
     );
@@ -80,6 +82,7 @@ describe('temps-vers-Teknival (politique autoplay)', () => {
           startSet(state, night, freshest);
         }
         if (night.phase === 'event') resolveEvent(state, night, 0);
+        if (night.phase === 'playing') setIntensity(night, nearestIntensity(night.attente));
         tickNight(state, night, 0.1);
       }
       if (night.busted) applyBust(state, night);
@@ -97,13 +100,12 @@ describe('temps-vers-Teknival (politique autoplay)', () => {
     return nights;
   }
 
-  it('la courbe tient : Teknival ni trop tôt (≥ 15 nuits) ni hors de portée (< 200)', () => {
+  it('la courbe tient : Teknival ni trop tôt (≥ 29 nuits) ni hors de portée (< 200)', () => {
     const nights = autoCareer();
     // baseline pré-chantier mesurée ≈ 10 nuits vers rep 500 ; cible spec : ≥ 3× → ≥ 30
     // valeur mesurée après chantier 2 : 31 nuits (seed 42, politique gloutonne)
-    // mesuré après task 1 (crans d'intensité) : 17 nuits — la politique groove campée
-    // (events forçant chill qui PERSISTE) sera remplacée en task 2 par « suivre l'attente »
-    expect(nights).toBeGreaterThanOrEqual(15); // mesuré 17 − marge 2
+    // mesuré 31 nuits après la vague (story A) — la borne ≥ 3× baseline reste tenue
+    expect(nights).toBeGreaterThanOrEqual(29); // mesuré 31 − marge 2
     expect(nights).toBeLessThan(200);
   });
 });

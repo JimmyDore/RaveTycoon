@@ -65,7 +65,9 @@ export function settleNight(state: GameState, night: NightState): NightResult {
   }
   carryDamage(state, night);
   applyNightRest(state, playedDjs(night));
-  const quality = Math.min(1, 0.6 * vibe + 0.5 * (night.peakCrowd / night.cap));
+  // jouer trop mou réduit le buzz de fin de nuit (spec story A)
+  const softFrac = night.t > 0 ? Math.min(1, night.softT / night.t) : 0;
+  const quality = Math.min(1, (0.6 * vibe + 0.5 * (night.peakCrowd / night.cap)) * (1 - 0.3 * softFrac));
   buzzAfterNight(state, quality);
 
   const result: NightResult = {
@@ -86,6 +88,7 @@ export function settleNight(state: GameState, night: NightState): NightResult {
     repGained,
     peakCrowd: Math.round(night.peakCrowd),
     avgVibe: vibe,
+    bestWaveScore: night.bestWaveScore,
     duration: night.t,
     lineup: night.playedSets,
     journal: night.journal,
@@ -166,6 +169,7 @@ export function applyBust(state: GameState, night: NightState): NightResult {
     repGained,
     peakCrowd: Math.round(night.peakCrowd),
     avgVibe: avgVibe(night),
+    bestWaveScore: night.bestWaveScore,
     duration: night.t,
     lineup: night.playedSets,
     journal: night.journal,

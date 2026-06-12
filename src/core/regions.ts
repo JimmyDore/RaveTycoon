@@ -40,11 +40,10 @@ export interface RegionRules {
   bannedSpotIds: string[];
   /** surcharge du seuil de rep d'un spot, par id (isSpotAvailable) */
   repReqOverride: Record<string, number>;
-  /**
-   * × sur la qualité de set (computeSetQuality).
-   * RÉVISION CHANTIER 1 : fallback de « tolérance d'attente −0.05 ».
-   */
+  /** × sur la qualité de set (computeSetQuality). Dormant depuis le rewire tolérance. */
   setQualityMult: number;
+  /** bonus (négatif = plus étroite) sur la tolérance d'attente (tickNight) */
+  attenteTolBonus: number;
   /** × sur la rep des objectifs de set (endCurrentSet) */
   goalRepMult: number;
   /**
@@ -77,6 +76,7 @@ export function defaultRegionRules(): RegionRules {
     bannedSpotIds: [],
     repReqOverride: {},
     setQualityMult: 1,
+    attenteTolBonus: 0,
     goalRepMult: 1,
     maxEventsBonus: 0,
     specialNightWeightMult: 1,
@@ -164,11 +164,11 @@ export const REGION_TRAITS: RegionTraitDef[] = [
   {
     id: 'public-exigeant',
     nom: 'Public exigeant',
-    desc: 'Des oreilles difficiles : les sets paraissent toujours un peu moins bons.',
+    desc: 'Des oreilles difficiles : la tolérance de la foule est plus étroite.',
     icon: '😤',
     difficulty: 1,
     apply: (r) => {
-      r.setQualityMult *= 0.95;
+      r.attenteTolBonus -= 0.05;
     },
     weight: 1,
   },

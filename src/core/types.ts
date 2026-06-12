@@ -279,6 +279,8 @@ export interface SetStats {
   bestDrop: number;
   /** heat en fin de set */
   heat: number;
+  /** waveScore moyen sur le set */
+  avgWave: number;
 }
 
 /**
@@ -328,6 +330,19 @@ export interface NightState {
   setPeakRinseT: number;
   /** ∑ INTENSITY_LEVEL × dt sur la nuit — essence pondérée temps (economy.ts) */
   intensitySum: number;
+  /** attente de la foule [0,1], recalculée chaque tick (baseline × genre − burnout) */
+  attente: number;
+  /** burnout de foule [0,1] — charge à PEAK/RINSE, décharge à CHILL/GROOVE */
+  burnout: number;
+  /** moyenne glissante ~20 s de « dans la vague » [0,1] */
+  waveScore: number;
+  /** meilleur waveScore de la nuit (recap) */
+  bestWaveScore: number;
+  /** secondes cumulées « trop mou » — réduit le buzz de fin de nuit */
+  softT: number;
+  /** accumulateurs waveScore du set courant (objectif « surfer la vague ») */
+  setWaveSum: number;
+  setWaveSamples: number;
   /** current set quality in ~[0.2, 1.4] */
   setQuality: number;
   crowd: number;
@@ -427,6 +442,8 @@ export interface NightResult {
   repGained: number;
   peakCrowd: number;
   avgVibe: number;
+  /** meilleur waveScore de la nuit */
+  bestWaveScore: number;
   duration: number;
   lineup: SetRecord[];
   journal: JournalEntry[];

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyIdleTime } from './idle';
 import { NIGHT_MODIFIERS, rollModifiers } from './modifiers';
-import { applyEffects, createNight, startSet, tickNight } from './night';
+import { applyEffects, createNight, currentWave, startSet, tickNight } from './night';
 import { isSpotAvailable, settleNight } from './payout';
 import { newGame } from './save';
 import type { GameState } from './types';
@@ -56,7 +56,8 @@ describe('le pool de traits', () => {
     expect(applied('climat-pourri').negativeModifierWeightMult).toBeCloseTo(2, 5);
     expect(applied('terre-de-beton').bannedSpotIds).toEqual(['champ', 'foret', 'plage']);
     expect(applied('terre-de-beton').repReqOverride.carriere).toBe(0);
-    expect(applied('public-exigeant').setQualityMult).toBeCloseTo(0.95, 5);
+    expect(applied('public-exigeant').attenteTolBonus).toBeCloseTo(-0.05, 5);
+    expect(applied('public-exigeant').setQualityMult).toBe(1);
     expect(applied('zone-blanche').buzzDecayMult).toBeCloseTo(2, 5);
     expect(applied('terre-de-dub').slowGenreArrivalMult).toBeCloseTo(1.3, 5);
     expect(applied('terre-de-dub').fastGenreArrivalMult).toBeCloseTo(0.7, 5);
@@ -203,10 +204,13 @@ describe('les règles de région dans la nuit', () => {
     expect(base.night.heat).toBeCloseTo(0.99, 5); // comportement actuel conservé
   });
 
-  it('Public exigeant : la qualité de set prend −5 %', () => {
+  it('Public exigeant : la tolérance de la foule est plus étroite (−0.05)', () => {
     const base = playingNight([]);
     const exigeant = playingNight(['public-exigeant']);
-    expect(exigeant.night.setQuality).toBeCloseTo(base.night.setQuality * 0.95, 5);
+    expect(currentWave(exigeant.state, exigeant.night).tol).toBeCloseTo(
+      currentWave(base.state, base.night).tol - 0.05,
+      5,
+    );
   });
 
   it('Grands axes : la foule afflue plus vite', () => {

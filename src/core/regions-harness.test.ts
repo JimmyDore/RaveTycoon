@@ -1,20 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import type { Intensity } from './intensity';
+import { INTENSITY_LEVEL, nearestIntensity } from './intensity';
 import { createNight, resolveEvent, setIntensity, startSet, tickNight } from './night';
 import { isSpotAvailable, settleNight } from './payout';
 import { legendeMultiplier, regionTraits } from './regions';
 import { newGame } from './save';
 import type { GameState, NightResult, SpotId } from './types';
 
-/** Joue une nuit complète avec tonton, en prenant toujours l'option 0 des events. */
-function playNight(state: GameState, spot: SpotId, intensity: Intensity, seed: number): NightResult {
+/**
+ * Joue une nuit complète avec tonton, en prenant toujours l'option 0 des events.
+ * Politique d'intensité « suivre l'attente » ; en mode prudent on plafonne à
+ * groove et on redescend à chill dès que ça chauffe — comme un vrai joueur prudent.
+ */
+function playNight(state: GameState, spot: SpotId, prudent: boolean, seed: number): NightResult {
   const night = createNight(state, spot, ['tonton'], seed);
   for (let guard = 0; guard < 100_000 && night.phase !== 'ended'; guard++) {
-    if (night.phase === 'transition') {
-      startSet(state, night, 'tonton');
-      setIntensity(night, intensity);
-    }
+    if (night.phase === 'transition') startSet(state, night, 'tonton');
     if (night.phase === 'event') resolveEvent(state, night, 0);
+    if (night.phase === 'playing') {
+      let target = nearestIntensity(night.attente);
+      if (prudent) {
+        if (INTENSITY_LEVEL[target] > INTENSITY_LEVEL.groove) target = 'groove';
+        if (night.heat > 0.5) target = 'chill'; // on calme le jeu avant les sirènes
+      }
+      setIntensity(night, target);
+    }
     tickNight(state, night, 0.1);
   }
   expect(night.phase).toBe('ended');
@@ -29,7 +38,7 @@ describe('harness : une tournée sous régions types', () => {
     expect(legendeMultiplier(regionTraits(state.region))).toBeCloseTo(1.75, 5);
     for (let n = 0; n < 4; n++) {
       const before = state.cash;
-      playNight(state, 'champ', 'chill', 100 + n);
+      playNight(state, 'champ', true, 100 + n);
       expect(state.cash).toBeGreaterThanOrEqual(before); // jouer ne perd jamais d'argent
     }
     expect(state.rep).toBeGreaterThan(0);
@@ -39,7 +48,7 @@ describe('harness : une tournée sous régions types', () => {
     const state = newGame(42);
     state.region = { nom: 'La Lande sauvage', traits: ['terre-de-dub', 'terre-daccueil'] };
     expect(legendeMultiplier(regionTraits(state.region))).toBe(1);
-    for (let n = 0; n < 4; n++) playNight(state, 'champ', 'groove', 200 + n);
+    for (let n = 0; n < 4; n++) playNight(state, 'champ', false, 200 + n);
     expect(state.cash).toBeGreaterThan(0);
     expect(state.rep).toBeGreaterThan(0);
   });
@@ -50,7 +59,7 @@ describe('harness : une tournée sous régions types', () => {
     expect(isSpotAvailable(state, 'champ')).toBe(false);
     expect(isSpotAvailable(state, 'foret')).toBe(false);
     expect(isSpotAvailable(state, 'carriere')).toBe(true); // no-softlock à rep 0
-    for (let n = 0; n < 3; n++) playNight(state, 'carriere', 'chill', 300 + n);
+    for (let n = 0; n < 3; n++) playNight(state, 'carriere', true, 300 + n);
     expect(state.cash).toBeGreaterThan(0);
   });
 });

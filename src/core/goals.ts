@@ -42,6 +42,13 @@ export const SET_GOALS: SetGoalDef[] = [
     weight: (ctx) => (isHighIntensity(ctx.intensity) ? 1.3 : 0.8),
   },
   {
+    id: 'vague',
+    label: 'Surfer la vague (score moyen ≥ 0,5)',
+    reward: { rep: 4 },
+    met: (s) => s.avgWave >= 0.5,
+    weight: () => 1,
+  },
+  {
     id: 'discret',
     label: 'Tenir la chaleur sous la barre',
     reward: { rep: 3 },

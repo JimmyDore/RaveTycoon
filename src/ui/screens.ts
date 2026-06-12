@@ -598,6 +598,7 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
           brownouts: night.setBrownouts,
           bestDrop: night.bestDropThisSet,
           heat: night.heat,
+          avgWave: night.setWaveSamples > 0 ? night.setWaveSum / night.setWaveSamples : 0,
         });
         // ✓ « verrouillé » seulement passé la moitié du set — sinon un objectif
         // trivialement vrai à t=0 (zéro coupure, heat basse) afficherait un faux ✓
