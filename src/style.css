@@ -317,6 +317,39 @@ button {
   image-rendering: pixelated;
 }
 
+.night-timeline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  display: flex;
+  z-index: 5;
+}
+.timeline-seg { height: 100%; opacity: 0.35; }
+.timeline-seg.current { opacity: 0.9; }
+.seg-ouverture { background: #4a5a8a; }
+.seg-rush { background: #c2563a; }
+.seg-creux { background: #5a6a72; }
+.seg-aube { background: #d9a13b; }
+.timeline-cursor {
+  position: absolute;
+  top: -2px;
+  width: 2px;
+  height: 10px;
+  background: #fff;
+  margin-left: -1px;
+  transition: left 0.3s linear;
+}
+.timeline-icon {
+  position: absolute;
+  top: 8px;
+  transform: translateX(-50%);
+  font-size: 14px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  transition: left 0.3s linear;
+}
+
 .hud-top {
   position: absolute;
   top: 0.6rem;

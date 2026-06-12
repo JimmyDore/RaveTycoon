@@ -140,7 +140,8 @@ function frame(now: number): void {
       active.simAccumulator -= SIM_DT;
       const events = tickNight(state, night, SIM_DT);
       for (const ev of events) {
-        screen.toast(STR.events[ev.type]);
+        if (ev.type === 'phase-change') screen.toast(STR.phaseToast[night.nightPhase]);
+        else screen.toast(STR.events[ev.type]);
         if (ev.type === 'bust') audio.playSiren();
         if (ev.type === 'set-ended') screen.showTransition(state, night, onStartSet);
       }

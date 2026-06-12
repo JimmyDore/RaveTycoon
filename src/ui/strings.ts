@@ -1,4 +1,5 @@
 import type { Intensity } from '../core/intensity';
+import type { NightPhaseId } from '../core/phases';
 
 /**
  * Toutes les chaînes UI, externalisées pour une future i18n.
@@ -135,6 +136,12 @@ export const STR = {
     'phase-change': '🌒 La nuit bascule…',
     heatWarning: '👮 Ça sent le roussi… calme le jeu.',
   },
+  phaseToast: {
+    ouverture: '🌒 Ouverture — le champ s’éveille, on chauffe doucement',
+    rush: '🔥 Le rush — tout le monde arrive, la buvette tourne',
+    creux: '🌫 Le creux — la foule fatigue, les bleus rôdent',
+    aube: '🌅 L’aube — le final compte double, tiens jusqu’au soleil',
+  } as Record<NightPhaseId, string>,
   cantAfford: 'La caisse ne suit pas',
 
   // recap

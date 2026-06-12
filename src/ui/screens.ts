@@ -7,6 +7,7 @@ import { buildRegionRules, regionTraits, type RegionChoice } from '../core/regio
 import { canBuyPerk, computeLegende, hasPerk, maxVeterans, perkCount } from '../core/tour';
 import { MONTEE_MIN_DROP, computeSetQuality, currentWave } from '../core/night';
 import { INTENSITIES, type Intensity } from '../core/intensity';
+import { NIGHT_PHASES, getPhase } from '../core/phases';
 import type { NightModifierDef } from '../core/modifiers';
 import type {
   DjDef,
@@ -480,6 +481,20 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
   hudTop.append(setBox, crowdBox, clock, bankBox);
   sceneWrap.append(hudTop);
 
+  // timeline de l'arc de nuit : 4 segments, curseur de progression, icône de phase
+  const timeline = el('div', 'night-timeline');
+  const timelineSegs = new Map<string, HTMLElement>();
+  for (const p of NIGHT_PHASES) {
+    const seg = el('div', `timeline-seg seg-${p.id}`);
+    seg.style.width = `${((p.frac[1] - p.frac[0]) * 100).toFixed(1)}%`;
+    timelineSegs.set(p.id, seg);
+    timeline.append(seg);
+  }
+  const timelineCursor = el('div', 'timeline-cursor');
+  const timelineIcon = el('div', 'timeline-icon', NIGHT_PHASES[0].icon);
+  timeline.append(timelineCursor, timelineIcon);
+  sceneWrap.append(timeline);
+
   // badges discrets des modifs du soir (icône + nom), peuplés au premier update
   const modifierBadges = el('div', 'night-modifiers');
   sceneWrap.append(modifierBadges);
@@ -586,6 +601,11 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
         nowPlaying.textContent = '';
       }
       const playing = night.phase === 'playing';
+      const nightFrac = night.duration > 0 ? Math.min(1, night.t / night.duration) : 0;
+      timelineCursor.style.left = `${(nightFrac * 100).toFixed(1)}%`;
+      timelineIcon.style.left = `${(nightFrac * 100).toFixed(1)}%`;
+      timelineIcon.textContent = getPhase(night.nightPhase).icon;
+      for (const [id, seg] of timelineSegs) seg.classList.toggle('current', id === night.nightPhase);
       const wave = currentWave(state, night);
       waveBand.style.left = `${Math.max(0, (wave.attente - wave.tol) * 100).toFixed(1)}%`;
       waveBand.style.width = `${(wave.tol * 2 * 100).toFixed(1)}%`;
