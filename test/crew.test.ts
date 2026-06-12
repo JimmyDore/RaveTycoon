@@ -26,10 +26,11 @@ describe('recruitment', () => {
     const state = newGame();
     state.cash = 999999;
     expect(recruitableDjs(state)).toHaveLength(0);
-    expect(lockedDjs(state)).toHaveLength(7);
+    expect(lockedDjs(state)).toHaveLength(11);
     state.rep = 40;
     const available = recruitableDjs(state).map((d) => d.id);
     expect(available).toContain('gamine');
+    expect(available).toContain('plume');
     expect(available).toContain('boblepine');
     expect(available).not.toContain('fantome');
   });
@@ -71,7 +72,7 @@ describe('fatigue', () => {
 
   it('rests crew who did not play tonight; players keep their toll; floors at 0', () => {
     const state = newGame();
-    state.rep = 6;
+    state.rep = 8;
     recruitDj(state, 'gamine');
     const [tonton, gamine] = state.crew;
     tonton.fatigue = 0.8; // played a set

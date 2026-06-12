@@ -81,6 +81,10 @@ const DJ_SPRITES = {
   notaire: 7,
   sirene: 18,
   fantome: 20,
+  plume: 10,
+  doyenne: 14,
+  morse: 6,
+  volt: 2,
 };
 
 async function buildPortraits() {

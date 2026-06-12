@@ -79,7 +79,7 @@ describe('settleNight', () => {
 
   it('rests crew who sat out the night; players who played keep their toll', () => {
     const state = newGame();
-    state.rep = 6;
+    state.rep = 8;
     recruitDj(state, 'gamine');
     const [tonton, gamine] = state.crew;
     tonton.fatigue = 0.8; // plays in finishedNight default lineup
@@ -137,7 +137,7 @@ describe('applyBust escalation', () => {
 
   it('still rests the benched crew even when the night is busted', () => {
     const state = newGame();
-    state.rep = 6;
+    state.rep = 8;
     recruitDj(state, 'gamine');
     const gamine = state.crew[1];
     gamine.fatigue = 0.9; // benched (default lineup is tonton only)

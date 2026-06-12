@@ -66,8 +66,8 @@ describe('gear', () => {
 });
 
 describe('djs', () => {
-  it('has 8 DJs led by the founding tonton, sorted by rep requirement', () => {
-    expect(DJS).toHaveLength(8);
+  it('has 12 DJs led by the founding tonton, sorted by rep requirement', () => {
+    expect(DJS).toHaveLength(12);
     expect(DJS[0].id).toBe('tonton');
     expect(DJS[0].repReq).toBe(0);
     const reqs = DJS.map((d) => d.repReq);
