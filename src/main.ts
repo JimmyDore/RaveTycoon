@@ -196,7 +196,7 @@ function frame(now: number): void {
       now,
     );
   }
-  screen.update(night);
+  screen.update(state, night);
 
   if (active.endAt !== null && now >= active.endAt) {
     endNight();

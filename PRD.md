@@ -31,7 +31,7 @@ The game's identity rests on three pillars:
    You make a few meaningful choices per night and *watch the party answer*: ravers
    arrive in waves, dance harder, vibe rises off the crowd. Anticipation over dexterity.
 3. **Sound you can feel** — adaptive audio stems driven by the simulation: you *hear*
-   your booking and your briefs. A DJ told to push the sound audibly clips; a cheap
+   your booking and your intensity dial. *RINSE* audibly clips; a cheap
    generator audibly sputters; the crowd dances on the actual kick.
 
 ## 2. Goals & non-goals
@@ -61,9 +61,9 @@ Hybrid **active / idle** loop:
   part optional.
 
 ```
-[Prepare]  choose spot × genre × lineup, buy gear, brief the crew
+[Prepare]  choose spot × genre × lineup, buy gear, set the intensity
     ↓
-[Rave]     sets play out → choose next DJ + brief at each transition,
+[Rave]     sets play out → choose next DJ, ride the intensity,
            respond to event popups → survive until sunrise
     ↓
 [Payout]   bar drip + prix libre multiplier − DJ cuts (or bust consequences)
@@ -80,17 +80,17 @@ A rave is a **timed run** to sunrise, divided into **DJ sets**:
 
 - Set count scales with the spot tier: 2 sets on the first field (~3 min night) up to
   6 sets at the teknival (~10 min night). Each set ≈ 90 seconds of real time.
-- At each **set transition** the player makes the night's central decision:
-  - **Who plays next** — chosen from the crew present that night (fatigue, affinity and
-    risk profile make this a real choice).
-  - **The brief** — *jouer safe* / *normal* / *pousser le son*. Pushing draws crowd and
-    vibe but feeds heat and stresses gear; playing safe lets heat ebb.
-- Between transitions the player **watches**: crowd flows in, vibe particles rise, the
-  mix audibly follows the set's energy arc. No continuous input exists.
+- At each **set transition** the player makes one decision: **who plays next** — chosen
+  from the crew present that night (fatigue, genre and risk profile make this a real choice).
+- During the set the player drives the **intensity dial**: four tappable crans —
+  *CHILL · GROOVE · PEAK · RINSE* — changeable at any moment, no cooldown. The crowd has
+  a visible **attente** curve; playing inside the tolerance band (DJ technique widens it,
+  charisme bends the attente toward what you play) builds the wave; camping PEAK/RINSE
+  burns the crowd out. Discrete taps every ~10–20 s — never a fader, never a reflex.
 
-**Set quality** is computed from: DJ stats × genre affinity × platines tier × brief ×
-fatigue. Set quality drives crowd arrival, retention and vibe — the same crowd/vibe/heat
-simulation as v1, now fed by decisions instead of fader positions.
+**Set quality** is computed from: DJ stats × platines tier × fatigue, multiplied **live**
+by the intensity cran. Quality drives crowd arrival, retention and vibe — the same
+crowd/vibe/heat simulation as v1, now fed by decisions instead of fader positions.
 
 ### 4.2 Events — the surprises
 
@@ -102,7 +102,7 @@ pauses): a situation, 2–3 options, immediate consequences. Examples of the v1 
 | Les bleus sont passés sur la départementale | Baisser le son (heat −, vibe −) / On continue (heat ↑) |
 | Le groupe électrogène toussote | Le bricoler (set interrupted 15 s) / Ignorer (brownout risk ↑) |
 | Une enceinte chauffe | La ménager (sound −20 % this set) / La pousser (risk blown speaker) |
-| Le public en redemande | Brief du DJ passe en "pousser" gratuitement / Tenir le plan |
+| Le public en redemande | Lâcher les watts (montée ↑, vibe ↑) / Tenir le plan |
 | Un voisin débarque au portail | L'embrouiller (rng social) / Lui offrir une bière (cash −, heat −) |
 
 Events are drawn from a deck weighted by spot, heat level, gear tier and DJ risk
@@ -110,7 +110,7 @@ profiles. The deck is data-driven — new events are the cheapest post-launch co
 
 ### 4.3 Heat & busts *(unchanged from v1)*
 
-- A **heat meter** fills as a function of sound posture (briefs), DJ risk profiles and
+- A **heat meter** fills as a function of the intensity dial, DJ risk profiles and
   spot sensitivity; it ebbs when the crew plays safe.
 - Heat maxed = **bust**: cops shut the night down early.
 - **Escalating consequences** with repeat offenses: lose a cut of the night's earnings →
@@ -121,7 +121,7 @@ profiles. The deck is data-driven — new events are the cheapest post-launch co
 
 ### 4.4 Gear damage
 
-- Pushed gear (briefs, ignored events) can **blow a speaker or stall the generator**:
+- Pushed gear (RINSE, ignored events) can **blow a speaker or stall the generator**:
   degraded sound and vibe for the rest of the night, audible in the mix.
 - Damaged gear must be repaired between raves (time or money — see §8).
 
@@ -148,7 +148,7 @@ The GDT "staff" system, reskinned for the scene. **Permanent crew, scene-gated.*
   - **Genre affinities**: a hardtek wizard is mediocre on dub — lineup must match the
     night's genre, or cover multi-genre strategies.
   - **Risk profile**: some DJs draw heat (notorious, heavy-handed), some fly under the
-    radar. Interacts with spot choice and briefs.
+    radar. Interacts with spot choice and intensity.
   - **Fatigue**: playing sets tires a DJ; recovery happens in **real time between raves**
     (idle hook). A tired DJ performs below their stats.
   - **Cut**: negotiated % of the night, scaling with skill tier.
@@ -226,7 +226,7 @@ Light idle, **no passive income**:
   is stems (kick, sub, lead, hats) synthesized procedurally — no audio assets.
 - **The simulation is the DJ**: each set has an energy arc that layers stems in and out
   (sparse warm-up → full peak-time stack → melodic sunrise lift).
-- You **hear your decisions**: *pousser le son* audibly clips and distorts; a stressed
+- You **hear your decisions**: *RINSE* audibly clips and distorts; a stressed
   generator brownouts; a blown speaker crackles; a high-charisme DJ gets the crowd
   noticeably louder.
 - SFX layer: crowd noise scaling with crowd size, sirens on bust, dawn ambience.
@@ -285,7 +285,7 @@ Light idle, **no passive income**:
 |---|---|
 | 1 | Hybrid active/idle (not pure idle, not pure management) |
 | 2 | **v2: player is the crew boss, not the DJ — all input is discrete decisions (GDT model)** |
-| 3 | **v2: nights divide into DJ sets; decisions at set transitions (who + brief) plus 2–4 event popups** |
+| 3 | **v2: nights divide into DJ sets; decisions at set transitions (who + intensity) plus 2–4 event popups** |
 | 4 | **v2: permanent DJ crew, scene-gated recruitment; stats, affinities, risk profiles, real-time fatigue** |
 | 5 | **v2: DJs paid as a cut of the night's takings — no fixed costs, no-softlock preserved** |
 | 6 | Timed runs to sunrise + heat meter + separate gear damage |

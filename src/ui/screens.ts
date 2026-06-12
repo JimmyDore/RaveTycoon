@@ -5,7 +5,7 @@ import { rushCost } from '../core/idle';
 import { isSpotAvailable } from '../core/payout';
 import { buildRegionRules, regionTraits, type RegionChoice } from '../core/regions';
 import { canBuyPerk, computeLegende, hasPerk, maxVeterans, perkCount } from '../core/tour';
-import { MONTEE_MIN_DROP, computeSetQuality } from '../core/night';
+import { MONTEE_MIN_DROP, computeSetQuality, currentWave } from '../core/night';
 import { INTENSITIES, type Intensity } from '../core/intensity';
 import type { NightModifierDef } from '../core/modifiers';
 import type {
@@ -442,7 +442,7 @@ function stat(icon: string, value: string, label: string): HTMLElement {
 
 export interface NightScreen {
   canvas: HTMLCanvasElement;
-  update(night: NightState): void;
+  update(state: GameState, night: NightState): void;
   toast(msg: string): void;
   /** bannière one-shot des modifs du soir, au lancement de la nuit */
   showModifiers(modifiers: NightModifierDef[]): void;
@@ -511,6 +511,15 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
   bottomBar.append(nowCol, heatWrap, vibeWrap);
 
   const liveWrap = el('div', 'live-controls');
+  // jauge de vague : bande de tolérance (position = attente) + curseur (= cran joué)
+  const waveBar = el('div', 'wave-bar');
+  const waveBurnout = el('div', 'wave-burnout');
+  const waveBand = el('div', 'wave-band');
+  const waveCursor = el('div', 'wave-cursor');
+  waveBar.append(waveBurnout, waveBand, waveCursor);
+  const waveWrap = el('div', 'wave-wrap');
+  waveWrap.append(el('div', 'heat-label', `🌊 ${STR.waveLabel}`), waveBar);
+  liveWrap.append(waveWrap);
   const cranBtns = new Map<Intensity, HTMLButtonElement>();
   for (const cran of INTENSITIES) {
     const b = el('button', 'live-cran', STR.intensites[cran]) as HTMLButtonElement;
@@ -553,7 +562,7 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
 
   return {
     canvas,
-    update(night) {
+    update(state, night) {
       // badges des modifs : peuplés une seule fois (night.modifiers est fixé au lancement)
       if (!badgesDone) {
         badgesDone = true;
@@ -577,6 +586,13 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
         nowPlaying.textContent = '';
       }
       const playing = night.phase === 'playing';
+      const wave = currentWave(state, night);
+      waveBand.style.left = `${Math.max(0, (wave.attente - wave.tol) * 100).toFixed(1)}%`;
+      waveBand.style.width = `${(wave.tol * 2 * 100).toFixed(1)}%`;
+      waveCursor.style.left = `${(wave.level * 100).toFixed(1)}%`;
+      waveBar.classList.toggle('in-wave', playing && wave.inWave);
+      // le burnout envahit la jauge par la droite (liseré rouge)
+      waveBurnout.style.width = `${(night.burnout * 100).toFixed(1)}%`;
       for (const [cran, btn] of cranBtns) {
         btn.classList.toggle('selected', night.intensity === cran);
         btn.disabled = !playing || night.intensity === cran;
@@ -789,6 +805,9 @@ export function renderRecap(
 
   const lines = el('div', 'recap-lines');
   lines.append(recapLine(STR.peakCrowd, `${result.peakCrowd} ${STR.crowdLabel}`));
+  if (result.bestWaveScore > 0) {
+    lines.append(recapLine(`🌊 ${STR.waveBest}`, `${Math.round(result.bestWaveScore * 100)} %`));
+  }
   lines.append(recapLine(STR.barTotal, fmtCash(result.bank)));
   if (result.essence > 0) lines.append(recapLine(`⛽ ${STR.essenceLine}`, `−${fmtCash(result.essence)}`));
   if (result.restock > 0) lines.append(recapLine(`🍺 ${STR.restockLine}`, `−${fmtCash(result.restock)}`));

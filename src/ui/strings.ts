@@ -114,6 +114,7 @@ export const STR = {
   bankLabel: 'buvette',
   sunriseIn: 'lever du soleil',
   vibeLabel: 'ambiance',
+  waveLabel: 'la vague',
   setGoalLabel: 'objectif',
   modifiersBanner: 'Ce soir…',
   modifiersRecapTitle: 'La couleur du soir',
@@ -142,6 +143,7 @@ export const STR = {
   wonText:
     'Ton crew a tenu le mur de son jusqu’au matin devant une marée humaine. Le téléphone arabe de la scène ne parle plus que de vous. Le camion repart, et l’histoire est en marche.',
   peakCrowd: 'Pic d’affluence',
+  waveBest: 'Meilleure vague',
   barTotal: 'Recette buvette',
   donations: 'Prix libre',
   donationsMult: (m: string) => `×${m} (ambiance + affluence)`,

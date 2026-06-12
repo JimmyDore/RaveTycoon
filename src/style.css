@@ -791,15 +791,68 @@ button {
   background: linear-gradient(90deg, #3ddc97, #ffd166, #ff5d8f);
   transition: width 0.3s linear;
 }
-.live-controls { display: flex; gap: 6px; align-items: center; pointer-events: auto; }
-.live-cran, .live-drop {
-  font: inherit; padding: 6px 10px; border-radius: 8px; cursor: pointer;
-  background: #1b1430; color: #cfc3ee; border: 1px solid #3a2d63;
+.live-controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; pointer-events: auto; }
+.live-cran {
+  flex: 1;
+  min-height: 44px;
+  border: 1px solid #444;
+  border-radius: 8px;
+  background: #1c1c24;
+  color: #aaa;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
 }
-.live-cran.selected { border-color: #ff4f9a; color: #fff; }
-.live-cran:disabled, .live-drop:disabled { opacity: 0.45; cursor: default; }
+.live-cran.selected {
+  border-color: #ff4f9a;
+  color: #fff;
+  box-shadow: 0 0 12px rgba(255, 79, 154, 0.55); /* le cran actif glow */
+}
+.live-cran:disabled { opacity: 0.45; cursor: default; }
 .live-drop {
-  background: #2a1430; border-color: #7a2d63; font-weight: bold;
+  font: inherit; padding: 6px 10px; border-radius: 8px; cursor: pointer;
+  background: #2a1430; color: #cfc3ee; border: 1px solid #7a2d63; font-weight: bold;
+}
+.live-drop:disabled { opacity: 0.45; cursor: default; }
+
+/* jauge de vague : bande de tolérance + curseur de cran + liseré de burnout */
+.wave-wrap { display: flex; align-items: center; gap: 6px; width: 100%; order: -1; }
+.wave-bar {
+  position: relative;
+  flex: 1;
+  height: 14px;
+  border-radius: 7px;
+  background: #15151c;
+  border: 1px solid #333;
+  overflow: hidden;
+}
+.wave-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(80, 200, 255, 0.25);
+  border-left: 1px solid rgba(80, 200, 255, 0.6);
+  border-right: 1px solid rgba(80, 200, 255, 0.6);
+  transition: left 0.2s linear, width 0.2s linear;
+}
+.wave-bar.in-wave .wave-band { background: rgba(80, 255, 180, 0.4); }
+.wave-cursor {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 3px;
+  margin-left: -1.5px;
+  background: #fff;
+  transition: left 0.15s linear;
+}
+.wave-burnout {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 60, 60, 0.5));
+  pointer-events: none;
 }
 .live-drop:not(:disabled) {
   border-color: #ff4f9a; color: #fff;
