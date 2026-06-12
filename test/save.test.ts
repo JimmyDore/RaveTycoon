@@ -98,3 +98,23 @@ describe('export / import codes', () => {
     expect(importCode('complètement-pété')).toBeNull();
   });
 });
+
+describe('la région voyage dans la sauvegarde', () => {
+  it('roundtrip complet avec une région', () => {
+    const state = newGame(123);
+    state.region = { nom: 'La Vallée grise', traits: ['zone-quadrillee', 'prefet-zele'] };
+    expect(deserialize(serialize(state))).toEqual(state);
+  });
+
+  it('une save sans région reste valide (tournée 1)', () => {
+    const parsed = deserialize(serialize(newGame()));
+    expect(parsed).not.toBeNull();
+    expect(parsed!.region).toBeUndefined();
+  });
+
+  it('rejette une région malformée', () => {
+    const state = newGame();
+    expect(deserialize(JSON.stringify({ ...state, region: { nom: 42 } }))).toBeNull();
+    expect(deserialize(JSON.stringify({ ...state, region: { nom: 'x', traits: 'pas-un-tableau' } }))).toBeNull();
+  });
+});

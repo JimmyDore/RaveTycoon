@@ -53,7 +53,12 @@ function isValidState(s: unknown): s is GameState {
     o.gearBranch !== null &&
     Array.isArray(o.crew) &&
     (o.crew as unknown[]).length >= 1 &&
-    Array.isArray(o.repairs)
+    Array.isArray(o.repairs) &&
+    (o.region === undefined ||
+      (typeof o.region === 'object' &&
+        o.region !== null &&
+        typeof (o.region as Record<string, unknown>).nom === 'string' &&
+        Array.isArray((o.region as Record<string, unknown>).traits)))
   );
 }
 
