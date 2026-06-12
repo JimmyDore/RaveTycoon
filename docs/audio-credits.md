@@ -38,6 +38,67 @@ Raw downloads live in `assets-src/audio-src/` (gitignored).
 | `dub-lead.ogg` | [Reggae Keyboard Skank Chord Toolkit](https://freesound.org/people/nlux/sounds/638940/) | nlux | CC0 | One chord hit extracted (~1.40 s into the reel) and placed on every offbeat |
 | `dub-hats.ogg` | — (synthesized) | ffmpeg `aevalsrc` noise | n/a | 8th-note hats with offbeat accent, high-passed at 7.5 kHz |
 
+## Frenchcore (200 BPM)
+
+CC0 loops sourced 2026-06-12. Loop = 4 bars = 4.800 s.
+
+| Stem | Source | Author | License | What it became |
+|---|---|---|---|---|
+| `frenchcore-lead.ogg` | [Happy Zaag Kick Loop](https://freesound.org/people/CAT-FOX_ALEX/sounds/840210/) | CAT-FOX_ALEX | CC0 | Zaag (saw) screech, native 200 BPM; first 4 of its 10 bars |
+| `frenchcore-kick.ogg` | [Loop Kick 01 Early Frenchcore 200 Bpm 1 Bar](https://freesound.org/people/Royrsd/sounds/468011/) | Royrsd | CC0 | 1-bar 200 BPM distorted kick loop, tiled ×4 |
+| `frenchcore-sub.ogg` | — (synthesized) | ffmpeg `aevalsrc` | n/a | Offbeat 55 Hz donk at 200 BPM |
+| `frenchcore-hats.ogg` | — (synthesized) | ffmpeg `aevalsrc` noise | n/a | Offbeat hat bursts, high-passed at 7 kHz |
+
+## Mentale (180 BPM)
+
+CC0 loops sourced 2026-06-12. Loop = 4 bars = 5.333 s. Mentale = melodic/hypnotic hardtek built on acid 303 lines.
+
+| Stem | Source | Author | License | What it became |
+|---|---|---|---|---|
+| `mentale-lead.ogg` | [acid loop - 1 bar - 120 bpm](https://freesound.org/people/Liquid_Tribal/sounds/584956/) | Liquid_Tribal | CC0 | 1-bar 303 acid riff, tempo-shifted 120 → 180 BPM, tiled ×4 |
+| `mentale-sub.ogg` | [acid bass ksynth 126 loop](https://freesound.org/people/Snapper4298/sounds/160352/) | Snapper4298 | CC0 | 4-bar 303 bassline, tempo-shifted 126 → 180 BPM |
+| `mentale-kick.ogg` | — (synthesized) | ffmpeg `aevalsrc` | n/a | 909-style four-on-the-floor at 180 BPM |
+| `mentale-hats.ogg` | — (synthesized) | ffmpeg `aevalsrc` noise | n/a | Offbeat hats, high-passed at 8 kHz |
+
+## Techno (130 BPM)
+
+CC0 loops sourced 2026-06-12. Loop = 4 bars = 7.385 s.
+
+| Stem | Source | Author | License | What it became |
+|---|---|---|---|---|
+| `techno-lead.ogg` | [Obtain Modular Synth Techno Loop](https://freesound.org/people/gis_sweden/sounds/614093/) | gis_sweden | CC0 | Modular synth loop, time-stretched to fill 4 bars at 130 BPM |
+| `techno-sub.ogg` | [130bpm bassline](https://freesound.org/people/LFOEQ/) | LFOEQ | CC0 | 8-bar 130 BPM bassline, first 4 bars |
+| `techno-kick.ogg` | — (synthesized) | ffmpeg `aevalsrc` | n/a | Clean four-on-the-floor at 130 BPM |
+| `techno-hats.ogg` | — (synthesized) | ffmpeg `aevalsrc` noise | n/a | Tight offbeat closed hats, high-passed at 9 kHz |
+
+## Raggatek (175 BPM)
+
+CC0 loops sourced 2026-06-12. Loop = 4 bars = 5.486 s. Chopped ragga/reggae over fast tek.
+
+| Stem | Source | Author | License | What it became |
+|---|---|---|---|---|
+| `raggatek-lead.ogg` | Real-Reggea Dub Loop (hello_flowers) | hello_flowers | CC0 | 2-bar reggae skank, tempo-shifted 90 → 175 BPM, tiled ×2 |
+| `raggatek-kick.ogg` | breakloop (175 BPM) | — | CC0 | 4-bar 175 BPM amen-style break, used as the kick/drum layer |
+| `raggatek-sub.ogg` | — (synthesized) | ffmpeg `aevalsrc` | n/a | Offbeat tek bass at 175 BPM |
+| `raggatek-hats.ogg` | — (synthesized) | ffmpeg `aevalsrc` noise | n/a | Syncopated hats, high-passed at 8.5 kHz |
+
+## Darkpsy (150 BPM)
+
+CC0 loops sourced 2026-06-12. Loop = 4 bars = 6.400 s.
+
+| Stem | Source | Author | License | What it became |
+|---|---|---|---|---|
+| `darkpsy-lead.ogg` | FM Synt Glitch loop 1 - 148 bpm | — | CC0 | FM glitch lead, tempo-shifted 148 → 150 BPM, first 4 bars |
+| `darkpsy-kick.ogg` | Psy Trance Kick Bass Drum Patterns Loop 138bpm | — | CC0 | 2-bar 138 BPM psy kick, tempo-shifted to 150, tiled ×2 |
+| `darkpsy-sub.ogg` | — (synthesized) | ffmpeg `aevalsrc` | n/a | Rolling 16th psy bass at 150 BPM, gated off the downbeat |
+| `darkpsy-hats.ogg` | — (synthesized) | ffmpeg `aevalsrc` noise | n/a | Bright offbeat hats, high-passed at 9 kHz |
+
+Pipeline for the 5 genres above: `assets-src/audio-src/build-stems-new.sh` (gitignored, like
+`build-stems.sh`) — tempo-shift to target BPM, tile/slice to exactly 4 bars, loudness-normalize,
+Opus-in-Ogg encode. Real loops carry the melodic identity (lead, + bass/kick where they align to the
+grid); kick/sub/hats are ffmpeg-synthesized where no clean CC0 loop was found. All sources CC0
+(verified via Freesound's `license:"Creative Commons 0"` filter).
+
 ## Downloaded but not used in the final stems
 
 | Source | Author | License | Why not used |
