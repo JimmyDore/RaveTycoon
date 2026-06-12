@@ -1243,6 +1243,10 @@ button {
   margin-top: 0.6rem;
 }
 
+.raid-banner.hidden,
+.siege-box.hidden {
+  display: none;
+}
 .raid-banner {
   position: absolute;
   top: 16px;
