@@ -565,3 +565,117 @@ export function getDj(id: string): DjDef {
   if (!dj) throw new Error(`unknown dj: ${id}`);
   return dj;
 }
+
+// --- l'Héritage : les perks permanents, achetés en ⭐ Légende -------------------
+// Note : total achetable = 73 ⭐ (le spec annonce 68 en comptant « famille » une
+// seule fois ; le stack ×2 ajoute 5 ⭐). 5–6 tournées pour tout voir, inchangé.
+
+export interface PerkDef {
+  id: string;
+  nom: string;
+  description: string;
+  /** coût en ⭐ Légende */
+  cost: number;
+  /** nombre d'achats possibles (1 = unique, 2 = stackable ×2) */
+  max: number;
+}
+
+export const PERKS: PerkDef[] = [
+  {
+    id: 'camion-amenage',
+    nom: 'Le camion aménagé',
+    description: 'Départ en tournée avec 1 500 € planqués dans la boîte à gants.',
+    cost: 2,
+    max: 1,
+  },
+  {
+    id: 'carnet-adresses',
+    nom: 'Carnet d’adresses',
+    description: 'La scène te connaît : les DJs rejoignent le crew à 70 % de leur seuil de rép.',
+    cost: 3,
+    max: 1,
+  },
+  {
+    id: 'reputation-precede',
+    nom: 'La réputation qui précède',
+    description: 'Départ avec 30 rép — la Forêt est ouverte direct.',
+    cost: 3,
+    max: 1,
+  },
+  {
+    id: 'matos-planque',
+    nom: 'Matos planqué',
+    description: 'Une cache dans chaque région : départ avec le tier 1 partout.',
+    cost: 4,
+    max: 1,
+  },
+  {
+    id: 'famille',
+    nom: 'La famille s’agrandit',
+    description: '+1 vétéran emmené à chaque départ en tournée (cumulable ×2).',
+    cost: 5,
+    max: 2,
+  },
+  {
+    id: 'mythe-platines',
+    nom: 'Mythes du son : les platines',
+    description: 'Débloque la cabine mythique — achetable en € en partie, qualité au-delà de tout.',
+    cost: 6,
+    max: 1,
+  },
+  {
+    id: 'mythe-mur',
+    nom: 'Mythes du son : le mur',
+    description: 'Débloque le mur mythique — la foule en sur-cap de 10 % au-dessus du tier max.',
+    cost: 6,
+    max: 1,
+  },
+  {
+    id: 'mythe-groupe',
+    nom: 'Mythes du son : le groupe',
+    description: 'Débloque la centrale mythique — jamais de coupure, même à la carrière.',
+    cost: 6,
+    max: 1,
+  },
+  {
+    id: 'mythe-lumieres',
+    nom: 'Mythes du son : les lumières',
+    description: 'Débloque l’aurore artificielle — l’ambiance ne retombe plus.',
+    cost: 6,
+    max: 1,
+  },
+  {
+    id: 'mythe-logistique',
+    nom: 'Mythes du son : la logistique',
+    description: 'Débloque la toile invisible — les bleus cherchent encore l’entrée.',
+    cost: 6,
+    max: 1,
+  },
+  {
+    id: 'tete-sansnom',
+    nom: 'Tête d’affiche : DJ Sans Nom',
+    description: 'Un DJ légendaire (5/5, 35 % de cut) rejoint le pool. Insaisissable — les bleus ne le voient pas.',
+    cost: 8,
+    max: 1,
+  },
+  {
+    id: 'tete-comete',
+    nom: 'Tête d’affiche : La Comète',
+    description: 'Une DJ légendaire (5/5, 35 % de cut) rejoint le pool. Increvable — la fatigue glisse sur elle.',
+    cost: 8,
+    max: 1,
+  },
+  {
+    id: 'tournee-infernale',
+    nom: 'Tournée infernale',
+    description: 'Les régions difficiles donnent +50 % de ⭐ Légende au départ.',
+    cost: 5,
+    max: 1,
+  },
+];
+
+export function getPerk(id: string): PerkDef {
+  const perk = PERKS.find((p) => p.id === id);
+  if (!perk) throw new Error(`unknown perk: ${id}`);
+  return perk;
+}
