@@ -112,6 +112,10 @@ export function renderPrepare(
   now: number,
   cb: PrepareCallbacks,
 ): void {
+  // a render rebuilds the whole screen, so the freshly-created .prepare-scroll
+  // would reset to the top — remember where the player was and restore it below,
+  // otherwise actions like recruiting a DJ yank focus back up (chantier scroll)
+  const prevScroll = (root.querySelector('.prepare-scroll') as HTMLElement | null)?.scrollTop ?? 0;
   root.innerHTML = '';
   root.className = 'screen screen-prepare';
 
@@ -201,6 +205,9 @@ export function renderPrepare(
     b.addEventListener('click', () => {
       selection.tab = t;
       renderPrepare(root, state, selection, now, cb);
+      // switching tabs is navigation — start the new panel at the top, not at the
+      // scroll offset preserved from the previous panel
+      (root.querySelector('.prepare-scroll') as HTMLElement | null)?.scrollTo(0, 0);
     });
     tabs.append(b);
   }
@@ -485,6 +492,7 @@ export function renderPrepare(
   scroll.append(meta);
 
   root.append(scroll);
+  scroll.scrollTop = prevScroll;
 
   // --- always-visible launch bar (outside the scroll area)
   const launchBar = el('div', 'launch-bar');
