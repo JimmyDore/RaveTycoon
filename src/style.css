@@ -1486,6 +1486,7 @@ button {
 }
 
 .cran-hint {
+  width: 100%; /* prend toute la ligne du flex-wrap pour que les crans démarrent toujours sur une rangée propre, même quand la phrase est courte */
   font-size: 0.72rem;
   color: var(--text-dim);
   line-height: 1.3;
