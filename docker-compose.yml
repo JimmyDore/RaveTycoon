@@ -1,11 +1,25 @@
 services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-ravetycoon.jimmydore.fr}
+      ACME_EMAIL: ${ACME_EMAIL:-jimmy@vianova.io}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - web
+
   web:
     build:
       context: .
       dockerfile: deploy/Dockerfile.web
     restart: unless-stopped
-    ports:
-      - "8080:80"
     depends_on:
       - api
 
@@ -19,3 +33,5 @@ services:
 
 volumes:
   leaderboard-data:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,7 @@
+{
+	email {$ACME_EMAIL:jimmy@vianova.io}
+}
+
+{$SITE_ADDRESS:ravetycoon.jimmydore.fr} {
+	reverse_proxy web:80
+}
