@@ -74,11 +74,13 @@ function maybeStartPrepCoach(): void {
     { anchor: '.panel-crew .dj-card', text: STR.onboarding.coachPrep[1], placement: 'bottom', onEnter: () => setPrepTab('crew') },
     { anchor: '.launch-bar .btn.launch', text: STR.onboarding.coachPrep[2], placement: 'top', onEnter: () => setPrepTab('spot') },
   ];
-  prepCoach = mountCoach(steps, () => {
+  prepCoach = mountCoach(steps, (completed) => {
     prepCoach = null;
     prepCoachActive = false;
-    onboarding = { ...onboarding, prepCoachDone: true };
-    saveOnboarding(localStorage, onboarding);
+    if (completed) {
+      onboarding = { ...onboarding, prepCoachDone: true };
+      saveOnboarding(localStorage, onboarding);
+    }
   });
 }
 
@@ -90,11 +92,13 @@ function maybeStartNightCoach(): void {
     { anchor: '.heat-wrap', text: STR.onboarding.coachNight[1], placement: 'top' },
     { anchor: '.wave-wrap', text: STR.onboarding.coachNight[2], placement: 'top' },
   ];
-  nightCoach = mountCoach(steps, () => {
+  nightCoach = mountCoach(steps, (completed) => {
     nightCoach = null;
     nightCoachActive = false;
-    onboarding = { ...onboarding, nightCoachDone: true };
-    saveOnboarding(localStorage, onboarding);
+    if (completed) {
+      onboarding = { ...onboarding, nightCoachDone: true };
+      saveOnboarding(localStorage, onboarding);
+    }
   });
 }
 

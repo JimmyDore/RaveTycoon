@@ -212,9 +212,12 @@ export function renderPrepare(
   const where = el('section', `panel panel-spot${selection.tab === 'spot' ? ' active' : ''}`);
   where.append(el('h2', '', STR.chooseSpot));
   const imposed = contract?.spotId;
-  // "à débloquer" counts only progression-locked spots — NOT spots merely excluded by
-  // tonight's contract (those are already unlocked, just restricted for this night).
-  const lockedSpotCount = SPOTS.filter((spot) => !isSpotAvailable(state, spot.id)).length;
+  const bannedSpotIds = buildRegionRules(state.region).bannedSpotIds;
+  // "à débloquer" counts only spots locked by progression — NOT spots excluded by tonight's
+  // contract (already unlocked, just restricted) nor region-banned spots (can't unlock this tour).
+  const lockedSpotCount = SPOTS.filter(
+    (spot) => !isSpotAvailable(state, spot.id) && !bannedSpotIds.includes(spot.id),
+  ).length;
   for (const spot of SPOTS) {
     const available = isSpotAvailable(state, spot.id); // progression: rep / arc / region
     const selectable = available && (!imposed || spot.id === imposed); // pickable tonight
@@ -227,7 +230,7 @@ export function renderPrepare(
     card.append(
       el('div', 'card-meta', `${STR.capacity(spot.cap)} · ${STR.duration(Math.round(spot.duration / 60))} · ${STR.setsCount(spot.setCount)}`),
     );
-    const banned = buildRegionRules(state.region).bannedSpotIds.includes(spot.id);
+    const banned = bannedSpotIds.includes(spot.id);
     card.append(
       el(
         'div',

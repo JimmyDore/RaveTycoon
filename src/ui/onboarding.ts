@@ -67,9 +67,9 @@ export interface CoachHandle {
  * Spotlight a sequence of elements with a tooltip. The ring follows the anchor's
  * bounding rect every frame, so it survives the full DOM re-renders that prep clicks trigger.
  */
-export function mountCoach(steps: CoachStep[], onDone: () => void): CoachHandle {
+export function mountCoach(steps: CoachStep[], onDone: (completed: boolean) => void): CoachHandle {
   if (steps.length === 0) {
-    onDone();
+    onDone(true);
     return { stop() {} };
   }
   const cursor = createCoachCursor(steps);
@@ -87,19 +87,22 @@ export function mountCoach(steps: CoachStep[], onDone: () => void): CoachHandle 
 
   let raf = 0;
   let stopped = false;
-  const finish = () => {
+  // completed=true → user saw it through (skip / last step / launched): persist "done".
+  // completed=false → torn down by an unrelated screen change (e.g. detour to Classement):
+  // clean up but DON'T persist, so the coach re-shows on return.
+  const finish = (completed: boolean) => {
     if (stopped) return;
     stopped = true;
     cancelAnimationFrame(raf);
     ring.remove();
     tip.remove();
-    onDone();
+    onDone(completed);
   };
   let missingFrames = 0;
   const enter = () => {
     const step = cursor.current();
     if (!step) {
-      finish();
+      finish(true);
       return;
     }
     step.onEnter?.();
@@ -110,8 +113,9 @@ export function mountCoach(steps: CoachStep[], onDone: () => void): CoachHandle 
     cancelAnimationFrame(raf);
     const loop = () => {
       if (stopped) return;
-      // stay out of the way of blocking night overlays (event/transition modal, modifiers reveal)
+      // stay out of the way of blocking overlays (help modal, event/transition modal, modifiers reveal)
       if (
+        document.querySelector('.onboarding-modal') ||
         document.querySelector('.night-modal:not(.hidden)') ||
         document.querySelector('.night-modifiers-banner:not(.hidden)')
       ) {
@@ -138,11 +142,12 @@ export function mountCoach(steps: CoachStep[], onDone: () => void): CoachHandle 
         tip.style.top = `${Math.max(8, top)}px`;
         tip.style.visibility = 'visible';
       } else {
-        // anchor gone (screen changed under us) — hide, and tear down if it stays gone
+        // anchor gone (screen changed under us) — hide, and tear down if it stays gone.
+        // This is an abandon, not a completion: don't persist "done".
         ring.style.opacity = '0';
         tip.style.visibility = 'hidden';
         if (++missingFrames > 90) {
-          finish();
+          finish(false);
           return;
         }
       }
@@ -154,7 +159,7 @@ export function mountCoach(steps: CoachStep[], onDone: () => void): CoachHandle 
     cursor.next();
     enter();
   });
-  skip.addEventListener('click', finish);
+  skip.addEventListener('click', () => finish(true));
   enter();
-  return { stop: finish };
+  return { stop: () => finish(true) };
 }

@@ -117,9 +117,6 @@ button {
   padding: 0.8rem 1rem;
   border-bottom: 2px solid var(--border);
   background: var(--bg-panel);
-  position: sticky;
-  top: 0;
-  z-index: 5;
 }
 .brand {
   font-weight: bold;
@@ -333,8 +330,9 @@ button {
   top: 0.6rem;
   left: 0;
   right: 0;
-  /* reserve the top-right corner for the .hud-help (?) button so it never covers the bank stat */
-  padding-right: 2.75rem;
+  /* reserve the top-right corner for the .hud-help (?) button so it never covers the bank stat;
+     symmetric left padding keeps the 4 stats centred */
+  padding: 0 2.75rem;
   display: flex;
   justify-content: space-around;
   align-items: flex-start;
