@@ -49,12 +49,36 @@ src/ui/      écrans DOM français : préparation, nuit (transitions de sets, é
              recap partageable, classement
 tools/       pipeline d'assets (sharp) : packs LimeZu → spritesheets minimales
 server/      API classement : node:http + node:sqlite, zéro dépendance npm
-deploy/      nginx + Dockerfiles
+deploy/      Caddy (TLS auto) + nginx + Dockerfiles
 ```
 
-## Déploiement (VPS)
+## Déploiement
+
+Production : `https://ravetycoon.jimmydore.fr`, sur un VPS Hetzner, en
+**build-on-server**. Chaque push sur `main` déclenche un workflow GitHub
+Actions qui se connecte en SSH et reconstruit la stack.
+
+### Stack (docker compose)
+
+- `caddy` — termine le TLS (Let's Encrypt auto), possède 80/443, proxy → `web`
+- `web` — build Vite servi par nginx, proxy `/api/` → `api`
+- `api` — classement node:sqlite, sqlite persisté dans un volume
+
+### Assets licenciés (hors git)
+
+`public/assets/` (spritesheets LimeZu) est gitignoré : il vit en permanence
+sur le serveur dans `/root/ravetycoon/public/assets/` et survit aux `git pull`.
+Après un `npm run assets`, pousse-les avec :
 
 ```bash
-npm run assets                 # obligatoire avant le build docker (public/ est copié dans l'image)
-docker compose up -d --build   # web sur :8080 (nginx, proxy /api → api), sqlite persisté en volume
+npm run deploy:assets   # rsync --delete public/assets/ → hetzner:/root/ravetycoon/public/assets/
+```
+
+Le CI ne touche jamais aux assets : il suppose qu'ils sont déjà sur la box.
+
+### Déploiement manuel (secours)
+
+```bash
+ssh hetzner
+cd /root/ravetycoon && git pull && docker compose up -d --build
 ```

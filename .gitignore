@@ -9,3 +9,7 @@ server/data/
 assets-src/
 
 public/assets/
+
+# deploy keys — never commit
+rt_deploy_key*
+*.deploy_key
