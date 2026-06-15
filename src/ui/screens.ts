@@ -23,7 +23,7 @@ import type {
 } from '../core/types';
 import { STR, fmtCash, fmtCountdown, fmtTime } from './strings';
 import type { BoardKind, ScoreRow } from './api';
-import { helpButton, howToModal } from './onboarding';
+import { helpButton } from './onboarding';
 import { loadOnboarding } from './onboarding-state';
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -132,7 +132,11 @@ export function renderPrepare(
   header.append(helpButton(!loadOnboarding(localStorage).helpSeen, () => cb.onHelp()));
 
   const scroll = el('div', 'prepare-scroll');
-  scroll.append(header);
+  // header + tabs ride together in a sticky head so the tab switcher stays reachable
+  // while a long crew/matos panel scrolls
+  const head = el('div', 'prep-head');
+  head.append(header);
+  scroll.append(head);
 
   if (state.wonTeknival) {
     scroll.append(el('div', 'won-banner', `🏆 ${STR.wonTitle}`));
@@ -200,23 +204,25 @@ export function renderPrepare(
     });
     tabs.append(b);
   }
-  scroll.append(tabs);
+  head.append(tabs);
 
   const main = el('div', 'prepare-grid');
 
   // --- spots column
   const where = el('section', `panel panel-spot${selection.tab === 'spot' ? ' active' : ''}`);
   where.append(el('h2', '', STR.chooseSpot));
-  const lockedSpotCount = SPOTS.filter((spot) => {
-    const imposed = contract?.spotId;
-    return !(isSpotAvailable(state, spot.id) && (!imposed || spot.id === imposed));
-  }).length;
+  const imposed = contract?.spotId;
+  // "à débloquer" counts only progression-locked spots — NOT spots merely excluded by
+  // tonight's contract (those are already unlocked, just restricted for this night).
+  const lockedSpotCount = SPOTS.filter((spot) => !isSpotAvailable(state, spot.id)).length;
   for (const spot of SPOTS) {
-    const imposed = contract?.spotId;
-    const unlocked = isSpotAvailable(state, spot.id) && (!imposed || spot.id === imposed);
-    if (!unlocked && !selection.expanded.has('spots')) continue;
-    const card = el('button', `card spot-card${selection.spot === spot.id ? ' selected' : ''}${unlocked ? '' : ' locked'}`);
-    card.disabled = !unlocked;
+    const available = isSpotAvailable(state, spot.id); // progression: rep / arc / region
+    const selectable = available && (!imposed || spot.id === imposed); // pickable tonight
+    // hide only progression-locked spots behind the teaser; contract-excluded-but-unlocked
+    // spots stay visible (disabled) so the player sees the restriction, not a false lock.
+    if (!available && !selection.expanded.has('spots')) continue;
+    const card = el('button', `card spot-card${selection.spot === spot.id ? ' selected' : ''}${selectable ? '' : ' locked'}`);
+    card.disabled = !selectable;
     card.append(el('div', 'card-title', spot.id === 'teknival' ? `🏆 ${spot.nom}` : spot.nom));
     card.append(
       el('div', 'card-meta', `${STR.capacity(spot.cap)} · ${STR.duration(Math.round(spot.duration / 60))} · ${STR.setsCount(spot.setCount)}`),
@@ -226,16 +232,18 @@ export function renderPrepare(
       el(
         'div',
         'card-desc',
-        unlocked
+        selectable
           ? spot.description
-          : banned
-            ? `🚧 ${STR.spotBanned}`
-            : spot.requiresArc && !state.arcsCompleted.includes(spot.requiresArc)
-              ? `🔒 ${STR.chateauLocked}`
-              : `🔒 ${STR.repNeeded(spot.repReq)}`,
+          : available
+            ? STR.onboarding.spotContractLocked
+            : banned
+              ? `🚧 ${STR.spotBanned}`
+              : spot.requiresArc && !state.arcsCompleted.includes(spot.requiresArc)
+                ? `🔒 ${STR.chateauLocked}`
+                : `🔒 ${STR.repNeeded(spot.repReq)}`,
       ),
     );
-    if (unlocked) {
+    if (selectable) {
       card.addEventListener('click', () => {
         selection.spot = spot.id;
         renderPrepare(root, state, selection, now, cb);
@@ -570,6 +578,7 @@ export interface NightLiveCallbacks {
   onDrop(): void;
   onPrompt(): void;
   onRaid(choice: 'evacuer' | 'negocier' | 'tenir'): void;
+  onHelp(): void;
 }
 
 export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightScreen {
@@ -596,7 +605,7 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
   hudTop.append(setBox, crowdBox, clock, bankBox);
   sceneWrap.append(hudTop);
 
-  const nightHelp = helpButton(false, () => howToModal(() => {}));
+  const nightHelp = helpButton(false, () => live.onHelp());
   nightHelp.classList.add('hud-help');
   sceneWrap.append(nightHelp);
 

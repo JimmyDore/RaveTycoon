@@ -30,12 +30,21 @@ function howToSection(title: string, steps: readonly string[]): HTMLElement {
 /** Reopenable "Comment jouer" modal. Appends itself to <body>; `onClose` fires after it's removed. */
 export function howToModal(onClose: () => void): void {
   const overlay = el('div', 'onboarding-modal');
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
   const panel = el('div', 'modal-panel');
-  panel.append(el('h2', '', STR.onboarding.howToTitle));
+  const title = el('h2', '', STR.onboarding.howToTitle);
+  title.id = 'howto-title';
+  overlay.setAttribute('aria-labelledby', title.id);
+  panel.append(title);
   panel.append(howToSection(STR.onboarding.prepaTitle, STR.onboarding.prepaSteps));
   panel.append(howToSection(STR.onboarding.nuitTitle, STR.onboarding.nuitSteps));
   const close = el('button', 'btn accent', STR.onboarding.gotIt) as HTMLButtonElement;
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') dismiss();
+  };
   const dismiss = () => {
+    document.removeEventListener('keydown', onKey);
     overlay.remove();
     onClose();
   };
@@ -43,9 +52,11 @@ export function howToModal(onClose: () => void): void {
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) dismiss();
   });
+  document.addEventListener('keydown', onKey);
   panel.append(close);
   overlay.append(panel);
   document.body.append(overlay);
+  close.focus();
 }
 
 export interface CoachHandle {
@@ -64,6 +75,8 @@ export function mountCoach(steps: CoachStep[], onDone: () => void): CoachHandle 
   const cursor = createCoachCursor(steps);
   const ring = el('div', 'coach-ring');
   const tip = el('div', 'coach-tip');
+  tip.setAttribute('role', 'dialog');
+  tip.setAttribute('aria-live', 'polite');
   const txt = el('p', 'coach-text', '');
   const row = el('div', 'coach-actions');
   const skip = el('button', 'btn ghost small', STR.onboarding.skip) as HTMLButtonElement;
@@ -82,6 +95,7 @@ export function mountCoach(steps: CoachStep[], onDone: () => void): CoachHandle 
     tip.remove();
     onDone();
   };
+  let missingFrames = 0;
   const enter = () => {
     const step = cursor.current();
     if (!step) {
@@ -91,24 +105,46 @@ export function mountCoach(steps: CoachStep[], onDone: () => void): CoachHandle 
     step.onEnter?.();
     txt.textContent = step.text;
     next.textContent = cursor.index() === cursor.total() - 1 ? STR.onboarding.gotIt : STR.onboarding.next;
+    next.focus();
+    missingFrames = 0;
     cancelAnimationFrame(raf);
     const loop = () => {
       if (stopped) return;
+      // stay out of the way of blocking night overlays (event/transition modal, modifiers reveal)
+      if (
+        document.querySelector('.night-modal:not(.hidden)') ||
+        document.querySelector('.night-modifiers-banner:not(.hidden)')
+      ) {
+        ring.style.opacity = '0';
+        tip.style.visibility = 'hidden';
+        missingFrames = 0;
+        raf = requestAnimationFrame(loop);
+        return;
+      }
       const anchor = document.querySelector(step.anchor) as HTMLElement | null;
-      if (anchor && anchor.getBoundingClientRect().width > 0) {
-        const r = anchor.getBoundingClientRect();
+      const r = anchor?.getBoundingClientRect();
+      if (r && r.width > 0) {
+        missingFrames = 0;
         ring.style.left = `${r.left - 6}px`;
         ring.style.top = `${r.top - 6}px`;
         ring.style.width = `${r.width + 12}px`;
         ring.style.height = `${r.height + 12}px`;
         ring.style.opacity = '1';
         const below = (step.placement ?? 'bottom') === 'bottom';
+        const top = below
+          ? Math.min(r.bottom + 12, window.innerHeight - tip.offsetHeight - 8)
+          : r.top - tip.offsetHeight - 12;
         tip.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - tip.offsetWidth - 8))}px`;
-        tip.style.top = below ? `${r.bottom + 12}px` : `${Math.max(8, r.top - tip.offsetHeight - 12)}px`;
+        tip.style.top = `${Math.max(8, top)}px`;
         tip.style.visibility = 'visible';
       } else {
+        // anchor gone (screen changed under us) — hide, and tear down if it stays gone
         ring.style.opacity = '0';
         tip.style.visibility = 'hidden';
+        if (++missingFrames > 90) {
+          finish();
+          return;
+        }
       }
       raf = requestAnimationFrame(loop);
     };

@@ -30,7 +30,7 @@ import {
 } from './ui/screens';
 import { STR } from './ui/strings';
 import { loadOnboarding, saveOnboarding } from './ui/onboarding-state';
-import { howToModal, mountCoach } from './ui/onboarding';
+import { howToModal, mountCoach, type CoachHandle } from './ui/onboarding';
 import type { CoachStep } from './ui/coach-flow';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -58,6 +58,8 @@ const selection: PrepareSelection = {
 let onboarding = loadOnboarding(localStorage);
 let prepCoachActive = false;
 let nightCoachActive = false;
+let prepCoach: CoachHandle | null = null;
+let nightCoach: CoachHandle | null = null;
 
 function setPrepTab(tab: PrepareSelection['tab']): void {
   selection.tab = tab;
@@ -72,7 +74,8 @@ function maybeStartPrepCoach(): void {
     { anchor: '.panel-crew .dj-card', text: STR.onboarding.coachPrep[1], placement: 'bottom', onEnter: () => setPrepTab('crew') },
     { anchor: '.launch-bar .btn.launch', text: STR.onboarding.coachPrep[2], placement: 'top', onEnter: () => setPrepTab('spot') },
   ];
-  mountCoach(steps, () => {
+  prepCoach = mountCoach(steps, () => {
+    prepCoach = null;
     prepCoachActive = false;
     onboarding = { ...onboarding, prepCoachDone: true };
     saveOnboarding(localStorage, onboarding);
@@ -87,7 +90,8 @@ function maybeStartNightCoach(): void {
     { anchor: '.heat-wrap', text: STR.onboarding.coachNight[1], placement: 'top' },
     { anchor: '.wave-wrap', text: STR.onboarding.coachNight[2], placement: 'top' },
   ];
-  mountCoach(steps, () => {
+  nightCoach = mountCoach(steps, () => {
+    nightCoach = null;
     nightCoachActive = false;
     onboarding = { ...onboarding, nightCoachDone: true };
     saveOnboarding(localStorage, onboarding);
@@ -123,6 +127,7 @@ async function startNight(): Promise<void> {
   );
   if (contract?.spotId) selection.spot = contract.spotId;
   if (present.length === 0) return;
+  prepCoach?.stop(); // leaving the prep screen — tear down the prep coach before the DOM is replaced
   const b = await bankReady;
   const night = createNight(state, selection.spot, present, (Date.now() ^ 0x7e7) >>> 0, {
     barStock: selection.barStock,
@@ -153,6 +158,14 @@ async function startNight(): Promise<void> {
         if (night.raid?.outcome === 'nego-rate') audio.playSiren();
       }
       if (choice === 'tenir' && raidTenir(state, night)) active.screen.toast(STR.raidTenir);
+    },
+    onHelp: () => {
+      howToModal(() => {
+        if (!onboarding.helpSeen) {
+          onboarding = { ...onboarding, helpSeen: true };
+          saveOnboarding(localStorage, onboarding);
+        }
+      });
     },
   });
   const scene = new SceneRenderer(screen.canvas, b);
@@ -283,6 +296,7 @@ function frame(now: number): void {
 
 function endNight(): void {
   if (!active) return;
+  nightCoach?.stop(); // the night is over — tear down the night coach before the recap replaces the DOM
   cancelAnimationFrame(active.raf);
   audio.stop();
   const night = active.night;

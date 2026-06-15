@@ -270,32 +270,11 @@ button {
   margin: 0.8rem 0 0;
 }
 
-.prepare-footer {
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-  padding: 0 1rem;
-  align-items: stretch;
-}
-.launch-warning {
-  font-size: 0.75rem;
-  opacity: 0.85;
-}
 .meta-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
   justify-content: center;
-}
-
-.first-hint {
-  margin: 1rem;
-  padding: 0.8rem;
-  border: 1px dashed var(--accent-2);
-  border-radius: 8px;
-  color: var(--text-dim);
-  font-size: 0.8rem;
-  line-height: 1.45;
 }
 
 /* ---------- rave ---------- */
@@ -354,6 +333,8 @@ button {
   top: 0.6rem;
   left: 0;
   right: 0;
+  /* reserve the top-right corner for the .hud-help (?) button so it never covers the bank stat */
+  padding-right: 2.75rem;
   display: flex;
   justify-content: space-around;
   align-items: flex-start;
@@ -1444,10 +1425,16 @@ button {
   overflow-y: auto;
   padding-bottom: 1rem;
 }
+.prep-head {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
+}
 .prep-tabs {
   display: flex;
   gap: 0.4rem;
-  padding: 0.6rem 1rem 0;
+  padding: 0.6rem 1rem;
 }
 .prep-tab {
   flex: 1;

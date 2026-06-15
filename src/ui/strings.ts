@@ -287,7 +287,7 @@ export const STR = {
       '🎚 À chaque set, choisis qui prend les platines.',
       "Règle l'énergie : Chill calme les bleus, Rinse fait tout monter.",
       '🌊 La vague se remplit — LÂCHE le drop au bon moment pour faire exploser le champ.',
-      "👮 Garde Les bleus sous la barre, sinon c'est la descente.",
+      "👮 Garde les bleus sous la barre, sinon c'est la descente.",
       "🔥 L'ambiance fait la recette et le prix libre.",
       '🌅 Tiens jusqu’au lever du soleil.',
     ],
@@ -305,9 +305,10 @@ export const STR = {
     ],
     coachNight: [
       "Règle l'énergie ici : Chill calme les bleus, Rinse fait tout monter.",
-      'Garde Les bleus sous la barre, sinon c’est la descente.',
+      'Garde les bleus sous la barre, sinon c’est la descente.',
       'Quand la vague est pleine, LÂCHE le drop.',
     ],
+    spotContractLocked: '📍 Contrat : spot imposé ce soir',
   },
 } as const;
 
