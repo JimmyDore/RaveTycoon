@@ -915,6 +915,37 @@ button {
   to { opacity: 1; }
 }
 
+/* mobile : la barre du bas s'empile en lignes au lieu de se tasser sur une
+   seule, sinon le récap (objectif + now-playing) et les jauges (les bleus /
+   ambiance) se chevauchent et deviennent illisibles sur écran étroit. */
+@media (max-width: 760px) {
+  .night-bottom {
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 0.45rem 0.6rem;
+  }
+  /* ligne 1 : récap pleine largeur, now-playing tronqué au lieu de wrapper mot à mot */
+  .now-col {
+    flex: 1 1 100%;
+  }
+  .now-playing {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* ligne 2 : les deux jauges côte à côte, à parts égales */
+  .night-bottom .heat-wrap,
+  .night-bottom .vibe-wrap {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+  }
+  /* ligne 3 : les contrôles live sur toute la largeur */
+  .live-controls {
+    flex: 1 1 100%;
+  }
+}
+
 /* ---------- v2: flash-prompt (bannière non bloquante, n'assombrit pas) ---------- */
 .floor-prompt {
   position: absolute;
