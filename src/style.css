@@ -1453,6 +1453,19 @@ button {
   .prepare-grid > .panel.active {
     display: block;
   }
+  /* the matos column can't go side-by-side in a narrow panel — stack each gear
+     row so the name reads on full width and the buy button never overflows */
+  .gear-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.45rem;
+  }
+  .gear-actions {
+    align-items: stretch;
+  }
+  .gear-actions .btn {
+    width: 100%;
+  }
 }
 @media (min-width: 860px) {
   .prep-tabs {
