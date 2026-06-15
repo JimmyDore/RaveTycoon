@@ -29,6 +29,9 @@ import {
   type PrepareSelection,
 } from './ui/screens';
 import { STR } from './ui/strings';
+import { loadOnboarding, saveOnboarding } from './ui/onboarding-state';
+import { howToModal, mountCoach } from './ui/onboarding';
+import type { CoachStep } from './ui/coach-flow';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 const audio = new AudioEngine();
@@ -48,7 +51,48 @@ const selection: PrepareSelection = {
   present: new Set(state.crew.map((d) => d.id)),
   barStock: 'normal',
   caution: false,
+  tab: 'spot',
+  expanded: new Set(),
 };
+
+let onboarding = loadOnboarding(localStorage);
+let prepCoachActive = false;
+let nightCoachActive = false;
+
+function setPrepTab(tab: PrepareSelection['tab']): void {
+  selection.tab = tab;
+  showPrepare();
+}
+
+function maybeStartPrepCoach(): void {
+  if (state.nights !== 0 || onboarding.prepCoachDone || prepCoachActive) return;
+  prepCoachActive = true;
+  const steps: CoachStep[] = [
+    { anchor: '.panel-spot .spot-card', text: STR.onboarding.coachPrep[0], placement: 'bottom', onEnter: () => setPrepTab('spot') },
+    { anchor: '.panel-crew .dj-card', text: STR.onboarding.coachPrep[1], placement: 'bottom', onEnter: () => setPrepTab('crew') },
+    { anchor: '.launch-bar .btn.launch', text: STR.onboarding.coachPrep[2], placement: 'top', onEnter: () => setPrepTab('spot') },
+  ];
+  mountCoach(steps, () => {
+    prepCoachActive = false;
+    onboarding = { ...onboarding, prepCoachDone: true };
+    saveOnboarding(localStorage, onboarding);
+  });
+}
+
+function maybeStartNightCoach(): void {
+  if (state.nights !== 0 || onboarding.nightCoachDone || nightCoachActive) return;
+  nightCoachActive = true;
+  const steps: CoachStep[] = [
+    { anchor: '.live-controls', text: STR.onboarding.coachNight[0], placement: 'top' },
+    { anchor: '.heat-wrap', text: STR.onboarding.coachNight[1], placement: 'top' },
+    { anchor: '.wave-wrap', text: STR.onboarding.coachNight[2], placement: 'top' },
+  ];
+  mountCoach(steps, () => {
+    nightCoachActive = false;
+    onboarding = { ...onboarding, nightCoachDone: true };
+    saveOnboarding(localStorage, onboarding);
+  });
+}
 
 // --- the night loop ---------------------------------------------------------
 
@@ -140,6 +184,7 @@ function onStartSet(djId: string): void {
   void audio.switchTo(getDj(djId).genre);
   if (firstSet) active.screen.showModifiers(active.night.modifiers);
   active.screen.toast(`🎧 ${STR.nowPlaying(getDj(djId).nom)}`);
+  if (firstSet) maybeStartNightCoach();
 }
 
 const INTENSITY_ENERGY: Record<Intensity, number> = { chill: 0.35, groove: 0.6, peak: 0.85, rinse: 1 };
@@ -380,6 +425,15 @@ function showPrepare(): void {
     onLeaderboard: () => {
       renderLeaderboard(app, fetchBoard, () => showPrepare());
     },
+    onHelp: () => {
+      howToModal(() => {
+        if (!onboarding.helpSeen) {
+          onboarding = { ...onboarding, helpSeen: true };
+          saveOnboarding(localStorage, onboarding);
+          showPrepare(); // drop the pulse on the [?] button
+        }
+      });
+    },
     onAcceptOffer: () => {
       if (!acceptSpecialOffer(state)) return;
       const offer = state.specialOffer!;
@@ -415,6 +469,7 @@ function showPrepare(): void {
       });
     },
   });
+  maybeStartPrepCoach();
 }
 
 // refresh repair countdowns on the prepare screen

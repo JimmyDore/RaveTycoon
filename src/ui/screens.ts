@@ -23,6 +23,8 @@ import type {
 } from '../core/types';
 import { STR, fmtCash, fmtCountdown, fmtTime } from './strings';
 import type { BoardKind, ScoreRow } from './api';
+import { helpButton, howToModal } from './onboarding';
+import { loadOnboarding } from './onboarding-state';
 
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -69,11 +71,17 @@ function fatigueMalusLabel(fatigue: number): HTMLElement | null {
 
 // --- prepare screen ----------------------------------------------------------
 
+export type PrepTab = 'spot' | 'crew' | 'matos';
+
 export interface PrepareSelection {
   spot: SpotId;
   present: Set<string>;
   barStock: BarStock;
   caution: boolean;
+  /** Active tab on narrow screens (ignored by the desktop 3-column grid). */
+  tab: PrepTab;
+  /** Keys of expanded "locked content" teasers, e.g. 'spots' / 'crew'. */
+  expanded: Set<string>;
 }
 
 export interface PrepareCallbacks {
@@ -90,6 +98,7 @@ export interface PrepareCallbacks {
   onImport(): void;
   onNewGame(): void;
   onLeaderboard(): void;
+  onHelp(): void;
   onHeritage(): void;
   onDepart(veteranIds: string[]): void;
   onAcceptOffer(): void;
@@ -120,16 +129,19 @@ export function renderPrepare(
     stats.append(chip);
   }
   header.append(stats);
-  root.append(header);
+  header.append(helpButton(!loadOnboarding(localStorage).helpSeen, () => cb.onHelp()));
+
+  const scroll = el('div', 'prepare-scroll');
+  scroll.append(header);
 
   if (state.wonTeknival) {
-    root.append(el('div', 'won-banner', `🏆 ${STR.wonTitle}`));
+    scroll.append(el('div', 'won-banner', `🏆 ${STR.wonTitle}`));
     const depart = el('button', 'card depart-card');
     depart.append(el('div', 'card-title', STR.departCard));
     depart.append(el('div', 'card-meta', STR.departPreview(computeLegende(state))));
     depart.append(el('div', 'card-desc', STR.departHint));
     depart.addEventListener('click', () => showDepartModal(root, state, cb));
-    root.append(depart);
+    scroll.append(depart);
   }
 
   // bandeau région : la tournée entière se joue sous ces traits (chantier 4)
@@ -141,7 +153,7 @@ export function renderPrepare(
       chip.title = t.desc;
       banner.append(chip);
     }
-    root.append(banner);
+    scroll.append(banner);
   }
 
   // offre de nuit spéciale du soir (story D) — au-dessus du choix de spot
@@ -173,18 +185,36 @@ export function renderPrepare(
       row.append(accept, decline);
       card.append(row);
     }
-    root.append(card);
+    scroll.append(card);
   }
   const contract = offer?.accepted ? offer : null;
+
+  const tabs = el('div', 'prep-tabs');
+  const TAB_ORDER: PrepTab[] = ['spot', 'crew', 'matos'];
+  for (const t of TAB_ORDER) {
+    const b = el('button', `btn tab prep-tab${selection.tab === t ? ' selected' : ''}`, STR.onboarding.tabs[t]);
+    b.dataset.tab = t;
+    b.addEventListener('click', () => {
+      selection.tab = t;
+      renderPrepare(root, state, selection, now, cb);
+    });
+    tabs.append(b);
+  }
+  scroll.append(tabs);
 
   const main = el('div', 'prepare-grid');
 
   // --- spots column
-  const where = el('section', 'panel');
+  const where = el('section', `panel panel-spot${selection.tab === 'spot' ? ' active' : ''}`);
   where.append(el('h2', '', STR.chooseSpot));
+  const lockedSpotCount = SPOTS.filter((spot) => {
+    const imposed = contract?.spotId;
+    return !(isSpotAvailable(state, spot.id) && (!imposed || spot.id === imposed));
+  }).length;
   for (const spot of SPOTS) {
     const imposed = contract?.spotId;
     const unlocked = isSpotAvailable(state, spot.id) && (!imposed || spot.id === imposed);
+    if (!unlocked && !selection.expanded.has('spots')) continue;
     const card = el('button', `card spot-card${selection.spot === spot.id ? ' selected' : ''}${unlocked ? '' : ' locked'}`);
     card.disabled = !unlocked;
     card.append(el('div', 'card-title', spot.id === 'teknival' ? `🏆 ${spot.nom}` : spot.nom));
@@ -212,6 +242,14 @@ export function renderPrepare(
       });
     }
     where.append(card);
+  }
+  if (lockedSpotCount > 0 && !selection.expanded.has('spots')) {
+    const teaser = el('button', 'card locked-teaser', STR.onboarding.lockedSpots(lockedSpotCount));
+    teaser.addEventListener('click', () => {
+      selection.expanded.add('spots');
+      renderPrepare(root, state, selection, now, cb);
+    });
+    where.append(teaser);
   }
 
   // --- frais de nuit : stock du bar + caution
@@ -249,7 +287,7 @@ export function renderPrepare(
   main.append(where);
 
   // --- crew column
-  const crewSec = el('section', 'panel');
+  const crewSec = el('section', `panel panel-crew${selection.tab === 'crew' ? ' active' : ''}`);
   crewSec.append(el('h2', '', STR.chooseCrew));
   for (const member of state.crew) {
     const jailed = isEnGardeAVue(state, member.id);
@@ -334,16 +372,26 @@ export function renderPrepare(
     card.append(row);
     crewSec.append(card);
   }
-  for (const def of lockedDjs(state)) {
-    const card = el('div', 'card dj-card locked');
-    card.append(el('div', 'card-title', `🔒 ${def.nom}`));
-    card.append(el('div', 'card-desc', `${STR.repNeeded(djRepThreshold(state, def))}`));
-    crewSec.append(card);
+  const lockedDjList = lockedDjs(state);
+  if (lockedDjList.length > 0 && !selection.expanded.has('crew')) {
+    const teaser = el('button', 'card locked-teaser', STR.onboarding.lockedDjs(lockedDjList.length));
+    teaser.addEventListener('click', () => {
+      selection.expanded.add('crew');
+      renderPrepare(root, state, selection, now, cb);
+    });
+    crewSec.append(teaser);
+  } else {
+    for (const def of lockedDjList) {
+      const card = el('div', 'card dj-card locked');
+      card.append(el('div', 'card-title', `🔒 ${def.nom}`));
+      card.append(el('div', 'card-desc', `${STR.repNeeded(djRepThreshold(state, def))}`));
+      crewSec.append(card);
+    }
   }
   main.append(crewSec);
 
   // --- gear column
-  const shopSec = el('section', 'panel');
+  const shopSec = el('section', `panel panel-matos${selection.tab === 'matos' ? ' active' : ''}`);
   shopSec.append(el('h2', '', STR.shop));
   for (const cat of GEAR_CATEGORIES) {
     const current = ownedGear(state, cat);
@@ -399,24 +447,18 @@ export function renderPrepare(
     row.append(actions);
     shopSec.append(row);
   }
+  const anyAffordable = GEAR_CATEGORIES.some((cat) => {
+    if (state.damaged[cat]) return state.cash >= rushCost(state, cat);
+    return nextGearOptions(state, cat).some((o) => (!o.mythic || hasPerk(state, `mythe-${cat}`)) && state.cash >= o.price);
+  });
+  if (!anyAffordable) {
+    shopSec.append(el('p', 'hint', STR.onboarding.brokeMatos));
+  }
   shopSec.append(el('p', 'hint', STR.buzzHint));
   main.append(shopSec);
-  root.append(main);
+  scroll.append(main);
 
-  // --- footer
-  const footer = el('footer', 'prepare-footer');
-  const canLaunch = selection.present.size > 0;
-  const launch = el(
-    'button',
-    'btn launch',
-    canLaunch
-      ? `▶ ${STR.launch} — ${getSpot(selection.spot).nom}`
-      : STR.needOneDj,
-  );
-  launch.disabled = !canLaunch;
-  launch.addEventListener('click', () => cb.onLaunch());
-  footer.append(launch);
-
+  // --- meta actions stay in the scroll area (secondary)
   const meta = el('div', 'meta-actions');
   const herBtn = el('button', 'btn ghost', `⭐ ${STR.heritage} (${state.tour.legende})`);
   herBtn.addEventListener('click', () => cb.onHeritage());
@@ -429,12 +471,22 @@ export function renderPrepare(
   const resetBtn = el('button', 'btn ghost danger', STR.newGameBtn);
   resetBtn.addEventListener('click', () => cb.onNewGame());
   meta.append(herBtn, lbBtn, expBtn, impBtn, resetBtn);
-  footer.append(meta);
-  root.append(footer);
+  scroll.append(meta);
 
-  if (state.nights === 0) {
-    root.append(el('div', 'first-hint', STR.firstTimeHint));
-  }
+  root.append(scroll);
+
+  // --- always-visible launch bar (outside the scroll area)
+  const launchBar = el('div', 'launch-bar');
+  const canLaunch = selection.present.size > 0;
+  const launch = el(
+    'button',
+    'btn launch',
+    canLaunch ? `▶ ${STR.launch} — ${getSpot(selection.spot).nom}` : STR.needOneDj,
+  );
+  launch.disabled = !canLaunch;
+  launch.addEventListener('click', () => cb.onLaunch());
+  launchBar.append(launch);
+  root.append(launchBar);
 }
 
 /** Confirmation du départ : la liste exacte du perdu/gardé, le choix des vétérans. */
@@ -544,6 +596,10 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
   hudTop.append(setBox, crowdBox, clock, bankBox);
   sceneWrap.append(hudTop);
 
+  const nightHelp = helpButton(false, () => howToModal(() => {}));
+  nightHelp.classList.add('hud-help');
+  sceneWrap.append(nightHelp);
+
   // timeline de l'arc de nuit : 4 segments, curseur de progression, icône de phase
   const timeline = el('div', 'night-timeline');
   const timelineSegs = new Map<string, HTMLElement>();
@@ -598,6 +654,8 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
   const waveWrap = el('div', 'wave-wrap');
   waveWrap.append(el('div', 'heat-label', `🌊 ${STR.waveLabel}`), waveBar);
   liveWrap.append(waveWrap);
+  const cranHint = el('div', 'cran-hint', '');
+  liveWrap.append(cranHint);
   const cranBtns = new Map<Intensity, HTMLButtonElement>();
   for (const cran of INTENSITIES) {
     const b = el('button', 'live-cran', STR.intensites[cran]) as HTMLButtonElement;
@@ -715,6 +773,7 @@ export function renderNight(root: HTMLElement, live: NightLiveCallbacks): NightS
         btn.classList.toggle('selected', night.intensity === cran);
         btn.disabled = !playing || night.intensity === cran;
       }
+      cranHint.textContent = playing ? STR.intensiteHints[night.intensity] : '';
       monteeFill.style.width = `${(night.montee * 100).toFixed(1)}%`;
       monteeFill.classList.toggle('full', night.montee >= 0.85);
       dropBtn.disabled = !playing || night.montee < MONTEE_MIN_DROP;
