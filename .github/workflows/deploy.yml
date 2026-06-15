@@ -27,7 +27,7 @@ jobs:
           set -euo pipefail
           cd /root/ravetycoon
           git fetch --prune origin
-          git reset --hard origin/main
+          git checkout -B main origin/main
           docker compose up -d --build
           docker image prune -f
           EOF
