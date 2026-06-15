@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "assets": "node tools/build-assets.mjs",
+    "deploy:assets": "rsync -az --delete public/assets/ hetzner:/root/ravetycoon/public/assets/",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run"
