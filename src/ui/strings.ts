@@ -270,9 +270,45 @@ export const STR = {
   departConfirm: '🚐 En route',
   departCancel: 'Rester encore une nuit',
 
-  // misc
-  firstTimeHint:
-    'Choisis ton spot et embarque ton crew — chaque DJ amène son propre son. Enchaîne les bons sets pendant la nuit : pousser le son remplit le champ… et la jauge des bleus.',
+  // onboarding (« première teuf »)
+  onboarding: {
+    helpShort: '?',
+    help: 'Comment jouer',
+    howToTitle: 'Comment jouer',
+    prepaTitle: '☀️ La prépa',
+    nuitTitle: '🌙 La nuit',
+    prepaSteps: [
+      '📍 Choisis ton spot — capacité, durée, nombre de sets.',
+      '🎧 Embarque ton crew — chaque DJ amène son son et sa part de recette.',
+      '🔊 Achète du matos quand la caisse suit.',
+      '▶ Lance la teuf.',
+    ],
+    nuitSteps: [
+      '🎚 À chaque set, choisis qui prend les platines.',
+      "Règle l'énergie : Chill calme les bleus, Rinse fait tout monter.",
+      '🌊 La vague se remplit — LÂCHE le drop au bon moment pour faire exploser le champ.',
+      "👮 Garde Les bleus sous la barre, sinon c'est la descente.",
+      "🔥 L'ambiance fait la recette et le prix libre.",
+      '🌅 Tiens jusqu’au lever du soleil.',
+    ],
+    tabs: { spot: 'Le spot', crew: 'Le crew', matos: 'Le matos' } as const,
+    lockedSpots: (n: number) => `🔒 +${n} spot${n > 1 ? 's' : ''} à débloquer`,
+    lockedDjs: (n: number) => `🔒 +${n} DJ${n > 1 ? 's' : ''} à débloquer`,
+    brokeMatos: 'Reviens quand la caisse suit 💶',
+    next: 'Suivant',
+    skip: 'Passer',
+    gotIt: "C'est parti 🔥",
+    coachPrep: [
+      'Ton premier spot : un champ paumé, parfait pour débuter. Le détail des règles est sous le bouton ? en haut.',
+      "Ton crew est là. Tonton est déjà embarqué — tape une carte DJ pour l'ajouter ou la retirer.",
+      "Quand t'es prêt — lance la teuf 🔥",
+    ],
+    coachNight: [
+      "Règle l'énergie ici : Chill calme les bleus, Rinse fait tout monter.",
+      'Garde Les bleus sous la barre, sinon c’est la descente.',
+      'Quand la vague est pleine, LÂCHE le drop.',
+    ],
+  },
 } as const;
 
 export function fmtCash(n: number): string {
