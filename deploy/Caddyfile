@@ -2,6 +2,31 @@
 	email {$ACME_EMAIL:jimmy@vianova.io}
 }
 
+# Ce Caddy est partagé par toutes les stacks du VPS : il fait le TLS et le
+# reverse-proxy pour chaque site, qui n'expose lui-même aucun port. Les autres
+# stacks (mppstats, socialcircle, musicbingo) rejoignent le réseau
+# `ravetycoon_default` et sont jointes par leur nom de conteneur.
+#
+# IMPORTANT : ce fichier est monté depuis le dépôt (`./deploy/Caddyfile`). Une
+# route ajoutée à la main sur le serveur est écrasée au prochain déploiement de
+# RaveTycoon — les routes des autres sites doivent donc vivre ici, et pas
+# seulement sur le VPS. C'est déjà arrivé pour mppstats et socialcircle.
+#
+# Corollaire pour les autres stacks : ne jamais nommer un service `web` ni
+# `api`, ces alias DNS appartiennent déjà à RaveTycoon sur ce réseau.
+
 {$SITE_ADDRESS:ravetycoon.jimmydore.fr} {
 	reverse_proxy web:80
+}
+
+mppstats.jimmydore.fr {
+	reverse_proxy mppstats-web:80
+}
+
+socialcircle.jimmydore.fr {
+	reverse_proxy socialcircle-web:80
+}
+
+bingo.jimmydore.fr {
+	reverse_proxy musicbingo-web:80
 }
