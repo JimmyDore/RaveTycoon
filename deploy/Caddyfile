@@ -30,3 +30,9 @@ socialcircle.jimmydore.fr {
 bingo.jimmydore.fr {
 	reverse_proxy musicbingo-web:80
 }
+
+# live-buzzer — Caddy 2 gère l'Upgrade WebSocket nativement, rien de spécial
+# ici. C'est nginx, en aval dans livebuzzer-web, qui a besoin du bloc /ws.
+buzz.jimmydore.fr {
+	reverse_proxy livebuzzer-web:80
+}
