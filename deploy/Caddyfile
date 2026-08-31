@@ -36,3 +36,9 @@ bingo.jimmydore.fr {
 buzz.jimmydore.fr {
 	reverse_proxy livebuzzer-web:80
 }
+
+# chifoumi — service Node unique (statique + WebSocket), pas de nginx en aval,
+# d'où le port interne 8787 au lieu de 80.
+chifoumi.jimmydore.fr {
+	reverse_proxy chifoumi-web:8787
+}
