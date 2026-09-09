@@ -42,3 +42,8 @@ buzz.jimmydore.fr {
 chifoumi.jimmydore.fr {
 	reverse_proxy chifoumi-web:8787
 }
+
+# Les 30 ans de Titi & Jimmy — la roue des défis et le quizz de la soirée.
+30anstitietjimmy.jimmydore.fr {
+	reverse_proxy titijimmy-web:80
+}
