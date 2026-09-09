@@ -29,6 +29,16 @@ jobs:
           git fetch --prune origin
           git checkout -B main origin/main
           docker compose up -d --build
+          # Le Caddyfile est un bind-mount de fichier unique : `git checkout` le
+          # remplace au lieu de l'éditer, le conteneur reste accroché à l'ancien
+          # inode et `caddy reload` répond « config is unchanged ». Une route
+          # ajoutée ici serait donc ignorée en silence, déploiement vert à l'appui.
+          # On ne recrée Caddy que si sa vue du fichier a divergé : les autres
+          # déploiements restent sans coupure.
+          if ! docker compose exec -T caddy cat /etc/caddy/Caddyfile | diff -q - deploy/Caddyfile >/dev/null 2>&1; then
+            echo "Caddyfile modifié — recréation de Caddy pour re-résoudre le bind-mount"
+            docker compose up -d --force-recreate --no-deps caddy
+          fi
           docker image prune -f
           EOF
 
