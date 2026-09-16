@@ -47,3 +47,9 @@ chifoumi.jimmydore.fr {
 30anstitietjimmy.jimmydore.fr {
 	reverse_proxy titijimmy-web:80
 }
+
+# Crédit ados — consultation des crédits ados par famille (repo teenager-credit),
+# service Node unique sur le port interne 8787.
+credit-ado.jimmydore.fr {
+	reverse_proxy credit-ado-web:8787
+}
