@@ -4,8 +4,9 @@
 
 # Ce Caddy est partagé par toutes les stacks du VPS : il fait le TLS et le
 # reverse-proxy pour chaque site, qui n'expose lui-même aucun port. Les autres
-# stacks (mppstats, socialcircle, musicbingo) rejoignent le réseau
-# `ravetycoon_default` et sont jointes par leur nom de conteneur.
+# stacks (mppstats, socialcircle, musicbingo, live-buzzer, chifoumi, titijimmy,
+# teenager-credit, barathon) rejoignent le réseau `ravetycoon_default` et sont
+# jointes par leur nom de conteneur.
 #
 # IMPORTANT : ce fichier est monté depuis le dépôt (`./deploy/Caddyfile`). Une
 # route ajoutée à la main sur le serveur est écrasée au prochain déploiement de
@@ -52,4 +53,10 @@ chifoumi.jimmydore.fr {
 # service Node unique sur le port interne 8787.
 credit-ado.jimmydore.fr {
 	reverse_proxy credit-ado-web:8787
+}
+
+# Barathon — noter les bars entre potes (repo barathon), app SvelteKit
+# (adapter-node) sur le port interne 3000.
+barathon.jimmydore.fr {
+	reverse_proxy barathon-web:3000
 }
