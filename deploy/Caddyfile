@@ -60,3 +60,12 @@ credit-ado.jimmydore.fr {
 barathon.jimmydore.fr {
 	reverse_proxy barathon-web:3000
 }
+
+# Hub — tableau de bord perso (repo privé ai-automated-tasks). Caddy parle à
+# oauth2-proxy (connexion Google), jamais à hub-web, qui n'est pas sur ce réseau.
+hub.jimmydore.fr {
+	request_body {
+		max_size 1MB
+	}
+	reverse_proxy hub-oauth2-proxy:4180
+}
