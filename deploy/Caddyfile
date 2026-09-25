@@ -5,8 +5,8 @@
 # Ce Caddy est partagé par toutes les stacks du VPS : il fait le TLS et le
 # reverse-proxy pour chaque site, qui n'expose lui-même aucun port. Les autres
 # stacks (mppstats, socialcircle, musicbingo, live-buzzer, chifoumi, titijimmy,
-# teenager-credit, barathon) rejoignent le réseau `ravetycoon_default` et sont
-# jointes par leur nom de conteneur.
+# teenager-credit, barathon, itsaplan) rejoignent le réseau `ravetycoon_default`
+# et sont jointes par leur nom de conteneur.
 #
 # IMPORTANT : ce fichier est monté depuis le dépôt (`./deploy/Caddyfile`). Une
 # route ajoutée à la main sur le serveur est écrasée au prochain déploiement de
@@ -68,4 +68,14 @@ hub.jimmydore.fr {
 		max_size 1MB
 	}
 	reverse_proxy hub-oauth2-proxy:4180
+}
+
+# itsaplan — service itsaplan-web sur le port interne 3001.
+linear.jimmydore.fr {
+	reverse_proxy itsaplan-web:3001
+}
+
+# itsaplan — service itsaplan-api sur le port interne 3000 (API_URL de l'app).
+linear-api.jimmydore.fr {
+	reverse_proxy itsaplan-api:3000
 }
