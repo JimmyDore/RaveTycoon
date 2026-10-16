@@ -65,7 +65,7 @@ barathon.jimmydore.fr {
 # oauth2-proxy (connexion Google), jamais à hub-web, qui n'est pas sur ce réseau.
 hub.jimmydore.fr {
 	request_body {
-		max_size 1MB
+		max_size 64MB
 	}
 	reverse_proxy hub-oauth2-proxy:4180
 }
