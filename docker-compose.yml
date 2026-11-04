@@ -2,6 +2,10 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    # CVE-2026-98432: the demonstrated remote root needs an MPTCP listener, and Go/Caddy
+    # listen with MPTCP by default. Per network namespace, so the host setting wouldn't cover it.
+    sysctls:
+      net.mptcp.enabled: "0"
     ports:
       - "80:80"
       - "443:443"
