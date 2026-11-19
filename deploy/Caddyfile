@@ -5,9 +5,9 @@
 # Ce Caddy est partagé par toutes les stacks du VPS : il fait le TLS et le
 # reverse-proxy pour chaque site, qui n'expose lui-même aucun port. Les autres
 # stacks (mppstats, socialcircle, musicbingo, live-buzzer, chifoumi, titijimmy,
-# teenager-credit, barathon, itsaplan, tournoi-palet, scores, jeudujour)
-# rejoignent le réseau `ravetycoon_default` et sont jointes par leur nom de
-# conteneur.
+# teenager-credit, barathon, itsaplan, tournoi-palet, scores, jeudujour,
+# revente) rejoignent le réseau `ravetycoon_default` et sont jointes par leur
+# nom de conteneur.
 #
 # IMPORTANT : ce fichier est monté depuis le dépôt (`./deploy/Caddyfile`). Une
 # route ajoutée à la main sur le serveur est écrasée au prochain déploiement de
@@ -94,4 +94,9 @@ scores.jimmydore.fr {
 # jeudujour — service jeudujour-web sur le port interne 8787.
 jeudujour.jimmydore.fr {
 	reverse_proxy jeudujour-web:8787
+}
+
+# revente — service revente-web sur le port interne 8787.
+revente.jimmydore.fr {
+	reverse_proxy revente-web:8787
 }
