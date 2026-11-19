@@ -6,8 +6,8 @@
 # reverse-proxy pour chaque site, qui n'expose lui-même aucun port. Les autres
 # stacks (mppstats, socialcircle, musicbingo, live-buzzer, chifoumi, titijimmy,
 # teenager-credit, barathon, itsaplan, tournoi-palet, scores, jeudujour,
-# revente) rejoignent le réseau `ravetycoon_default` et sont jointes par leur
-# nom de conteneur.
+# revente, renfodujour) rejoignent le réseau `ravetycoon_default` et sont
+# jointes par leur nom de conteneur.
 #
 # IMPORTANT : ce fichier est monté depuis le dépôt (`./deploy/Caddyfile`). Une
 # route ajoutée à la main sur le serveur est écrasée au prochain déploiement de
@@ -99,4 +99,9 @@ jeudujour.jimmydore.fr {
 # revente — service revente-web sur le port interne 8787.
 revente.jimmydore.fr {
 	reverse_proxy revente-web:8787
+}
+
+# renfodujour — service renfodujour-web sur le port interne 8787.
+renfodujour.jimmydore.fr {
+	reverse_proxy renfodujour-web:8787
 }
